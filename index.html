@@ -137,14 +137,32 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .face-chip.picked{outline:2px solid var(--energy);outline-offset:2px;}
 .face-chip.forged{box-shadow:0 0 0 2px var(--energy), inset 0 -3px 0 #0002;}
 
-.shop-item{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--panel2);
-  border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;}
+.shop-item{display:flex;flex-direction:column;align-items:stretch;gap:10px;background:var(--panel2);
+  border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;}
+.shop-item .si-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
 .shop-item .si-name{font-weight:700;font-size:14px;}
 .shop-item .si-desc{font-size:12px;color:var(--dim);margin-top:2px;line-height:1.35;}
-.buy-btn{background:var(--energy);color:var(--ink);font-weight:800;border-radius:9px;padding:8px 11px;font-size:13px;
-  white-space:nowrap;min-width:56px;font-family:'IBM Plex Mono',monospace;}
-.buy-btn:disabled{background:#243444;color:#6a7a88;}
+.shop-item .si-cost{flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;
+  color:var(--energy);background:#f5c04218;border:1px solid #f5c04244;border-radius:8px;padding:5px 8px;}
+.buy-btn{background:transparent;color:var(--text);font-weight:700;border-radius:10px;padding:10px 12px;font-size:13px;
+  white-space:nowrap;border:1.5px solid var(--line);box-shadow:none;font-family:'IBM Plex Sans',sans-serif;}
+.buy-btn:active{transform:scale(.98);}
+.buy-btn.primary{background:linear-gradient(135deg,#1a6a58,#c49a28);color:var(--ink);border-color:transparent;font-weight:800;}
+.buy-btn:disabled{background:#1a2834;color:#5a6a78;border-color:#2a4050;}
 .buy-btn.owned{background:transparent;border:1.5px solid var(--good);color:var(--good);}
+.cat-picks{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+.cat-pick{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border-radius:10px;
+  border:1.5px solid var(--line);background:#0c1822;color:var(--text);font-weight:700;font-size:12px;cursor:pointer;}
+.cat-pick .cp-name{letter-spacing:.02em;}
+.cat-pick .cp-meta{font-size:10px;color:var(--dim);font-family:'IBM Plex Mono',monospace;}
+.cat-pick.red{border-color:#e85a5a55;color:#ffb0b0;}
+.cat-pick.blue{border-color:#4da3ff55;color:#a8d4ff;}
+.cat-pick.green{border-color:#2db88a55;color:#9aefc8;}
+.cat-pick:disabled{opacity:.35;cursor:default;}
+.cat-pick.picked{box-shadow:0 0 0 2px var(--energy);background:#1a2810;}
+.stepper{display:flex;align-items:center;gap:8px;}
+.stepper .buy-btn{min-width:40px;padding:8px 0;text-align:center;}
+.stepper .step-val{min-width:28px;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:16px;}
 .growth-grid{display:grid;gap:7px;margin:8px 0;}
 .growth-opt{background:var(--panel2);border:1.5px solid var(--line);border-radius:10px;padding:10px;text-align:left;
   color:inherit;width:100%;cursor:pointer;}
@@ -1112,29 +1130,45 @@ function humanShopHTML(r){
     ${sel ? `<div>
       <div class="lane-label">Faces — tap to queue forge (+1)</div>
       ${facesStripHTML(sel.faces, { dieId:sel.id, selectable:true, picked: ui.selectedFace, forgedSet: forged })}
-      <button class="buy-btn" style="width:100%;margin-top:6px" onclick="queueForge()"
+      <button class="buy-btn primary" style="width:100%;margin-top:8px" onclick="queueForge()"
         ${!ui.selectedFace || left < CFG.forgeCost?'disabled':''}>
-        Forge face ⚡${CFG.forgeCost}
+        Forge selected face · ⚡${CFG.forgeCost}
       </button>
       ${(cart.forges||[]).length?`<button class="btn ghost" style="margin-top:8px;padding:10px" onclick="undoForge()">Undo last forge</button>`:''}
     </div>` : `<div class="small center">Select a die to forge its faces</div>`}
 
     <h3 style="margin-top:16px">Energy spends</h3>
     <div class="shop-item">
-      <div><div class="si-name">➕ Extra die (max 1 per category)</div>
-      <div class="si-desc">${COLORS.map(c=>`${COLOR_META[c].icon} ${countColor(pl.dice,c)+(cart.addDie===c?1:0)}/${CFG.maxDicePerColor}`).join(' · ')}</div></div>
+      <div class="si-top">
+        <div>
+          <div class="si-name">Extra die</div>
+          <div class="si-desc">Max 1 extra per category · ${COLORS.map(c=>`${COLOR_META[c].name} ${countColor(pl.dice,c)+(cart.addDie===c?1:0)}/${CFG.maxDicePerColor}`).join(' · ')}</div>
+        </div>
+        <div class="si-cost">⚡${CFG.addDieCost}</div>
+      </div>
       ${cart.addDie
-        ? `<button class="buy-btn owned" onclick="clearAddDie()">✓ ${COLOR_META[cart.addDie].name}</button>`
-        : `<div style="display:flex;gap:4px">${COLORS.map(c=>`
-            <button class="buy-btn" onclick="setAddDie('${c}')" ${!canAddColor(pl,c,null)||left<CFG.addDieCost?'disabled':''} title="${COLOR_META[c].name}">${COLOR_META[c].icon}</button>`).join('')}</div>`}
+        ? `<button class="buy-btn owned" onclick="clearAddDie()">Queued: ${COLOR_META[cart.addDie].name} — tap to cancel</button>`
+        : `<div class="cat-picks">${COLORS.map(c=>{
+            const n = countColor(pl.dice,c);
+            const ok = canAddColor(pl,c,null) && left>=CFG.addDieCost;
+            return `<button type="button" class="cat-pick ${c}" onclick="setAddDie('${c}')" ${ok?'':'disabled'}>
+              <span class="cp-name">${COLOR_META[c].name}</span>
+              <span class="cp-meta">${n}/${CFG.maxDicePerColor}</span>
+            </button>`;
+          }).join('')}</div>`}
     </div>
     <div class="shop-item">
-      <div><div class="si-name">♾️ Free reroll forever</div>
-      <div class="si-desc">Once per round, your first reroll is free</div></div>
+      <div class="si-top">
+        <div>
+          <div class="si-name">Free reroll forever</div>
+          <div class="si-desc">First reroll each round is free — lasting perk</div>
+        </div>
+        <div class="si-cost">⚡${CFG.freeRerollPerkCost}</div>
+      </div>
       ${pl.perks.freeReroll
-        ? `<button class="buy-btn owned">✓ OWNED</button>`
-        : `<button class="buy-btn ${cart.buyFreeReroll?'owned':''}" onclick="toggleFreeReroll()" ${!cart.buyFreeReroll&&left<CFG.freeRerollPerkCost?'disabled':''}>
-            ${cart.buyFreeReroll?'✓ QUEUED':'⚡'+CFG.freeRerollPerkCost}
+        ? `<button class="buy-btn owned" disabled>✓ Owned</button>`
+        : `<button class="buy-btn ${cart.buyFreeReroll?'owned':''} primary" style="width:100%" onclick="toggleFreeReroll()" ${!cart.buyFreeReroll&&left<CFG.freeRerollPerkCost?'disabled':''}>
+            ${cart.buyFreeReroll?'Queued — tap to cancel':`Buy free reroll · ⚡${CFG.freeRerollPerkCost}`}
           </button>`}
     </div>
     <div class="spent-preview">Upgrade spend ⚡${cost} · ⚡${left} left for rerolls (or next round)</div>
@@ -1359,19 +1393,30 @@ function parasiteShopHTML(r){
 
     <h3>Optional Energy spends</h3>
     <div class="shop-item">
-      <div><div class="si-name">🎲 Temp attack die</div><div class="si-desc">+1d6 this round only</div></div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button class="buy-btn" onclick="parTemp(-1)" ${cart.tempAttack<=0?'disabled':''}>−</button>
-        <b style="font-family:'IBM Plex Mono',monospace">${cart.tempAttack}</b>
-        <button class="buy-btn" onclick="parTemp(1)" ${cart.tempAttack>=CFG.tempAttackMax||left<CFG.tempAttackCost?'disabled':''}>+</button>
+      <div class="si-top">
+        <div>
+          <div class="si-name">Temp attack die</div>
+          <div class="si-desc">Extra d6 this round only (max ${CFG.tempAttackMax})</div>
+        </div>
+        <div class="si-cost">⚡${CFG.tempAttackCost} each</div>
+      </div>
+      <div class="stepper">
+        <button type="button" class="buy-btn" onclick="parTemp(-1)" ${cart.tempAttack<=0?'disabled':''}>−</button>
+        <span class="step-val">${cart.tempAttack}</span>
+        <button type="button" class="buy-btn" onclick="parTemp(1)" ${cart.tempAttack>=CFG.tempAttackMax||left<CFG.tempAttackCost?'disabled':''}>+</button>
       </div>
     </div>
     <div class="shop-item">
-      <div><div class="si-name">☠️ Push +25% onto a blank</div>
-      <div class="si-desc">Expensive permanent risk — ⚡${CFG.pushModCost}</div></div>
-      <button class="buy-btn ${cart.pushMod?'owned':''}" onclick="togglePushMod()"
+      <div class="si-top">
+        <div>
+          <div class="si-name">Push +25% onto a blank</div>
+          <div class="si-desc">Permanent risk — next infected inherits it</div>
+        </div>
+        <div class="si-cost">⚡${CFG.pushModCost}</div>
+      </div>
+      <button class="buy-btn ${cart.pushMod?'owned':'primary'}" style="width:100%" onclick="togglePushMod()"
         ${!cart.pushMod && (left<CFG.pushModCost || !(p.modifiers||[]).some(d=>d.faces.some(f=>f.type==='blank')))?'disabled':''}>
-        ${cart.pushMod?'✓ QUEUED':'⚡'+CFG.pushModCost}
+        ${cart.pushMod?'Queued — tap to cancel':`Queue push · ⚡${CFG.pushModCost}`}
       </button>
     </div>
     <div class="spent-preview">Upgrade spend ⚡${cost} of ⚡${budget} · ⚡${left} left for rerolls (or next round)</div>
