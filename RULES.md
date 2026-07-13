@@ -6,7 +6,7 @@ Four crew members. One alien parasite that jumps between you. Eight rounds. Secr
 
 ## The Setup
 
-Each round, one of you is **the Parasite** — the schedule is visible from round 1. Everyone hosts exactly twice: once in rounds 1–4 (Infestation) and once in rounds 5–8 (Critical Phase).
+Each round, one of you is **the Parasite** — the schedule is visible from round 1. Everyone is infected exactly twice: once in rounds 1–4 (Infestation) and once in rounds 5–8 (Critical Phase).
 
 On your phone, your turn has two phases:
 
@@ -45,11 +45,11 @@ Unspent Energy **banks** to the next round — use it later as crew or as parasi
 
 ## Forced growth (parasite must)
 
-During the upgrade phase when you host, you **must** grow the parasite before you can roll.
+During the upgrade phase when you are infected, you **must** grow the parasite before you can roll.
 
 **CONTAIN** options keep the ship livable (attack face +2, blank → +5 flat).
 
-**UNLEASH** options help you win tonight and pay **+1 Energy**, but arm every future host:
+**UNLEASH** options help you win tonight and pay **+1 Energy**, but arm whoever is infected next:
 
 - blank → **+15%**
 - expand a modifier (adds a **+25%** face)
@@ -59,7 +59,7 @@ During the upgrade phase when you host, you **must** grow the parasite before yo
 
 Parasite attack dice start hotter (**2–7**) and can grow without a face cap, matching the crew’s forge fantasy.
 
-You want tonight’s win. You do **not** want to hand the next host a monster. That is the squeeze.
+You want tonight’s win. You do **not** want to hand the next infected a monster. That is the squeeze.
 
 ## The Battle
 
@@ -78,7 +78,7 @@ If the **parasite wins**, infection spreads: a blank becomes **+10%** (or attack
 
 ## Scoring (open standings)
 
-Scores are **visible to everyone**. That’s the politics: if Brian is ahead and hosts next, bank Energy for rerolls and don’t gift him a free feast.
+Scores are **visible to everyone**. That’s the politics: if Brian is ahead and is infected next, bank Energy for rerolls and don’t gift him a free feast.
 
 | | Rounds 1–4 | Rounds 5–8 |
 |---|---|---|
@@ -93,7 +93,7 @@ Category ties are contested — nobody gets that bonus. After round 8, the final
 
 ## Auto-balance (adaptive base)
 
-If the crew wins by **more than 5**, the parasite’s permanent base adapts upward (+2 to +5 depending on how bad the stomp was). Getting destroyed makes the next host scarier — the ship fights back by getting infected harder.
+If the crew wins by **more than 5**, the parasite’s permanent base adapts upward (+2 to +5 depending on how bad the stomp was). Getting destroyed makes the next infected scarier — the ship fights back by getting infected harder.
 
 ## The Strategy of It
 
