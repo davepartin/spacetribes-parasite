@@ -2,81 +2,106 @@
 
 Four crew members. One alien parasite that jumps between you. Eight rounds. Secret scores. One champion.
 
-**Note:** This is the Energy / face-forge ruleset (schema v2). Starting a new game wipes the old token-based save — they are not compatible.
+**Note:** Schema v3 — Energy, face forging, and **Upgrade → Roll → Lock in** turns. Start a new game if you still have an older save.
 
 ## The Setup
 
 Each round, one of you is **the Parasite** — the schedule is visible from round 1. Everyone hosts exactly twice: once in rounds 1–4 (Infestation) and once in rounds 5–8 (Critical Phase).
 
-Everyone secretly spends **Energy** on their phone. When the 4th person locks in, the battle resolves and everyone gets the replay.
+On your phone, your turn has two phases:
+
+1. **Upgrade** — forge faces, add dice, optional lasting perks / parasite growth  
+2. **Roll** — dice hit the table; spend leftover Energy on rerolls if you want, then **lock in**
+
+Leftover Energy banks to the next round (crew or parasite — it’s yours). When all four lock in, the shared battle replay fires.
 
 ## Energy ⚡
 
 Energy is yours. It banks between rounds. Spend it as a human or as the parasite. Hoarding for clutch rerolls is a real strategy.
 
-- Everyone starts with **4 Energy**.
-- Each resolved round pays a **+1 stipend** to everyone, plus win/loss bonuses.
-- On your parasite turn you also get a **+2 surge** before you spend.
+- Everyone starts with **5 Energy**.
+- Energy **banks** between rounds — spend it as crew or as parasite anytime.
+- Each resolved round also pays a small Energy stipend (plus win/loss bonuses).
+- On your parasite turn you also get a **+3 surge** before you spend.
 
 ### As a human, spend Energy on:
 
-| Spend | Cost | Effect |
-|---|---|---|
-| **Forge a face** | 1 | Pick one face on one die and bump it +1 (cap 12). A d6 can become `1,2,3,4,5,8`. |
-| **Add a die** | 3 | Add another 1–6 die to your pool (max 5 dice). Choose Weapons, Strength, or Agility. |
-| **Battle reroll** | 1 each | After rolling, auto-reroll your weakest below-average dice. |
-| **Free reroll forever** | 5 | Lasting perk: +1 free reroll charge every round. |
+| Spend | Cost | When | Effect |
+|---|---|---|---|
+| **Forge a face** | 1 | Upgrade | Bump **any** face on **any** die by +1. No max — go as high as Energy allows. |
+| **Extra die** | 3 | Upgrade | Add one more die in a category (max **1 extra** per Weapons / Strength / Agility). |
+| **Reroll** | 1 | Roll | Tap a die to reroll it. |
+| **Free reroll forever** | 5 | Upgrade | Lasting: first reroll each round is free. |
 
-### As the parasite, spend Energy on (optional):
+Unspent Energy **banks** to the next round — use it later as crew or as parasite.
 
-| Spend | Cost | Effect |
-|---|---|---|
-| **Battle reroll** | 1 each | Reroll weak attack dice or blank modifiers. |
-| **Temp attack die** | 2 | Extra d6 this round only (max 2). |
-| **Push +25%** | 3 | Permanently turn a blank modifier face into +25% (dangerous for future hosts). |
+### As the parasite, spend Energy on:
+
+| Spend | Cost | When | Effect |
+|---|---|---|---|
+| **Reroll** | 1 | Roll | Tap an attack die or modifier to reroll. |
+| **Temp attack die** | 2 | Upgrade | Extra d6 this round only (max 2). |
+| **Push +25%** | 3 | Upgrade | Permanently turn a blank into +25%. |
 
 ## Forced growth (parasite must)
 
-When you host, you **must** grow the parasite before locking in. Choose one:
+During the upgrade phase when you host, you **must** grow the parasite before you can roll.
 
-- **Feed attack** — bump one face on an attack die
-- **Feed modifier** — turn a blank into **+5 base** or **+10%**, or expand a modifier die (add sides, including a nasty +25%)
+**CONTAIN** options keep the ship livable (attack face +2, blank → +5 flat).
+
+**UNLEASH** options help you win tonight and pay **+1 Energy**, but arm every future host:
+
+- blank → **+15%**
+- expand a modifier (adds a **+25%** face)
+- **Surge** an attack die (+1 to every face — parasite gets “larger dice” too)
+- spawn a **2nd modifier die**
+- grow a **permanent extra attack die** (starts 2–7)
+
+Parasite attack dice start hotter (**2–7**) and can grow without a face cap, matching the crew’s forge fantasy.
 
 You want tonight’s win. You do **not** want to hand the next host a monster. That is the squeeze.
 
 ## The Battle
 
-**Crew:** each human rolls all of their forged dice. Totals combine.
+**Crew:** each human rolls all of their forged dice on their phone, then locks the result. Totals combine.
 
 **Parasite:**
 
-1. Start from a small **base** (grows with the round).
+1. **Base** starts at `18 + round`, plus any **adapt** bonus from past crew stomps.
 2. Roll **attack dice** → attack sum.
-3. Roll **modifier dice** (blanks, flat `+N` base damage, `+10%` / `+25%` of attack sum).
+3. Roll **modifier dice** (blanks, flat `+N`, `+15%` / `+25%` of attack sum).
 4. `parasite total = base + attack + flats + percent bonuses`.
 
 Crew wins if crew total ≥ parasite total (ties go to the crew).
 
-If the **parasite wins**, it also **mutates** (e.g. a blank becomes +1 base, or an attack face bumps). The ship gets sicker.
+If the **parasite wins**, infection spreads: a blank becomes **+10%** (or attack faces surge if no blanks left).
 
-## Scoring (secret until the end)
+## Scoring (open standings)
+
+Scores are **visible to everyone**. That’s the politics: if Brian is ahead and hosts next, bank Energy for rerolls and don’t gift him a free feast.
 
 | | Rounds 1–4 | Rounds 5–8 |
 |---|---|---|
-| Crew wins — each human | 10 pts | 15 pts |
-| MVP bonus (highest personal total) | +5 | +8 |
-| Category win (highest die per color) | +3 each | +4 each |
-| Parasite wins | 25 pts | 40 pts |
+| Crew wins — each human | 8 pts | 12 pts |
+| MVP bonus | +3 | +5 |
+| Category win (highest die per color) | +2 each | +3 each |
+| Parasite wins | 8 pts | 8 pts |
 
-Category ties are contested — nobody gets that bonus. Tap ⭐ to peek at your own score only. After round 8, everyone is revealed from 4th to champion.
+Payouts are kept modest so one hot night doesn’t eject someone from the race. Last place banks **+1 underdog Energy** each round to forge/reroll back in.
+
+Category ties are contested — nobody gets that bonus. After round 8, the final reveal still ranks everyone with flair.
+
+## Auto-balance (adaptive base)
+
+If the crew wins by **more than 5**, the parasite’s permanent base adapts upward (+2 to +5 depending on how bad the stomp was). Getting destroyed makes the next host scarier — the ship fights back by getting infected harder.
 
 ## The Strategy of It
 
-Forge early to compound face value, or bank Energy for a pile of rerolls in the Critical Phase?
+Forge early to compound face value, or bank Energy for clutch rerolls when you see a bad roll?
 
-As parasite, do you bump a safe attack face, or feed a modifier blank into +5 / +10% knowing your friends inherit it — and you host again later?
+As parasite, take CONTAIN growth and hope — or UNLEASH for the win tonight knowing Brian inherits the fever?
 
-Modifier dice are the digital-only nightmare: blanks keep it honest, percents turn a hot attack roll into a feast.
+Seeing your roll before locking in is the fun part — spend Energy on that last clutch reroll, or hold it for next round?
 
 ## House Rules Worth Trying
 

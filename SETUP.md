@@ -55,7 +55,7 @@ Text that link to Brian, Joel, and Chris. Each guy opens it on his phone, taps h
 ## Playing
 
 - Everyone submits their moves whenever they get a chance — the round resolves automatically the instant the 4th person submits, and the dice battle plays out on everyone's screen next time they open it.
-- Scores stay secret until after round 8. Tap the ⭐ chip to peek at your own.
+- Scores are open on the standings board — use that to decide who you can’t afford to feed as parasite, and when to bank Energy for rerolls.
 - The **Reset & start a new game** button at the bottom wipes the game for everyone — use with care (it does ask first).
 
 ## Troubleshooting

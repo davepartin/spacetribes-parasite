@@ -3,206 +3,213 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#07141a">
+<meta name="theme-color" content="#081018">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=IBM+Plex+Mono:wght@400;600;700&family=Exo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800&family=IBM+Plex+Sans:wght@500;600;700&family=IBM+Plex+Mono:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#07141a; --panel:#0d222c; --panel2:#123040; --line:#1e4a5c;
-  --text:#e6f4f0; --dim:#7fa3ad; --energy:#f0b429; --danger:#ff5a4e;
-  --good:#3ecf8e; --red:#ff6b6b; --blue:#4db8ff; --green:#3ecf8e;
-  --bio:#9aff6b; --amber:#f0b429; --ink:#041014;
+  --bg:#081018; --panel:#101c28; --panel2:#162636; --line:#2a4050;
+  --text:#eef3f6; --dim:#8aa0ae; --energy:#f5c042; --danger:#ff5a4e;
+  --good:#3ecf8e; --red:#e85a5a; --blue:#4da3ff; --green:#2db88a;
+  --bio:#8dff6a; --ink:#071018; --die:#f4f1ea; --die-ink:#1a1a1a;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
-  font-family:'Exo 2',sans-serif; min-height:100%; overscroll-behavior-y:contain;}
+  font-family:'IBM Plex Sans',sans-serif; min-height:100%; overscroll-behavior-y:contain;
+  line-height:1.35; letter-spacing:0;}
 body{background:
-  radial-gradient(900px 500px at 80% -5%, #0e3a3aaa, transparent),
-  radial-gradient(700px 480px at -15% 110%, #3a180888, transparent),
-  linear-gradient(180deg, #0a1c24 0%, #07141a 40%, #0a1810 100%),
+  radial-gradient(700px 420px at 50% -5%, #1a3a2a66, transparent),
+  radial-gradient(600px 400px at 100% 40%, #3a152055, transparent),
   var(--bg);}
-#app{max-width:520px;margin:0 auto;padding:12px 14px 100px;position:relative;min-height:100vh;z-index:1;}
-h1,h2,h3{margin:0 0 8px;font-family:'Orbitron',sans-serif;letter-spacing:.04em;}
+#app{max-width:520px;margin:0 auto;padding:10px 12px 108px;position:relative;min-height:100vh;z-index:1;}
+h1,h2,h3{margin:0 0 6px;font-family:'Orbitron',sans-serif;letter-spacing:.03em;line-height:1.2;}
+h3{font-size:15px;}
 button{font-family:inherit;border:none;cursor:pointer;}
-.btn{display:block;width:100%;padding:15px;border-radius:12px;font-size:16px;font-weight:800;
-  background:linear-gradient(135deg,#1a8a6e,#f0b429);color:var(--ink);box-shadow:0 4px 18px #1a8a6e44;
-  transition:transform .1s;letter-spacing:.03em;}
-.btn:active{transform:scale(.97);}
-.btn.disabled,.btn:disabled{background:#1e4a5c;color:var(--dim);box-shadow:none;pointer-events:none;}
-.btn.danger{background:linear-gradient(135deg,#ff5a4e,#c43c2e);color:#fff;box-shadow:0 4px 18px #ff5a4e44;}
+.btn{display:block;width:100%;padding:14px;border-radius:12px;font-size:16px;font-weight:700;
+  background:linear-gradient(135deg,#1a8a6e,#d4a82a);color:var(--ink);box-shadow:0 3px 12px #1a8a6e33;}
+.btn:active{transform:scale(.98);}
+.btn:disabled,.btn.disabled{background:#243444;color:#6a7a88;box-shadow:none;pointer-events:none;}
+.btn.danger{background:linear-gradient(135deg,#e04840,#a83228);color:#fff;}
 .btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--dim);box-shadow:none;font-weight:600;}
-.small{font-size:12.5px;color:var(--dim);}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;
-  box-shadow:inset 0 1px 0 #ffffff08;}
+.btn.reroll{background:linear-gradient(135deg,#2a6a9a,#f5c042);margin-top:10px;}
+.small{font-size:13px;color:var(--dim);line-height:1.4;}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;}
 .starfield{position:fixed;inset:0;pointer-events:none;z-index:0;}
-.starfield i{position:absolute;width:2px;height:2px;border-radius:50%;background:#b8fff0;opacity:.45;animation:tw 3s infinite;}
-@keyframes tw{0%,100%{opacity:.12}50%{opacity:.65}}
-.grid-scan{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.07;
-  background-image:linear-gradient(#9aff6b 1px, transparent 1px),linear-gradient(90deg,#9aff6b 1px, transparent 1px);
-  background-size:42px 42px;}
+.starfield i{position:absolute;width:2px;height:2px;border-radius:50%;background:#c8ffe8;opacity:.4;animation:tw 3s infinite;}
+@keyframes tw{0%,100%{opacity:.12}50%{opacity:.6}}
+.grid-scan{display:none;}
 
-/* character select */
-.char-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;}
-.char-card{background:var(--panel);border:2px solid var(--line);border-radius:16px;padding:18px 10px;
-  text-align:center;transition:transform .12s;position:relative;overflow:hidden;color:inherit;}
-.char-card:active{transform:scale(.95);}
-.char-card .avatar{font-size:52px;display:block;filter:drop-shadow(0 4px 10px #0008);}
-.char-card .cname{font-size:20px;font-weight:900;margin-top:6px;font-family:'Orbitron',sans-serif;}
-.char-card .ctitle{font-size:12px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;}
+.char-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;}
+.char-card{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:16px 8px;
+  text-align:center;color:inherit;}
+.char-card:active{transform:scale(.96);}
+.char-card .avatar{font-size:44px;display:block;}
+.char-card .cname{font-size:18px;font-weight:800;margin-top:4px;font-family:'Orbitron',sans-serif;}
+.char-card .ctitle{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;}
 
-/* header */
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;position:sticky;top:0;
-  background:linear-gradient(#07141af5,#07141ae8);backdrop-filter:blur(8px);z-index:20;padding:8px 0;}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;position:sticky;top:0;
+  background:linear-gradient(#081018f5,#081018e8);backdrop-filter:blur(8px);z-index:20;padding:6px 0;}
 .me-chip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
-  border-radius:99px;padding:6px 12px 6px 8px;font-weight:800;font-size:14px;color:inherit;}
-.me-chip .em{font-size:20px;}
-.stat-chip{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:7px 12px;
-  font-weight:800;font-size:14px;display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;}
-.stat-chip.energy{color:var(--energy);border-color:#f0b42955;}
+  border-radius:99px;padding:6px 12px 6px 8px;font-weight:700;font-size:14px;color:inherit;}
+.me-chip .em{font-size:18px;}
+.stat-chip{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:6px 11px;
+  font-weight:700;font-size:14px;display:flex;align-items:center;gap:4px;font-family:'IBM Plex Mono',monospace;}
+.stat-chip.energy{color:var(--energy);border-color:#f5c04255;}
 .stat-chip.pts{color:var(--energy);}
-.round-strip{display:flex;gap:5px;margin:2px 0 12px;overflow-x:auto;padding-bottom:4px;}
-.rnode{flex:0 0 auto;width:44px;border-radius:10px;border:1.5px solid var(--line);background:var(--panel);
-  text-align:center;padding:4px 0 5px;position:relative;}
-.rnode .rn{font-size:10px;color:var(--dim);font-weight:700;}
-.rnode .re{font-size:17px;line-height:1.2;}
-.rnode.now{border-color:var(--energy);box-shadow:0 0 12px #f0b42944;}
-.rnode.done{opacity:.45;}
-.rnode.late{background:linear-gradient(#123040,#2a1a10);}
-.rnode .rw{position:absolute;top:-6px;right:-4px;font-size:11px;}
+.round-strip{display:flex;gap:4px;margin:0 0 10px;overflow-x:auto;padding-bottom:2px;}
+.rnode{flex:0 0 auto;width:42px;border-radius:9px;border:1.5px solid var(--line);background:var(--panel);
+  text-align:center;padding:3px 0 4px;position:relative;}
+.rnode .rn{font-size:9px;color:var(--dim);font-weight:700;}
+.rnode .re{font-size:15px;line-height:1.15;}
+.rnode.now{border-color:var(--energy);box-shadow:0 0 10px #f5c04233;}
+.rnode.done{opacity:.4;}
+.rnode.late{background:#1a1810;}
+.rnode .rw{position:absolute;top:-5px;right:-3px;font-size:10px;}
 
-/* role banner */
-.role-banner{border-radius:14px;padding:14px;text-align:center;margin-bottom:12px;border:1.5px solid var(--line);}
-.role-banner.human{background:linear-gradient(135deg,#0a2a3555,#0e3a2855);border-color:#4db8ff55;}
-.role-banner.parasite{background:linear-gradient(135deg,#3a120855,#1a2a1055);border-color:#9aff6b66;}
-.role-banner .big{font-size:17px;font-weight:900;font-family:'Orbitron',sans-serif;}
-.role-banner .sub{font-size:13px;color:var(--dim);margin-top:3px;}
+.turn-coach{border-radius:12px;padding:12px;margin-bottom:10px;border:1.5px solid var(--line);
+  background:linear-gradient(135deg,#122030,#0e2818);}
+.turn-coach.parasite{background:linear-gradient(135deg,#2a1218,#142018);border-color:#8dff6a44;}
+.turn-coach .step{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--energy);margin-bottom:4px;}
+.turn-coach .title{font-size:18px;font-weight:800;font-family:'Orbitron',sans-serif;line-height:1.15;}
+.turn-coach .how{font-size:14px;color:var(--text);margin-top:6px;line-height:1.4;}
+.turn-coach .how b{color:var(--energy);}
 
-/* dice */
-.dice-row{display:flex;justify-content:center;gap:12px;margin:12px 0;flex-wrap:wrap;}
-.die-wrap{text-align:center;cursor:pointer;}
-.die-wrap.selected .die{outline:2px solid var(--energy);outline-offset:3px;}
-.die{width:62px;height:62px;border-radius:12px;display:flex;align-items:center;justify-content:center;
-  position:relative;margin:0 auto;background:#e8f7f2;color:#111;font-weight:900;
+.role-banner{display:none;}
+
+.dice-row{display:flex;justify-content:center;gap:10px;margin:10px 0;flex-wrap:wrap;}
+.die-wrap{text-align:center;}
+.die-wrap.selected .die{box-shadow:0 0 0 3px var(--energy), 0 6px 16px #0008;}
+.die-wrap.can-pick{cursor:pointer;}
+.die{width:68px;height:68px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+  position:relative;margin:0 auto;background:var(--die);color:var(--die-ink);font-weight:800;
   font-family:'IBM Plex Mono',monospace;
-  box-shadow:inset 0 -5px 0 #0002, 0 5px 14px #0006;transition:transform .15s, outline .15s;}
-.die.red{background:linear-gradient(145deg,#ffe3e8,#ffb3bf);box-shadow:inset 0 -5px 0 #c2334a55,0 5px 14px #ff5a4e33;}
-.die.blue{background:linear-gradient(145deg,#dcedff,#a8cfff);box-shadow:inset 0 -5px 0 #2a67b755,0 5px 14px #4db8ff33;}
-.die.green{background:linear-gradient(145deg,#dcffef,#a9f0cd);box-shadow:inset 0 -5px 0 #1e9e6a55,0 5px 14px #3ecf8e33;}
-.die.attack{background:linear-gradient(145deg,#2a1810,#4a2818);color:#ffc9a8;border:1px solid #ff8a5544;}
-.die.mod{background:linear-gradient(145deg,#142818,#1e3a20);color:var(--bio);border:1px solid #9aff6b44;}
-.die .num{font-size:24px;}
-.die .pips{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:76%;height:76%;}
-.die .pips i{border-radius:50%;background:#1b2447;place-self:center;width:22%;height:22%;visibility:hidden;}
-.die.rolling{animation:shake .55s ease-in-out infinite;}
-@keyframes shake{0%,100%{transform:rotate(0) translateY(0)}25%{transform:rotate(-14deg) translateY(-7px)}
-  50%{transform:rotate(9deg)}75%{transform:rotate(-6deg) translateY(-4px)}}
-.die-label{font-size:11px;font-weight:800;letter-spacing:.5px;margin-top:8px;text-transform:uppercase;}
+  box-shadow:inset 0 2px 0 #fff8, inset 0 -6px 0 #0002, 0 6px 14px #0007;
+  border:1px solid #0002;}
+.die.red{background:linear-gradient(160deg,#fff,#ffd6db); box-shadow:inset 0 2px 0 #fff9, inset 0 -6px 0 #c2334a33, 0 6px 14px #ff5a4e22;}
+.die.blue{background:linear-gradient(160deg,#fff,#d6eaff); box-shadow:inset 0 2px 0 #fff9, inset 0 -6px 0 #2a67b733, 0 6px 14px #4da3ff22;}
+.die.green{background:linear-gradient(160deg,#fff,#d6ffe8); box-shadow:inset 0 2px 0 #fff9, inset 0 -6px 0 #1e9e6a33, 0 6px 14px #2db88a22;}
+.die.attack{background:linear-gradient(160deg,#3a2218,#1e100c);color:#ffd2b0;border:1px solid #ff8a5544;
+  box-shadow:inset 0 2px 0 #fff1, inset 0 -6px 0 #0006, 0 6px 14px #0008;}
+.die.mod{background:linear-gradient(160deg,#1a2e1c,#0e1a10);color:var(--bio);border:1px solid #8dff6a44;
+  box-shadow:inset 0 2px 0 #fff1, inset 0 -6px 0 #0006, 0 6px 14px #0008;}
+.die .num{font-size:28px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;}
+.die.attack .num,.die.mod .num{font-size:22px;}
+.die .pips{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:72%;height:72%;gap:0;}
+.die .pips i{border-radius:50%;background:#1c2430;place-self:center;width:26%;height:26%;box-shadow:inset 0 1px 1px #0004;}
+.die.attack .pips i{background:#ffd2b0;}
+.die.mod .pips i{background:var(--bio);}
+.die .corner-num{position:absolute;top:4px;right:6px;font-size:11px;font-weight:800;opacity:.55;line-height:1;}
+.die.rolling{animation:shake .5s ease-in-out infinite;}
+@keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg) translateY(-5px)}
+  50%{transform:rotate(8deg)}75%{transform:rotate(-5deg)}}
+.die-label{font-size:11px;font-weight:700;margin-top:6px;text-transform:uppercase;letter-spacing:.04em;}
 .die-label.red{color:var(--red);} .die-label.blue{color:var(--blue);} .die-label.green{color:var(--green);}
-.die-sub{font-size:10.5px;color:var(--dim);font-family:'IBM Plex Mono',monospace;}
-.reroll-flash{animation:flashy .5s;}
+.die-sub{font-size:11px;color:var(--dim);font-family:'IBM Plex Mono',monospace;margin-top:2px;line-height:1.2;}
+.reroll-flash{animation:flashy .45s;}
 @keyframes flashy{0%{box-shadow:0 0 0 4px var(--energy)}100%{}}
 
-/* face strip */
-.face-strip{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:10px 0;}
-.face-chip{min-width:40px;height:40px;border-radius:10px;border:1.5px solid var(--line);background:var(--panel2);
-  color:var(--text);font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;
-  display:flex;align-items:center;justify-content:center;padding:0 8px;cursor:pointer;}
-.face-chip:active{transform:scale(.94);}
-.face-chip.hot{border-color:var(--energy);color:var(--energy);box-shadow:0 0 10px #f0b42933;}
-.face-chip.blank{color:var(--dim);opacity:.7;}
-.face-chip.pct{color:var(--bio);}
-.face-chip.flat{color:var(--amber);}
-.face-chip.picked{outline:2px solid var(--energy);outline-offset:1px;}
-.face-chip.forged{background:#3a2a1055;border-color:var(--energy);}
+.face-strip{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin:8px 0;}
+.face-chip{width:36px;height:36px;border-radius:8px;border:1.5px solid #0003;background:var(--die);
+  color:var(--die-ink);font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:15px;
+  display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;
+  box-shadow:inset 0 -3px 0 #0002, 0 2px 6px #0004;}
+.face-chip.hot{background:linear-gradient(160deg,#fff8e0,#f5c042);border-color:#c49020;}
+.face-chip.blank{background:var(--panel2);color:var(--dim);border-color:var(--line);box-shadow:none;}
+.face-chip.pct{background:#142818;color:var(--bio);border-color:#8dff6a55;}
+.face-chip.flat{background:#2a2010;color:var(--energy);border-color:#f5c04255;}
+.face-chip.picked{outline:2px solid var(--energy);outline-offset:2px;}
+.face-chip.forged{box-shadow:0 0 0 2px var(--energy), inset 0 -3px 0 #0002;}
 
-/* shop */
-.shop-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel2);
-  border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:9px;}
-.shop-item .si-name{font-weight:800;font-size:14.5px;}
-.shop-item .si-desc{font-size:12px;color:var(--dim);margin-top:2px;}
-.buy-btn{background:var(--energy);color:var(--ink);font-weight:900;border-radius:10px;padding:9px 13px;font-size:13px;
-  white-space:nowrap;min-width:64px;font-family:'IBM Plex Mono',monospace;}
-.buy-btn:disabled{background:#1e4a5c;color:#586092;}
+.shop-item{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--panel2);
+  border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;}
+.shop-item .si-name{font-weight:700;font-size:14px;}
+.shop-item .si-desc{font-size:12px;color:var(--dim);margin-top:2px;line-height:1.35;}
+.buy-btn{background:var(--energy);color:var(--ink);font-weight:800;border-radius:9px;padding:8px 11px;font-size:13px;
+  white-space:nowrap;min-width:56px;font-family:'IBM Plex Mono',monospace;}
+.buy-btn:disabled{background:#243444;color:#6a7a88;}
 .buy-btn.owned{background:transparent;border:1.5px solid var(--good);color:var(--good);}
-.growth-grid{display:grid;gap:8px;margin:8px 0;}
-.growth-opt{background:var(--panel2);border:1.5px solid var(--line);border-radius:12px;padding:12px;text-align:left;
-  color:inherit;width:100%;cursor:pointer;transition:border-color .15s;}
-.growth-opt.picked{border-color:var(--bio);box-shadow:0 0 14px #9aff6b22;}
-.growth-opt .go-title{font-weight:800;font-size:14px;}
-.growth-opt .go-desc{font-size:12px;color:var(--dim);margin-top:3px;}
+.growth-grid{display:grid;gap:7px;margin:8px 0;}
+.growth-opt{background:var(--panel2);border:1.5px solid var(--line);border-radius:10px;padding:10px;text-align:left;
+  color:inherit;width:100%;cursor:pointer;}
+.growth-opt.contain{border-color:#3ecf8e55;}
+.growth-opt.unleash{border-color:#ff5a4e66;}
+.growth-opt.unleash.picked{border-color:var(--danger);}
+.growth-opt.contain.picked{border-color:var(--good);}
+.growth-opt .go-title{font-weight:700;font-size:13px;}
+.growth-opt .go-desc{font-size:12px;color:var(--dim);margin-top:2px;line-height:1.35;}
 
-/* parasite */
-.parasite-stage{text-align:center;padding:8px 0 2px;}
-.parasite-emoji{display:inline-block;filter:drop-shadow(0 0 18px #9aff6b55);animation:pulse 2.6s infinite;}
-@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
-.p-name{font-size:16px;font-weight:900;color:var(--bio);letter-spacing:1px;font-family:'Orbitron',sans-serif;}
-.p-base{font-size:13px;color:var(--dim);}
-.p-base b{color:var(--text);font-size:16px;font-family:'IBM Plex Mono',monospace;}
-.lane-label{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);margin:10px 0 4px;}
+.parasite-stage{text-align:center;padding:4px 0 2px;}
+.parasite-art{display:inline-block;filter:drop-shadow(0 0 16px #8dff6a44);animation:pulse 2.8s infinite;line-height:0;}
+.parasite-art svg{display:block;}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.p-name{font-size:14px;font-weight:800;color:var(--bio);letter-spacing:.06em;font-family:'Orbitron',sans-serif;margin-top:6px;}
+.p-tagline{font-size:12px;color:var(--dim);margin-top:2px;}
+.p-base{font-size:13px;color:var(--dim);margin-top:6px;}
+.p-base b{color:var(--text);font-size:15px;font-family:'IBM Plex Mono',monospace;}
+.lane-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:8px 0 4px;}
 .evo-tags{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px;}
-.evo-tag{font-size:11px;background:#1a2a1055;border:1px solid #9aff6b44;color:var(--bio);
+.evo-tag{font-size:11px;background:#1a2a1055;border:1px solid #8dff6a44;color:var(--bio);
   padding:3px 9px;border-radius:99px;font-weight:700;}
 
-/* waiting / status */
-.wait-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);}
+.wait-row{display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);}
 .wait-row:last-child{border-bottom:none;}
-.wait-row .em{font-size:22px;}
+.wait-row .em{font-size:20px;}
 .wait-row .st{margin-left:auto;font-size:12px;font-weight:800;}
 .st.in{color:var(--good);} .st.thinking{color:var(--dim);animation:tw 1.6s infinite;}
 
-/* battle / results */
-.vs-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 6px;}
-.vs-side{flex:1;text-align:center;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;}
-.vs-side .lbl{font-size:11px;color:var(--dim);font-weight:800;text-transform:uppercase;letter-spacing:1px;}
-.vs-side .val{font-size:30px;font-weight:900;font-family:'IBM Plex Mono',monospace;}
+.vs-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 6px;}
+.vs-side{flex:1;text-align:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px;}
+.vs-side .lbl{font-size:10px;color:var(--dim);font-weight:700;text-transform:uppercase;}
+.vs-side .val{font-size:28px;font-weight:800;font-family:'IBM Plex Mono',monospace;}
 .vs-side.h .val{color:var(--blue);} .vs-side.p .val{color:var(--danger);}
-.vs-x{font-weight:900;color:var(--dim);}
-.result-banner{text-align:center;border-radius:14px;padding:16px;margin:12px 0;font-weight:900;font-size:18px;
-  font-family:'Orbitron',sans-serif;}
-.result-banner.h{background:linear-gradient(135deg,#0e3a2455,#12325c88);border:1.5px solid var(--good);color:var(--good);}
-.result-banner.p{background:linear-gradient(135deg,#3a120888,#1a2a1088);border:1.5px solid var(--danger);color:var(--danger);}
-.award-row{display:flex;justify-content:space-between;padding:7px 4px;border-bottom:1px dashed var(--line);font-size:14px;}
+.vs-x{font-weight:800;color:var(--dim);}
+.result-banner{text-align:center;border-radius:12px;padding:14px;margin:10px 0;font-weight:800;font-size:16px;font-family:'Orbitron',sans-serif;}
+.result-banner.h{background:#0e3a2455;border:1.5px solid var(--good);color:var(--good);}
+.result-banner.p{background:#3a120855;border:1.5px solid var(--danger);color:var(--danger);}
+.award-row{display:flex;justify-content:space-between;padding:6px 2px;border-bottom:1px dashed var(--line);font-size:13px;}
 .award-row:last-child{border-bottom:none;}
-.award-row .who{font-weight:700;}
-.badge{font-size:10.5px;font-weight:900;padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:middle;}
+.award-row .who{font-weight:600;}
+.badge{font-size:10px;font-weight:800;padding:2px 6px;border-radius:99px;margin-left:4px;vertical-align:middle;}
 .badge.mvp{background:var(--energy);color:var(--ink);}
 .badge.cat-red{background:#ff5a4e33;color:var(--red);border:1px solid var(--red);}
-.badge.cat-blue{background:#4db8ff33;color:var(--blue);border:1px solid var(--blue);}
+.badge.cat-blue{background:#4da3ff33;color:var(--blue);border:1px solid var(--blue);}
 .badge.cat-green{background:#3ecf8e33;color:var(--green);border:1px solid var(--green);}
-.secret{color:var(--energy);font-weight:900;letter-spacing:2px;}
-.mod-flip{min-height:36px;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:15px;margin-top:6px;}
-.mod-flip .blank{color:var(--dim);} .mod-flip .flat{color:var(--amber);} .mod-flip .pct{color:var(--bio);}
+.secret{color:var(--energy);font-weight:800;letter-spacing:1px;}
+.mod-flip{min-height:28px;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;margin-top:4px;}
+.mod-flip .blank{color:var(--dim);} .mod-flip .flat{color:var(--energy);} .mod-flip .pct{color:var(--bio);}
 
-/* final reveal */
-.reveal-row{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line);
-  border-radius:12px;padding:13px;margin-bottom:10px;opacity:0;transform:translateY(18px);transition:all .6s;}
+.reveal-row{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:10px;padding:12px;margin-bottom:8px;opacity:0;transform:translateY(12px);transition:all .5s;}
 .reveal-row.show{opacity:1;transform:none;}
-.reveal-row .place{font-size:22px;font-weight:900;width:36px;}
-.reveal-row .em{font-size:30px;}
-.reveal-row .pts-final{margin-left:auto;font-size:24px;font-weight:900;color:var(--energy);font-family:'IBM Plex Mono',monospace;}
-.reveal-row.winner{border-color:var(--energy);box-shadow:0 0 24px #f0b42944;background:linear-gradient(135deg,#3a2a0055,#123040);}
-.confetti{position:fixed;top:-10px;font-size:20px;animation:fall linear forwards;z-index:99;pointer-events:none;}
+.reveal-row .place{font-size:20px;font-weight:800;width:32px;}
+.reveal-row .em{font-size:26px;}
+.reveal-row .pts-final{margin-left:auto;font-size:22px;font-weight:800;color:var(--energy);font-family:'IBM Plex Mono',monospace;}
+.reveal-row.winner{border-color:var(--energy);box-shadow:0 0 18px #f5c04233;}
+.confetti{position:fixed;top:-10px;font-size:18px;animation:fall linear forwards;z-index:99;pointer-events:none;}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.3;}}
 
-.fixed-cta{position:fixed;bottom:0;left:0;right:0;z-index:30;padding:12px 14px calc(12px + env(safe-area-inset-bottom));
-  background:linear-gradient(transparent,#07141a 40%);max-width:520px;margin:0 auto;}
-.log-entry{border-left:3px solid var(--line);padding:8px 10px;margin-bottom:8px;font-size:13px;background:var(--panel2);border-radius:0 10px 10px 0;}
+.fixed-cta{position:fixed;bottom:0;left:0;right:0;z-index:30;padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+  background:linear-gradient(transparent,#081018 38%);max-width:520px;margin:0 auto;}
+.log-entry{border-left:3px solid var(--line);padding:7px 9px;margin-bottom:6px;font-size:12px;background:var(--panel2);border-radius:0 8px 8px 0;}
 .log-entry b{color:var(--energy);}
 .center{text-align:center;}
 .mt0{margin-top:0;} .hidden{display:none !important;}
-.spent-preview{font-size:13px;color:var(--energy);font-weight:800;text-align:center;margin:6px 0;font-family:'IBM Plex Mono',monospace;}
+.spent-preview{font-size:13px;color:var(--energy);font-weight:700;text-align:center;margin:8px 0 2px;font-family:'IBM Plex Mono',monospace;}
 a{color:var(--blue);}
-code{background:#00000055;padding:2px 6px;border-radius:6px;font-size:12px;word-break:break-all;font-family:'IBM Plex Mono',monospace;}
-.setup-step{margin-bottom:14px;}
-.setup-step .n{display:inline-block;width:22px;height:22px;background:var(--energy);color:var(--ink);border-radius:50%;
-  text-align:center;font-weight:900;font-size:13px;line-height:22px;margin-right:6px;}
-.brand-hero{font-family:'Orbitron',sans-serif;font-size:28px;font-weight:800;letter-spacing:.06em;}
+code{background:#00000055;padding:2px 5px;border-radius:5px;font-size:12px;word-break:break-all;font-family:'IBM Plex Mono',monospace;}
+.setup-step{margin-bottom:12px;}
+.setup-step .n{display:inline-block;width:20px;height:20px;background:var(--energy);color:var(--ink);border-radius:50%;
+  text-align:center;font-weight:800;font-size:12px;line-height:20px;margin-right:6px;}
+.brand-hero{font-family:'Orbitron',sans-serif;font-size:26px;font-weight:800;letter-spacing:.04em;}
 .brand-hero span{color:var(--bio);}
-.warn-box{background:#3a180855;border:1px solid #ff5a4e55;border-radius:10px;padding:10px;font-size:12.5px;color:#ffb3a8;margin-bottom:10px;}
+.warn-box{background:#2a141855;border:1px solid #ff5a4e44;border-radius:10px;padding:10px;font-size:13px;color:#ffc4bc;margin-bottom:8px;line-height:1.4;}
+.total-big{font-size:32px;font-weight:800;font-family:'IBM Plex Mono',monospace;line-height:1;margin:8px 0;}
+.total-big.crew{color:var(--blue);} .total-big.par{color:var(--danger);}
+.hint{font-size:13px;color:var(--dim);text-align:center;margin:6px 0;line-height:1.4;}
 </style>
 </head>
 <body>
@@ -241,37 +248,148 @@ const COLOR_META = {
   green: { name:'Agility',  icon:'⚡' },
 };
 const TOTAL_ROUNDS = 8;
-const SCHEMA = 2;
+const SCHEMA = 3; // upgrade → roll → lock-in turns
 
 const CFG = {
-  startEnergy: 4,
+  startEnergy: 5,
   forgeCost: 1,
   addDieCost: 3,
   rerollCost: 1,
   freeRerollPerkCost: 5,
-  faceCap: 12,
-  maxHumanDice: 5,
-  parasiteStipend: 2,
+  faceCap: 0,                        // 0 = no cap — forge as high as Energy allows
+  maxDicePerColor: 2,                // starter + one extra per Weapons/Strength/Agility
+  maxParAttack: 4,
+  maxParMods: 2,
+  parasiteStipend: 3,                // Energy lever so hosts can reroll / clutch
+  unleashGrowthBonus: 1,             // Energy bribe for picking Unleash growth
   tempAttackCost: 2,
   tempAttackMax: 2,
   pushModCost: 3,
-  parasiteBase: r => 5 + r,          // small base; dice do the work
-  humanWinPts:  r => r >= 5 ? 15 : 10,
-  mvpPts:       r => r >= 5 ? 8 : 5,
-  catPts:       r => r >= 5 ? 4 : 3,
-  parasiteWinPts: r => r >= 5 ? 40 : 25,
+  // Playtested with unlimited human forges + Energy rerolls:
+  // hot attack faces (2–7), stipend 3, Unleash die-surge → ~60% crew overall, late ~45%
+  parasiteBase: r => 18 + r,
+  // If crew stomps by more than 5, parasite base adapts permanently (auto-balance)
+  adaptMargin: 5,
+  adaptGain: margin => Math.min(5, 2 + Math.floor((margin - 6) / 4)), // 6–9:+2, 10–13:+3, 14–17:+4, 18+:+5
+  humanWinPts:  r => r >= 5 ? 12 : 8,
+  mvpPts:       r => r >= 5 ? 5 : 3,
+  catPts:       r => r >= 5 ? 3 : 2,
+  parasiteWinPts: r => 8,
+  underdogEnergy: 1,                       // last place(s) bank +1 Energy each round
   humanWinEn: 2, humanLossEn: 1, parWinEn: 2, parLossEn: 1, catEn: 1,
-  roundStipend: 1,                   // everyone banks a little each round
+  roundStipend: 1,
 };
 
 const EVO_STAGES = [
-  { min:0,  name:'THE SPORE',    emoji:'🦠', size:56 },
-  { min:2,  name:'THE LARVA',    emoji:'🐛', size:64 },
-  { min:4,  name:'THE CRAWLER',  emoji:'🦂', size:74 },
-  { min:6,  name:'THE RAVAGER',  emoji:'👾', size:86 },
-  { min:8,  name:'THE DEVOURER', emoji:'🐙', size:100 },
+  { min:0,  name:'THE SPORE',    size:108, stage:0, tag:'Nesting in the cortex' },
+  { min:2,  name:'THE LARVA',    size:116, stage:1, tag:'Tunnels through memory' },
+  { min:4,  name:'THE CRAWLER',  size:124, stage:2, tag:'Wraps the brain stem' },
+  { min:6,  name:'THE RAVAGER',  size:132, stage:3, tag:'Owns the host mind' },
+  { min:8,  name:'THE DEVOURER', size:140, stage:4, tag:'Hive consciousness' },
 ];
 function evoStage(mutations){ let s=EVO_STAGES[0]; for(const e of EVO_STAGES) if(mutations>=e.min) s=e; return s; }
+
+/** Custom brain-nesting parasite SVG — grows meaner with stage */
+function brainParasiteSVG(size, stage){
+  const s = Math.max(0, Math.min(4, stage|0));
+  const gid = 'pg'+Math.random().toString(36).slice(2,8);
+  // tentacle count / thickness grows with stage
+  const arms = [
+    // stage 0
+    `<path d="M48 78 Q28 96 22 118" stroke="url(#${gid}arm)" stroke-width="5" fill="none" stroke-linecap="round"/>
+     <path d="M72 78 Q92 96 98 118" stroke="url(#${gid}arm)" stroke-width="5" fill="none" stroke-linecap="round"/>
+     <path d="M58 82 Q50 104 54 122" stroke="#3a8a2a" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+     <path d="M62 82 Q70 104 66 122" stroke="#3a8a2a" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+     <circle cx="22" cy="118" r="4" fill="#8dff6a"/><circle cx="98" cy="118" r="4" fill="#8dff6a"/>`,
+    // 1
+    `<path d="M42 76 Q18 92 14 120" stroke="url(#${gid}arm)" stroke-width="6" fill="none" stroke-linecap="round"/>
+     <path d="M78 76 Q102 92 106 120" stroke="url(#${gid}arm)" stroke-width="6" fill="none" stroke-linecap="round"/>
+     <path d="M50 84 Q36 108 40 126" stroke="#4aaa32" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+     <path d="M70 84 Q84 108 80 126" stroke="#4aaa32" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+     <path d="M58 86 Q52 110 55 128" stroke="#2e7a28" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+     <circle cx="14" cy="120" r="5" fill="#9aff6b"/><circle cx="106" cy="120" r="5" fill="#9aff6b"/>
+     <circle cx="40" cy="126" r="3.5" fill="#6ecf4a"/><circle cx="80" cy="126" r="3.5" fill="#6ecf4a"/>`,
+    // 2
+    `<path d="M38 74 Q12 88 8 122" stroke="url(#${gid}arm)" stroke-width="7" fill="none" stroke-linecap="round"/>
+     <path d="M82 74 Q108 88 112 122" stroke="url(#${gid}arm)" stroke-width="7" fill="none" stroke-linecap="round"/>
+     <path d="M46 82 Q28 106 32 128" stroke="#4aaa32" stroke-width="5" fill="none" stroke-linecap="round"/>
+     <path d="M74 82 Q92 106 88 128" stroke="#4aaa32" stroke-width="5" fill="none" stroke-linecap="round"/>
+     <path d="M54 86 Q44 112 48 130" stroke="#2e7a28" stroke-width="4" fill="none" stroke-linecap="round"/>
+     <path d="M66 86 Q76 112 72 130" stroke="#2e7a28" stroke-width="4" fill="none" stroke-linecap="round"/>
+     <circle cx="8" cy="122" r="5.5" fill="#9aff6b"/><circle cx="112" cy="122" r="5.5" fill="#9aff6b"/>
+     <circle cx="32" cy="128" r="4" fill="#6ecf4a"/><circle cx="88" cy="128" r="4" fill="#6ecf4a"/>`,
+    // 3
+    `<path d="M34 72 Q6 86 4 124" stroke="url(#${gid}arm)" stroke-width="8" fill="none" stroke-linecap="round"/>
+     <path d="M86 72 Q114 86 116 124" stroke="url(#${gid}arm)" stroke-width="8" fill="none" stroke-linecap="round"/>
+     <path d="M44 80 Q22 104 26 130" stroke="#4aaa32" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+     <path d="M76 80 Q98 104 94 130" stroke="#4aaa32" stroke-width="5.5" fill="none" stroke-linecap="round"/>
+     <path d="M52 86 Q40 114 44 132" stroke="#2e7a28" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+     <path d="M68 86 Q80 114 76 132" stroke="#2e7a28" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+     <path d="M58 88 Q54 118 56 134" stroke="#1e5a18" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+     <circle cx="4" cy="124" r="6" fill="#b8ff70"/><circle cx="116" cy="124" r="6" fill="#b8ff70"/>
+     <circle cx="26" cy="130" r="4.5" fill="#8dff6a"/><circle cx="94" cy="130" r="4.5" fill="#8dff6a"/>`,
+    // 4
+    `<path d="M30 70 Q2 82 0 126" stroke="url(#${gid}arm)" stroke-width="9" fill="none" stroke-linecap="round"/>
+     <path d="M90 70 Q118 82 120 126" stroke="url(#${gid}arm)" stroke-width="9" fill="none" stroke-linecap="round"/>
+     <path d="M40 78 Q16 100 18 132" stroke="#4aaa32" stroke-width="6" fill="none" stroke-linecap="round"/>
+     <path d="M80 78 Q104 100 102 132" stroke="#4aaa32" stroke-width="6" fill="none" stroke-linecap="round"/>
+     <path d="M48 84 Q34 112 38 134" stroke="#2e7a28" stroke-width="5" fill="none" stroke-linecap="round"/>
+     <path d="M72 84 Q86 112 82 134" stroke="#2e7a28" stroke-width="5" fill="none" stroke-linecap="round"/>
+     <path d="M56 88 Q50 118 52 136" stroke="#1e5a18" stroke-width="4" fill="none" stroke-linecap="round"/>
+     <path d="M64 88 Q70 118 68 136" stroke="#1e5a18" stroke-width="4" fill="none" stroke-linecap="round"/>
+     <circle cx="0" cy="126" r="7" fill="#c8ff9a"/><circle cx="120" cy="126" r="7" fill="#c8ff9a"/>
+     <circle cx="18" cy="132" r="5" fill="#9aff6b"/><circle cx="102" cy="132" r="5" fill="#9aff6b"/>`,
+  ][s];
+  const eyeN = s >= 3 ? 3 : 2;
+  const eyes = eyeN === 3
+    ? `<circle cx="44" cy="52" r="${6+s*0.4}" fill="#f4ffd0"/><circle cx="76" cy="52" r="${6+s*0.4}" fill="#f4ffd0"/>
+       <circle cx="60" cy="40" r="${4+s*0.3}" fill="#e8ffb8"/>
+       <circle cx="44" cy="52" r="${2.4+s*0.2}" fill="#1a0808"/><circle cx="76" cy="52" r="${2.4+s*0.2}" fill="#1a0808"/>
+       <circle cx="60" cy="40" r="${1.6}" fill="#1a0808"/>
+       <circle cx="45.5" cy="50.5" r="1" fill="#fff8"/><circle cx="77.5" cy="50.5" r="1" fill="#fff8"/>`
+    : `<circle cx="48" cy="50" r="${5+s*0.5}" fill="#f4ffd0"/><circle cx="72" cy="50" r="${5+s*0.5}" fill="#f4ffd0"/>
+       <circle cx="48" cy="50" r="${2.2+s*0.25}" fill="#1a0808"/><circle cx="72" cy="50" r="${2.2+s*0.25}" fill="#1a0808"/>
+       <circle cx="49.5" cy="48.5" r="1" fill="#fff8"/><circle cx="73.5" cy="48.5" r="1" fill="#fff8"/>`;
+  const mouth = s >= 2
+    ? `<path d="M50 64 Q60 74 70 64" stroke="#1a4018" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+       <path d="M54 66 L52 72 M60 68 L60 74 M66 66 L68 72" stroke="#6ecf4a" stroke-width="1.4"/>`
+    : `<path d="M52 62 Q60 68 68 62" stroke="#1a4018" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  const bodyR = 18 + s * 3;
+  return `<span class="parasite-art" aria-hidden="true"><svg width="${size}" height="${Math.round(size*1.2)}" viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="${gid}b" cx="38%" cy="32%" r="68%">
+        <stop offset="0%" stop-color="#d4ff8a"/>
+        <stop offset="45%" stop-color="#4db832"/>
+        <stop offset="100%" stop-color="#163a14"/>
+      </radialGradient>
+      <linearGradient id="${gid}arm" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#7adf4a"/>
+        <stop offset="100%" stop-color="#2a6a22"/>
+      </linearGradient>
+      <radialGradient id="${gid}br" cx="45%" cy="40%" r="60%">
+        <stop offset="0%" stop-color="#ff9aab"/>
+        <stop offset="70%" stop-color="#c24a62"/>
+        <stop offset="100%" stop-color="#6a2030"/>
+      </radialGradient>
+      <filter id="${gid}g"><feGaussianBlur stdDeviation="1.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <!-- host brain -->
+    <ellipse cx="60" cy="58" rx="42" ry="36" fill="url(#${gid}br)" opacity=".9"/>
+    <path d="M28 58 C26 30 44 18 60 20 C76 18 94 30 92 58 C96 78 80 92 60 94 C40 92 24 78 28 58Z"
+      fill="url(#${gid}br)" stroke="#ffc0cc" stroke-width="1.5" opacity=".95"/>
+    <path d="M60 22 V92" stroke="#ffc0cc" stroke-width="1.2" opacity=".45"/>
+    <path d="M38 40 Q50 34 58 42 M62 42 Q72 34 84 42 M34 56 Q50 48 58 58 M62 58 Q74 48 88 56 M40 72 Q52 64 58 72 M62 72 Q74 64 82 72"
+      stroke="#ffd0d8" stroke-width="1.3" fill="none" opacity=".55"/>
+    <!-- parasite body nested in brain -->
+    <g filter="url(#${gid}g)">
+      <ellipse cx="60" cy="56" rx="${bodyR}" ry="${bodyR*0.88}" fill="url(#${gid}b)" stroke="#9aff6b" stroke-width="1.5"/>
+      <ellipse cx="54" cy="48" rx="${bodyR*0.35}" ry="${bodyR*0.22}" fill="#e8ffb8" opacity=".45"/>
+      ${eyes}
+      ${mouth}
+      ${arms}
+    </g>
+  </svg></span>`;
+}
 
 /* ================= UTIL ================= */
 const $ = sel => document.querySelector(sel);
@@ -279,6 +397,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&
 const deep = o => JSON.parse(JSON.stringify(o));
 const uid = (p) => p + '_' + Math.random().toString(36).slice(2,7);
 function stdFaces(){ return [1,2,3,4,5,6]; }
+function hotFaces(){ return [2,3,4,5,6,7]; } // parasite attack dice — can grow larger via Unleash
 function starterDice(){
   return [
     { id:'w1', color:'red',   faces:stdFaces() },
@@ -289,21 +408,26 @@ function starterDice(){
 function starterParasite(){
   return {
     mutations: 0,
+    adaptBase: 0, // climbs when crew stomps — keeps the monster relevant
     attack: [
-      { id:'atk1', faces:stdFaces() },
-      { id:'atk2', faces:stdFaces() },
+      { id:'atk1', faces:hotFaces() },
+      { id:'atk2', faces:hotFaces() },
     ],
+    // Hotter starter mod: blanks keep variance, flats/% make early wins possible
     modifiers: [
       { id:'mod1', faces: [
         { type:'blank' },
         { type:'blank' },
         { type:'blank' },
-        { type:'flat', n:2 },
-        { type:'flat', n:3 },
-        { type:'pct', n:10 },
+        { type:'flat', n:4 },
+        { type:'flat', n:5 },
+        { type:'pct', n:15 },
       ]},
     ],
   };
+}
+function parasiteBaseNow(r, parasite){
+  return CFG.parasiteBase(r) + ((parasite && parasite.adaptBase) || 0);
 }
 
 function rollFace(faces){
@@ -328,7 +452,7 @@ function modFaceClass(f){
   return f.type;
 }
 function expectedParThreat(p, r){
-  const base = CFG.parasiteBase(r);
+  const base = parasiteBaseNow(r, p);
   const atk = (p.attack||[]).reduce((s,d)=>s+faceAvg(d.faces),0);
   let flatExp=0, pctExp=0;
   (p.modifiers||[]).forEach(d=>{
@@ -341,16 +465,19 @@ function expectedParThreat(p, r){
 }
 
 function pipHTML(v){
-  if (v > 6 || v < 1) return `<span class="num">${v}</span>`;
+  if (typeof v !== 'number' || v < 1) return `<span class="num">?</span>`;
+  if (v > 6) return `<span class="num">${v}</span>`;
   const map = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
   let cells='';
   for (let i=0;i<9;i++) cells += `<i style="visibility:${map[v].includes(i)?'visible':'hidden'}"></i>`;
-  return `<span class="pips">${cells}</span>`;
+  return `<span class="pips">${cells}</span><span class="corner-num">${v}</span>`;
 }
 function dieHTML(color, value, extraCls=''){
-  return `<div class="die ${color} ${extraCls}" data-color="${color}">
-    ${value==null?`<span class="num">?</span>`: (typeof value==='number' ? pipHTML(value) : `<span class="num">${esc(value)}</span>`)}
-  </div>`;
+  let face;
+  if (value==null) face = `<span class="num">?</span>`;
+  else if (typeof value==='number') face = pipHTML(value);
+  else face = `<span class="num">${esc(value)}</span>`;
+  return `<div class="die ${color} ${extraCls}" data-color="${color}">${face}</div>`;
 }
 function facesStripHTML(faces, opts={}){
   const { dieId, selectable, picked, forgedSet } = opts;
@@ -379,6 +506,7 @@ let cart = null;
 let cartRound = 0;
 let animating = false;
 let ui = { selectedDie: null, selectedFace: null, selectedModFace: null };
+let session = null; // local turn: { phase:'upgrade'|'roll', ... }
 
 function newGameData(){
   const shuf = a => { a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
@@ -401,17 +529,25 @@ function newGameData(){
 
 /* ================= GROWTH HELPERS ================= */
 function findDie(list, id){ return (list||[]).find(d=>d.id===id); }
-function applyForge(die, faceIndex){
+function applyForge(die, faceIndex, amount=1){
   if (!die || faceIndex<0 || faceIndex>=die.faces.length) return false;
-  if (die.faces[faceIndex] >= CFG.faceCap) return false;
-  die.faces[faceIndex]++;
+  const next = die.faces[faceIndex] + amount;
+  if (CFG.faceCap && next > CFG.faceCap) return false;
+  die.faces[faceIndex] = next;
   return true;
+}
+function countColor(dice, color){
+  return (dice||[]).filter(d=>d.color===color).length;
+}
+function canAddColor(pl, color, pendingColor){
+  const n = countColor(pl.dice, color) + (pendingColor===color ? 1 : 0);
+  return n < CFG.maxDicePerColor;
 }
 function applyForcedGrowth(parasite, growth){
   if (!growth || !growth.kind) return false;
   if (growth.kind==='attack'){
     const d = findDie(parasite.attack, growth.dieId);
-    return applyForge(d, growth.faceIndex);
+    return applyForge(d, growth.faceIndex, growth.amount || 2);
   }
   if (growth.kind==='modBlank'){
     const d = findDie(parasite.modifiers, growth.dieId);
@@ -430,19 +566,47 @@ function applyForcedGrowth(parasite, growth){
     else if (room === 1) d.faces[d.faces.length-1] = deep(growth.newFace || { type:'pct', n:25 });
     return true;
   }
+  if (growth.kind==='newMod'){
+    if ((parasite.modifiers||[]).length >= CFG.maxParMods) return false;
+    parasite.modifiers.push({
+      id: uid('mod'),
+      faces: [
+        { type:'blank' }, { type:'blank' }, { type:'blank' },
+        { type:'flat', n:5 }, { type:'pct', n:15 }, { type:'pct', n:25 },
+      ],
+    });
+    return true;
+  }
+  if (growth.kind==='atkDie'){
+    if ((parasite.attack||[]).length >= CFG.maxParAttack) return false;
+    parasite.attack.push({ id: uid('atk'), faces: hotFaces() });
+    return true;
+  }
+  if (growth.kind==='atkSurge'){
+    // Unleash: +1 to every face on one attack die (parasite "larger dice")
+    const d = findDie(parasite.attack, growth.dieId) || (parasite.attack||[])[0];
+    if (!d) return false;
+    d.faces = d.faces.map(v=>v+1);
+    return true;
+  }
   return false;
 }
 function winMutate(parasite){
-  // Prefer converting a blank → +1 flat; else bump a random attack face
-  for (const d of parasite.modifiers||[]){
+  // Infection spreads: a blank becomes +10% — future hosts inherit the fever
+    for (const d of parasite.modifiers||[]){
     const bi = d.faces.findIndex(f=>f.type==='blank');
-    if (bi>=0){ d.faces[bi] = { type:'flat', n:1 }; parasite.mutations = (parasite.mutations||0)+1; return { kind:'blankToFlat', dieId:d.id, faceIndex:bi }; }
+    if (bi>=0){
+      d.faces[bi] = { type:'pct', n:10 };
+      parasite.mutations = (parasite.mutations||0)+1;
+      return { kind:'blankToPct', dieId:d.id, faceIndex:bi };
+    }
   }
   const atks = parasite.attack||[];
   if (atks.length){
     const d = atks[Math.floor(Math.random()*atks.length)];
-    const fi = Math.floor(Math.random()*d.faces.length);
-    if (d.faces[fi] < CFG.faceCap){ d.faces[fi]++; parasite.mutations = (parasite.mutations||0)+1; return { kind:'atkBump', dieId:d.id, faceIndex:fi, value:d.faces[fi] }; }
+    d.faces = d.faces.map(v=>v+1);
+    parasite.mutations = (parasite.mutations||0)+1;
+    return { kind:'atkSurge', dieId:d.id, bumped:true };
   }
   parasite.mutations = (parasite.mutations||0)+1;
   return { kind:'mutationTick' };
@@ -469,35 +633,53 @@ function previewHumanDice(pl, cartObj){
   return dice;
 }
 
+function actionLocked(a){ return a && a.phase === 'locked'; }
+function enrichModRolls(mRolls, attackSum){
+  let flatMods = 0, pctMods = 0;
+  const modBreakdown = (mRolls||[]).map(m=>{
+    const face = m.face || { type:'blank' };
+    if (face.type==='blank') return { ...m, face, applied:0, label:'blank' };
+    if (face.type==='flat'){ flatMods += face.n; return { ...m, face, applied:face.n, label:'+'+face.n }; }
+    if (face.type==='pct'){
+      const add = Math.floor(attackSum * face.n / 100);
+      pctMods += add;
+      return { ...m, face, applied:add, label:'+'+face.n+'% → +'+add };
+    }
+    return { ...m, face, applied:0, label:'?' };
+  });
+  return { flatMods, pctMods, modBreakdown };
+}
+
 /* ================= ROUND RESOLUTION ================= */
 function resolveRound(g){
   const r = g.round;
   const actions = (g.rounds && g.rounds[r] && g.rounds[r].actions) || {};
-  if (PIDS.some(p=>!actions[p])) return g;
+  if (PIDS.some(p=>!actionLocked(actions[p]))) return g;
   if (g.rounds[r].result) return g;
   const parId = g.schedule[r-1];
   const humans = PIDS.filter(p=>p!==parId);
   const pAct = actions[parId];
 
-  // --- humans: energy spends ---
+  // --- humans: energy spends (dice already rolled by each player) ---
   humans.forEach(h=>{
     const a = actions[h], pl = g.players[h];
     let spent = 0;
     const forges = a.forges || [];
     spent += forges.length * CFG.forgeCost;
     applyHumanForges(pl, forges);
-    if (a.addDie && pl.dice.length < CFG.maxHumanDice){
+    if (a.addDie && canAddColor(pl, a.addDie, null)){
       spent += CFG.addDieCost;
-      pl.dice.push({ id: uid(a.addDie[0]), color: a.addDie, faces: stdFaces() });
+      const fromRoll = (a.rolls||[]).find(d=>d.tempNew);
+      const newId = fromRoll ? fromRoll.dieId : uid(a.addDie[0]);
+      pl.dice.push({ id: newId, color: a.addDie, faces: stdFaces() });
     }
-    let rerolls = Math.max(0, a.rerolls||0);
+    const rerolls = Math.max(0, a.rerollBuys||0);
     spent += rerolls * CFG.rerollCost;
     if (a.buyFreeReroll && !pl.perks.freeReroll){
       spent += CFG.freeRerollPerkCost;
       pl.perks.freeReroll = true;
     }
     pl.energy = Math.max(0, (pl.energy||0) - spent);
-    a._rerollCharges = rerolls + (pl.perks.freeReroll ? 1 : 0);
   });
 
   // --- parasite: stipend, forced growth, optional spends ---
@@ -509,8 +691,9 @@ function resolveRound(g){
     if (growth){
       applyForcedGrowth(g.parasite, growth);
       g.parasite.mutations = (g.parasite.mutations||0) + 1;
+      if (growth.unleash || growth.spicy) pl.energy += CFG.unleashGrowthBonus;
     }
-    const rerolls = Math.max(0, pAct.rerolls||0);
+    const rerolls = Math.max(0, pAct.rerollBuys||0);
     spent += rerolls * CFG.rerollCost;
     const temp = Math.max(0, Math.min(pAct.tempAttack||0, CFG.tempAttackMax));
     spent += temp * CFG.tempAttackCost;
@@ -526,79 +709,22 @@ function resolveRound(g){
       }
     }
     pl.energy = Math.max(0, pl.energy - spent);
-    pAct._rerollCharges = rerolls;
     pAct._tempAttack = temp;
   }
 
-  // --- roll human dice ---
+  // --- use each player's locked-in rolls ---
   const rolls = {}; let humanTotal = 0;
   humans.forEach(h=>{
-    const a = actions[h], pl = g.players[h];
-    const dieRolls = pl.dice.map(d=>{
-      const rolled = rollFace(d.faces);
-      return { dieId:d.id, color:d.color, faces:deep(d.faces), index:rolled.index, v:rolled.value, first:rolled.value, rerolled:false };
-    });
-    // auto-spend reroll charges on lowest results
-    let charges = a._rerollCharges || 0;
-    while (charges > 0 && dieRolls.length){
-      dieRolls.sort((a,b)=>a.v-b.v);
-      const target = dieRolls[0];
-      const avg = faceAvg(target.faces);
-      if (target.v >= avg) break; // don't waste on average-or-better
-      const again = rollFace(target.faces);
-      target.first = target.v;
-      target.v = again.value;
-      target.index = again.index;
-      target.rerolled = true;
-      charges--;
-    }
+    const dieRolls = deep(actions[h].rolls || []);
     rolls[h] = dieRolls;
-    humanTotal += dieRolls.reduce((s,d)=>s+d.v, 0);
+    humanTotal += dieRolls.reduce((s,d)=>s+(d.v||0), 0);
   });
 
-  // --- roll parasite attack + modifiers ---
-  const base = CFG.parasiteBase(r);
-  const attackDice = deep(g.parasite.attack);
-  for (let i=0;i<(pAct._tempAttack||0);i++){
-    attackDice.push({ id:'temp'+i, faces:stdFaces(), temp:true });
-  }
-  let aRolls = attackDice.map(d=>{
-    const rolled = rollFace(d.faces);
-    return { dieId:d.id, faces:deep(d.faces), index:rolled.index, v:rolled.value, first:rolled.value, rerolled:false, temp:!!d.temp };
-  });
-  let mRolls = (g.parasite.modifiers||[]).map(d=>{
-    const rolled = rollModFace(d.faces);
-    return { dieId:d.id, faces:deep(d.faces), index:rolled.index, face:rolled.face, first:deep(rolled.face), rerolled:false };
-  });
-
-  // parasite rerolls: spend on lowest attack first, then blank mods
-  let pCharges = pAct._rerollCharges || 0;
-  while (pCharges > 0){
-    const lowAtk = [...aRolls].sort((a,b)=>a.v-b.v)[0];
-    const blankMod = mRolls.find(m=>m.face.type==='blank');
-    if (lowAtk && lowAtk.v < faceAvg(lowAtk.faces)){
-      const again = rollFace(lowAtk.faces);
-      lowAtk.first = lowAtk.v; lowAtk.v = again.value; lowAtk.index = again.index; lowAtk.rerolled = true;
-      pCharges--;
-    } else if (blankMod){
-      const again = rollModFace(blankMod.faces);
-      blankMod.first = deep(blankMod.face); blankMod.face = again.face; blankMod.index = again.index; blankMod.rerolled = true;
-      pCharges--;
-    } else break;
-  }
-
-  const attackSum = aRolls.reduce((s,d)=>s+d.v, 0);
-  let flatMods = 0, pctMods = 0;
-  const modBreakdown = [];
-  mRolls.forEach(m=>{
-    if (m.face.type==='blank'){ modBreakdown.push({ ...m, applied:0, label:'blank' }); }
-    else if (m.face.type==='flat'){ flatMods += m.face.n; modBreakdown.push({ ...m, applied:m.face.n, label:'+'+m.face.n }); }
-    else if (m.face.type==='pct'){
-      const add = Math.floor(attackSum * m.face.n / 100);
-      pctMods += add;
-      modBreakdown.push({ ...m, applied:add, label:'+'+m.face.n+'% → +'+add });
-    }
-  });
+  const base = parasiteBaseNow(r, g.parasite);
+  let aRolls = deep(pAct.aRolls || []);
+  let mRolls = deep(pAct.mRolls || []);
+  const attackSum = aRolls.reduce((s,d)=>s+(d.v||0), 0);
+  const { flatMods, pctMods, modBreakdown } = enrichModRolls(mRolls, attackSum);
   const parTotal = base + attackSum + flatMods + pctMods;
 
   // --- outcome & awards ---
@@ -606,6 +732,7 @@ function resolveRound(g){
   const awards = {}; PIDS.forEach(p=>awards[p]={pts:0, energy:0, tags:[]});
   let mvp = null;
   let winMutation = null;
+  let adaptGain = 0;
   if (humansWin){
     humans.forEach(h=>{ awards[h].pts += CFG.humanWinPts(r); awards[h].energy += CFG.humanWinEn; });
     mvp = humans.reduce((a,b)=>{
@@ -614,6 +741,12 @@ function resolveRound(g){
     });
     awards[mvp].pts += CFG.mvpPts(r); awards[mvp].tags.push('mvp');
     awards[parId].energy += CFG.parLossEn;
+    // Auto-balance: crew stomps feed the next host's base
+    const margin = humanTotal - parTotal;
+    if (margin > CFG.adaptMargin){
+      adaptGain = CFG.adaptGain(margin);
+      g.parasite.adaptBase = (g.parasite.adaptBase||0) + adaptGain;
+    }
   } else {
     awards[parId].pts += CFG.parasiteWinPts(r);
     awards[parId].energy += CFG.parWinEn;
@@ -634,9 +767,14 @@ function resolveRound(g){
       awards[best[0].h].tags.push('cat-'+c);
     } else cats[c] = null;
   });
-  // round stipend for everyone
+  // round stipend + underdog Energy (last place stays in the fight)
+  const minPts = Math.min(...PIDS.map(p=>g.players[p].pts + awards[p].pts));
   PIDS.forEach(p=>{
     awards[p].energy += CFG.roundStipend;
+    if ((g.players[p].pts + awards[p].pts) === minPts){
+      awards[p].energy += CFG.underdogEnergy;
+      awards[p].tags.push('underdog');
+    }
     g.players[p].pts += awards[p].pts;
     g.players[p].energy += awards[p].energy;
   });
@@ -648,6 +786,8 @@ function resolveRound(g){
     growth: pAct.growth || null,
     tempAttack: pAct._tempAttack||0,
     winMutation,
+    adaptGain,
+    adaptBaseAfter: g.parasite.adaptBase||0,
     parasiteAfter: deep(g.parasite),
     resolvedAt: Date.now(),
   };
@@ -674,6 +814,7 @@ function initFirebase(){
       return;
     }
     v.parasite = v.parasite || starterParasite();
+    v.parasite.adaptBase = v.parasite.adaptBase || 0;
     PIDS.forEach(p=>{
       if (!v.players[p]) return;
       v.players[p].energy = v.players[p].energy ?? v.players[p].tokens ?? CFG.startEnergy;
@@ -681,7 +822,7 @@ function initFirebase(){
       if (!Array.isArray(v.players[p].dice)) v.players[p].dice = starterDice();
     });
     G = v;
-    if (G.round !== cartRound){ cart = null; ui = { selectedDie:null, selectedFace:null, selectedModFace:null }; }
+    if (G.round !== cartRound){ cart = null; session = null; ui = { selectedDie:null, selectedFace:null, selectedModFace:null }; }
     maybeResolve();
     render();
   });
@@ -690,14 +831,14 @@ function maybeResolve(retry){
   if (!G || G.status!=='active') return;
   const rd = G.rounds[G.round];
   if (!rd || rd.result) return;
-  if (PIDS.some(p=>!(rd.actions&&rd.actions[p]))) return;
+  if (PIDS.some(p=>!actionLocked(rd.actions&&rd.actions[p]))) return;
   gameRef.transaction(g=>{
     if (!g) return g;
     if ((g.schema||1) < SCHEMA) return g;
     g.rounds = g.rounds || {};
     if (!g.rounds[g.round] || g.rounds[g.round].result) return g;
     const acts = g.rounds[g.round].actions || {};
-    if (PIDS.some(p=>!acts[p])) return g;
+    if (PIDS.some(p=>!actionLocked(acts[p]))) return g;
     return resolveRound(g);
   }, (err)=>{
     if (err && !retry) setTimeout(()=>maybeResolve(true), 1500);
@@ -715,20 +856,21 @@ function startNewGame(){
 /* ================= CART ================= */
 function freshCart(isParasite){
   return isParasite
-    ? { growth:null, rerolls:0, tempAttack:0, pushMod:false }
-    : { forges:[], addDie:null, rerolls:0, buyFreeReroll:false };
+    ? { growth:null, tempAttack:0, pushMod:false }
+    : { forges:[], addDie:null, buyFreeReroll:false };
 }
 function cartCost(isParasite){
   if (!cart) return 0;
   if (isParasite){
-    let c = cart.rerolls * CFG.rerollCost + cart.tempAttack * CFG.tempAttackCost;
+    let c = (cart.tempAttack||0) * CFG.tempAttackCost;
     if (cart.pushMod) c += CFG.pushModCost;
+    if (session && session.paidRerolls) c += session.paidRerolls * CFG.rerollCost;
     return c;
   }
   let c = (cart.forges||[]).length * CFG.forgeCost;
   if (cart.addDie) c += CFG.addDieCost;
-  c += (cart.rerolls||0) * CFG.rerollCost;
   if (cart.buyFreeReroll) c += CFG.freeRerollPerkCost;
+  if (session && session.paidRerolls) c += session.paidRerolls * CFG.rerollCost;
   return c;
 }
 function myBudget(isParasite){ return (G.players[me].energy||0) + (isParasite?CFG.parasiteStipend:0); }
@@ -736,6 +878,32 @@ function forgedSetFromCart(){
   const s = new Set();
   (cart.forges||[]).forEach(f=>s.add(f.dieId+':'+f.faceIndex));
   return s;
+}
+function freeRerollThisRound(isParasite){
+  const pl = G.players[me];
+  return !!(pl.perks && pl.perks.freeReroll) || (!isParasite && cart && cart.buyFreeReroll);
+}
+function energyLeft(isParasite){ return myBudget(isParasite) - cartCost(isParasite); }
+function canAffordReroll(isParasite){
+  if (!session) return false;
+  if ((session.freeLeft||0) > 0) return true;
+  return energyLeft(isParasite) >= CFG.rerollCost;
+}
+function spendRerollCharge(isParasite){
+  if (!session) return false;
+  if ((session.freeLeft||0) > 0){ session.freeLeft--; return true; }
+  if (energyLeft(isParasite) >= CFG.rerollCost){
+    session.paidRerolls = (session.paidRerolls||0) + 1;
+    return true;
+  }
+  return false;
+}
+function resetSessionForRound(r, isPar){
+  if (!cart || cartRound!==r){ cart = freshCart(isPar); cartRound = r; }
+  if (!session || session.round!==r){
+    session = { round:r, phase:'upgrade', rolls:null, aRolls:null, mRolls:null, paidRerolls:0, freeLeft:0, shake:false, selectedRoll:null };
+    ui = { selectedDie:null, selectedFace:null, selectedModFace:null };
+  }
 }
 
 /* ================= RENDER ================= */
@@ -753,8 +921,8 @@ function render(){
     app.innerHTML = `<div style="padding-top:12vh" class="center">
       <div class="brand-hero">Space Tribes: <span>Parasite</span></div>
       <div class="panel" style="margin-top:18px;text-align:left">
-        <h3>Energy update ready</h3>
-        <p class="small">The game now uses Energy, forged die faces, and parasite modifier dice. Your old save can't load — start a fresh game for the crew.</p>
+        <h3>Game update ready</h3>
+        <p class="small">Turns are now Upgrade → Roll → Lock in. Start a fresh game so everyone is on the new rules.</p>
         <button class="btn" onclick="startNewGame()">🚀 Start new game</button>
       </div>
     </div>`;
@@ -816,16 +984,66 @@ function parasitePanelHTML(r){
   const p = G.parasite;
   const evo = evoStage(p.mutations||0);
   const threat = expectedParThreat(p, r);
+  const base = parasiteBaseNow(r, p);
+  const adapt = p.adaptBase||0;
   return `<div class="panel parasite-stage">
-    <span class="parasite-emoji" style="font-size:${evo.size}px">${evo.emoji}</span>
+    ${brainParasiteSVG(evo.size, evo.stage)}
     <div class="p-name">${evo.name}</div>
-    <div class="p-base">Base <b>${CFG.parasiteBase(r)}</b> · ~threat <b>${threat}</b> · mutations <b>${p.mutations||0}</b></div>
+    <div class="p-tagline">${evo.tag}</div>
+    <div class="p-base">Base <b>${base}</b>${adapt?` <span style="color:var(--danger)">(adapt +${adapt})</span>`:''} · threat <b>${threat}</b> · mut <b>${p.mutations||0}</b></div>
     <div class="lane-label">Attack dice</div>
     <div class="dice-row" style="margin:4px 0">
-      ${(p.attack||[]).map(d=>`<div class="die-wrap">${dieHTML('attack', null)}<div class="die-sub">${d.faces.join('·')}</div></div>`).join('')}
+      ${(p.attack||[]).map(d=>`<div class="die-wrap">${dieHTML('attack', Math.max(...d.faces))}<div class="die-sub">${d.faces.join('·')}</div></div>`).join('')}
     </div>
     <div class="lane-label">Modifier dice</div>
     ${(p.modifiers||[]).map(d=>`<div>${modFacesStripHTML(d.faces)}</div>`).join('')}
+  </div>`;
+}
+
+function turnCoachHTML(isPar, phase, late){
+  const step = phase === 'roll' ? 'Step 2 of 2' : 'Step 1 of 2';
+  if (isPar){
+    if (phase === 'roll'){
+      return `<div class="turn-coach parasite">
+        <div class="step">${step} · Parasite</div>
+        <div class="title">Roll the infestation</div>
+        <div class="how">Tap a die to select it, then hit <b>Re-roll</b> (⚡${CFG.rerollCost}). When happy, <b>Lock in</b>.</div>
+      </div>`;
+    }
+    return `<div class="turn-coach parasite">
+      <div class="step">${step} · Parasite</div>
+      <div class="title">Grow, then roll</div>
+      <div class="how">Pick <b>CONTAIN</b> or <b>UNLEASH</b> (required). Spend leftover Energy on boosts — then roll.</div>
+    </div>`;
+  }
+  if (phase === 'roll'){
+    return `<div class="turn-coach">
+      <div class="step">${step} · Crew${late?' · Critical':''}</div>
+      <div class="title">Roll your dice</div>
+      <div class="how">Tap a die to select it, then hit <b>Re-roll</b> (⚡${CFG.rerollCost}). When happy, <b>Lock in</b>.</div>
+    </div>`;
+  }
+  return `<div class="turn-coach">
+    <div class="step">${step} · Crew${late?' · Critical':''}</div>
+    <div class="title">Upgrade your dice</div>
+    <div class="how">Tap a die → tap a face → <b>Forge</b> (+1). Or buy an extra die. Unspent Energy banks. Then roll.</div>
+  </div>`;
+}
+
+function scoreboardHTML(){
+  const ranked = [...PIDS].sort((a,b)=>(G.players[b].pts||0)-(G.players[a].pts||0));
+  const nextPar = G.schedule[G.round-1];
+  return `<div class="panel" style="padding:10px 12px">
+    <div class="lane-label" style="margin-top:0">Standings — open scores</div>
+    ${ranked.map((p,i)=>{
+      const lead = i===0 ? 'color:var(--energy)' : '';
+      const host = p===nextPar ? ' <span class="small" style="color:var(--bio)">hosts now</span>' : '';
+      return `<div class="award-row">
+        <span class="who">${PLAYERS[p].emoji} ${PLAYERS[p].name}${host}</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-weight:800;${lead}">${G.players[p].pts||0}</span>
+      </div>`;
+    }).join('')}
+    <div class="small center" style="margin-top:6px">See who’s ahead — don’t gift them an easy parasite win. Save Energy for clutch rerolls.</div>
   </div>`;
 }
 
@@ -837,28 +1055,28 @@ function topbarHTML(){
     </button>
     <div style="display:flex;gap:7px">
       <div class="stat-chip energy">⚡ ${pl.energy||0}</div>
-      <div class="stat-chip pts" onclick="togglePts()" id="ptsChip">${window._showPts?`⭐ ${pl.pts}`:'⭐ <span class="secret">•••</span>'}</div>
+      <div class="stat-chip pts">⭐ ${pl.pts||0}</div>
     </div>
   </div>`;
 }
-function togglePts(){ window._showPts = !window._showPts; render(); }
 function switchChar(){ if (confirm('Switch to a different crew member on this phone?')){ me=null; localStorage.removeItem('stp_me'); render(); } }
 
 function gameScreen(){
   const r = G.round, parId = G.schedule[r-1], isPar = parId===me, late = r>=5;
   const myAct = G.rounds[r] && G.rounds[r].actions && G.rounds[r].actions[me];
-  if (!cart || cartRound!==r){ cart = freshCart(isPar); cartRound = r; ui = { selectedDie:null, selectedFace:null, selectedModFace:null }; }
+  resetSessionForRound(r, isPar);
 
   let body;
-  if (myAct) body = waitingHTML(r);
+  if (actionLocked(myAct)) body = waitingHTML(r);
+  else if (session.phase === 'roll') body = isPar ? parasiteRollHTML(r) : humanRollHTML(r);
   else body = isPar ? parasiteShopHTML(r) : humanShopHTML(r);
 
   return `${topbarHTML()}
     ${roundStripHTML()}
-    <div class="role-banner ${isPar?'parasite':'human'}">
-      <div class="big">${isPar ? 'THE PARASITE IS IN YOU' : `Round ${r} — ${PLAYERS[parId].name} hosts`}</div>
-      <div class="sub">${late ? 'CRITICAL PHASE — rewards boosted' : 'Infestation phase'} · Round ${r} of ${TOTAL_ROUNDS}</div>
-    </div>
+    ${scoreboardHTML()}
+    ${turnCoachHTML(isPar, session.phase, late)}
+    ${isPar ? `<div class="hint" style="margin-top:-4px">You are the host — Round ${r}/${TOTAL_ROUNDS}${late?' · Critical rewards':''}</div>`
+      : `<div class="hint" style="margin-top:-4px">${PLAYERS[parId].name} hosts · Round ${r}/${TOTAL_ROUNDS}${late?' · Critical rewards':''}</div>`}
     ${parasitePanelHTML(r)}
     ${body}
     ${historyHTML()}
@@ -876,13 +1094,13 @@ function humanShopHTML(r){
 
   return `<div class="panel">
     <h3 class="mt0">Forge your dice</h3>
-    <p class="small">Tap a die, tap a face, spend ⚡ to bump that face. Unspent Energy banks forever.</p>
+    <p class="small">Tap die → tap face → Forge (+1). Leftover Energy banks.</p>
     <div class="dice-row">
       ${preview.map(d=>{
         const real = d.id!=='preview';
         const cls = ui.selectedDie===d.id ? 'selected' : '';
         return `<div class="die-wrap ${cls}" ${real?`onclick="selectDie('${d.id}')"`:''}>
-          ${dieHTML(d.color, null)}
+          ${dieHTML(d.color, Math.max(...d.faces))}
           <div class="die-label ${d.color}">${COLOR_META[d.color].icon} ${COLOR_META[d.color].name}</div>
           <div class="die-sub">${d.faces.join('·')}</div>
         </div>`;
@@ -892,7 +1110,7 @@ function humanShopHTML(r){
       <div class="lane-label">Faces — tap to queue forge (+1)</div>
       ${facesStripHTML(sel.faces, { dieId:sel.id, selectable:true, picked: ui.selectedFace, forgedSet: forged })}
       <button class="buy-btn" style="width:100%;margin-top:6px" onclick="queueForge()"
-        ${!ui.selectedFace || left < CFG.forgeCost || (sel.faces[ui.selectedFace.faceIndex]>=CFG.faceCap)?'disabled':''}>
+        ${!ui.selectedFace || left < CFG.forgeCost?'disabled':''}>
         Forge face ⚡${CFG.forgeCost}
       </button>
       ${(cart.forges||[]).length?`<button class="btn ghost" style="margin-top:8px;padding:10px" onclick="undoForge()">Undo last forge</button>`:''}
@@ -900,34 +1118,25 @@ function humanShopHTML(r){
 
     <h3 style="margin-top:16px">Energy spends</h3>
     <div class="shop-item">
-      <div><div class="si-name">➕ Add a die</div>
-      <div class="si-desc">New 1–6 die (${pl.dice.length + (cart.addDie?1:0)}/${CFG.maxHumanDice})</div></div>
+      <div><div class="si-name">➕ Extra die (max 1 per category)</div>
+      <div class="si-desc">${COLORS.map(c=>`${COLOR_META[c].icon} ${countColor(pl.dice,c)+(cart.addDie===c?1:0)}/${CFG.maxDicePerColor}`).join(' · ')}</div></div>
       ${cart.addDie
         ? `<button class="buy-btn owned" onclick="clearAddDie()">✓ ${COLOR_META[cart.addDie].name}</button>`
         : `<div style="display:flex;gap:4px">${COLORS.map(c=>`
-            <button class="buy-btn" onclick="setAddDie('${c}')" ${pl.dice.length>=CFG.maxHumanDice||left<CFG.addDieCost?'disabled':''} title="${COLOR_META[c].name}">${COLOR_META[c].icon}</button>`).join('')}</div>`}
-    </div>
-    <div class="shop-item">
-      <div><div class="si-name">♻️ Battle rerolls</div>
-      <div class="si-desc">Auto-reroll your lowest weak rolls · ⚡${CFG.rerollCost} each</div></div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button class="buy-btn" onclick="humReroll(-1)" ${cart.rerolls<=0?'disabled':''}>−</button>
-        <b style="font-family:'IBM Plex Mono',monospace">${cart.rerolls}</b>
-        <button class="buy-btn" onclick="humReroll(1)" ${left<CFG.rerollCost?'disabled':''}>+</button>
-      </div>
+            <button class="buy-btn" onclick="setAddDie('${c}')" ${!canAddColor(pl,c,null)||left<CFG.addDieCost?'disabled':''} title="${COLOR_META[c].name}">${COLOR_META[c].icon}</button>`).join('')}</div>`}
     </div>
     <div class="shop-item">
       <div><div class="si-name">♾️ Free reroll forever</div>
-      <div class="si-desc">+1 reroll charge every round, lasting</div></div>
+      <div class="si-desc">Once per round, your first reroll is free</div></div>
       ${pl.perks.freeReroll
         ? `<button class="buy-btn owned">✓ OWNED</button>`
         : `<button class="buy-btn ${cart.buyFreeReroll?'owned':''}" onclick="toggleFreeReroll()" ${!cart.buyFreeReroll&&left<CFG.freeRerollPerkCost?'disabled':''}>
             ${cart.buyFreeReroll?'✓ QUEUED':'⚡'+CFG.freeRerollPerkCost}
           </button>`}
     </div>
-    <div class="spent-preview">Spend ⚡${cost} · bank ⚡${left} after lock-in</div>
+    <div class="spent-preview">Upgrade spend ⚡${cost} · ⚡${left} left for rerolls (or next round)</div>
   </div>
-  <div class="fixed-cta"><button class="btn" onclick="doSubmitHuman()">Lock in &amp; wait for battle</button></div>`;
+  <div class="fixed-cta"><button class="btn" onclick="beginHumanRoll()">Done upgrading — Roll</button></div>`;
 }
 function selectDie(id){
   ui.selectedDie = id;
@@ -954,30 +1163,98 @@ function undoForge(){
   render();
 }
 function setAddDie(c){
+  if (!canAddColor(G.players[me], c, null)) return;
   cart.addDie = c;
   if (cartCost(false) > myBudget(false)) cart.addDie = null;
   render();
 }
 function clearAddDie(){ cart.addDie = null; render(); }
-function humReroll(delta){
-  cart.rerolls = Math.max(0, (cart.rerolls||0)+delta);
-  if (cartCost(false) > myBudget(false)) cart.rerolls = Math.max(0, cart.rerolls-1);
-  render();
-}
 function toggleFreeReroll(){
   cart.buyFreeReroll = !cart.buyFreeReroll;
   if (cartCost(false) > myBudget(false)) cart.buyFreeReroll = false;
   render();
 }
-function doSubmitHuman(){
+function beginHumanRoll(){
+  const dice = previewHumanDice(G.players[me], cart);
+  dice.forEach(d=>{
+    if (d.id==='preview'){ d.id = uid(d.color[0]); d.tempNew = true; }
+  });
+  const rolls = dice.map(d=>{
+    const rolled = rollFace(d.faces);
+    return { dieId:d.id, color:d.color, faces:deep(d.faces), index:rolled.index, v:rolled.value, first:rolled.value, rerolled:false, tempNew:!!d.tempNew };
+  });
+  session.phase = 'roll';
+  session.rolls = rolls;
+  session.paidRerolls = 0;
+  session.freeLeft = freeRerollThisRound(false) ? 1 : 0;
+  session.selectedRoll = null;
+  session.shake = true;
+  render();
+  setTimeout(()=>{ if (session) session.shake = false; render(); }, 700);
+}
+function humanRollHTML(r){
+  const cost = cartCost(false), budget = myBudget(false), left = budget - cost;
+  const rolls = session.rolls || [];
+  const total = rolls.reduce((s,d)=>s+d.v, 0);
+  const free = session.freeLeft||0;
+  const sel = session.selectedRoll;
+  const canReroll = canAffordReroll(false) && sel!=null && sel.type==='human';
+  const rerollLabel = free ? `Re-roll selected (free)` : `Re-roll selected ⚡${CFG.rerollCost}`;
+  return `<div class="panel">
+    <h3 class="mt0">Your roll</h3>
+    <p class="hint">Tap a die to select it, then press Re-roll.${free?` You have <b style="color:var(--energy)">1 free</b>.`:''}</p>
+    <div class="dice-row">
+      ${rolls.map((d,i)=>{
+        const picked = sel && sel.type==='human' && sel.index===i;
+        return `<div class="die-wrap can-pick ${picked?'selected':''}" onclick="pickHumanRoll(${i})">
+          ${dieHTML(d.color, session.shake?null:d.v, session.shake?'rolling':'')}
+          <div class="die-label ${d.color}">${COLOR_META[d.color].name}</div>
+          <div class="die-sub">${d.rerolled?`${d.first}→${d.v}`:''}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <button class="btn reroll" onclick="confirmRerollHuman()" ${canReroll?'':'disabled'}>${rerollLabel}</button>
+    <div class="center total-big crew">${total}</div>
+    <div class="spent-preview">⚡${left} left · paid rerolls ${session.paidRerolls||0}${free?` · free ${free}`:''}</div>
+  </div>
+  <div class="fixed-cta"><button class="btn" onclick="lockHumanRoll()">Lock in final roll</button></div>`;
+}
+function pickHumanRoll(i){
+  if (!session || session.phase!=='roll' || session.shake) return;
+  session.selectedRoll = { type:'human', index:i };
+  render();
+}
+function confirmRerollHuman(){
+  if (!session || !session.selectedRoll || session.selectedRoll.type!=='human') return;
+  rerollHumanDie(session.selectedRoll.index);
+}
+function rerollHumanDie(i){
+  if (!session || session.phase!=='roll') return;
+  if (!canAffordReroll(false)) return;
+  const d = session.rolls[i];
+  if (!d) return;
+  if (!spendRerollCharge(false)) return;
+  const again = rollFace(d.faces);
+  d.first = d.v;
+  d.v = again.value;
+  d.index = again.index;
+  d.rerolled = true;
+  session.shake = false;
+  session.selectedRoll = { type:'human', index:i };
+  render();
+}
+function lockHumanRoll(){
   submitAction({
     role:'human',
+    phase:'locked',
     forges: cart.forges||[],
     addDie: cart.addDie||null,
-    rerolls: cart.rerolls||0,
+    rerollBuys: session.paidRerolls||0,
     buyFreeReroll: !!cart.buyFreeReroll,
+    rolls: session.rolls,
     at: Date.now(),
   });
+  session = { round:G.round, phase:'upgrade', rolls:null, aRolls:null, mRolls:null, paidRerolls:0, freeLeft:0, shake:false, selectedRoll:null };
 }
 
 /* ---------- parasite shop ---------- */
@@ -987,52 +1264,90 @@ function parasiteShopHTML(r){
   const g = cart.growth;
   const must = !g;
 
-  const attackOpts = (p.attack||[]).map((d, di)=>
-    d.faces.map((v,i)=>({
-      key: `atk-${d.id}-${i}`,
-      growth: { kind:'attack', dieId:d.id, faceIndex:i },
-      title: `Feed attack die ${di+1} · face ${v} → ${Math.min(CFG.faceCap, v+1)}`,
-      desc: `Bump this attack face (+1). Safer for future hosts than feeding modifiers.`,
-      disabled: v >= CFG.faceCap,
-    }))
-  ).flat();
+  const attackOpts = (p.attack||[]).map((d, di)=>{
+    // Offer bumping the highest face (+2) — quieter Contain growth
+    const fi = d.faces.reduce((best,v,i)=> v>=d.faces[best] ? i : best, 0);
+    const v = d.faces[fi];
+    return {
+      key: `atk-${d.id}-${fi}`,
+      growth: { kind:'attack', dieId:d.id, faceIndex:fi, amount:2, unleash:false },
+      title: `CONTAIN · Feed attack die ${di+1}`,
+      desc: `Bump highest face ${v} → ${v+2}. Reliable, quieter for future hosts.`,
+      disabled: false,
+      tag:'contain',
+    };
+  });
 
-  const modBlankOpts = (p.modifiers||[]).flatMap(d=>
-    d.faces.map((f,i)=>({ f, i, d })).filter(x=>x.f.type==='blank').flatMap(({i,d})=>[
+  const modBlankOpts = (p.modifiers||[]).flatMap((d, di)=>{
+    const blank = d.faces.findIndex(f=>f.type==='blank');
+    if (blank < 0) return [];
+    return [
       {
-        key: `blank5-${d.id}-${i}`,
-        growth: { kind:'modBlank', dieId:d.id, faceIndex:i, newFace:{ type:'flat', n:5 } },
-        title: `Modifier blank → +5 base`,
-        desc: `Replace a blank with flat +5 to parasite damage`,
+        key: `blank5-${d.id}`,
+        growth: { kind:'modBlank', dieId:d.id, faceIndex:blank, newFace:{ type:'flat', n:5 }, unleash:false },
+        title: `CONTAIN · Mod ${di+1} blank → +5`,
+        desc: `Flat damage every time this face hits. Steady power.`,
+        tag:'contain',
       },
       {
-        key: `blank10-${d.id}-${i}`,
-        growth: { kind:'modBlank', dieId:d.id, faceIndex:i, newFace:{ type:'pct', n:10 } },
-        title: `Modifier blank → +10%`,
-        desc: `Replace a blank with +10% of attack sum`,
+        key: `blank15-${d.id}`,
+        growth: { kind:'modBlank', dieId:d.id, faceIndex:blank, newFace:{ type:'pct', n:15 }, unleash:true },
+        title: `UNLEASH · Mod ${di+1} blank → +15%  (+⚡${CFG.unleashGrowthBonus})`,
+        desc: `Swingy. Hot attack rolls feast — and the next host inherits it.`,
+        tag:'unleash',
       },
-    ])
-  );
+    ];
+  });
 
-  const expandOpts = (p.modifiers||[]).filter(d=>d.faces.length < 8).map(d=>({
+  const expandOpts = (p.modifiers||[]).filter(d=>d.faces.length < 8).map((d, di)=>({
     key: `exp-${d.id}`,
-    growth: { kind:'modExpand', dieId:d.id, newFace:{ type:'pct', n:25 } },
-    title: `Expand modifier to ${Math.min(8, d.faces.length+2)} sides`,
-    desc: `Add a blank and a +25% face (dangerous for future hosts)`,
+    growth: { kind:'modExpand', dieId:d.id, newFace:{ type:'pct', n:25 }, unleash:true },
+    title: `UNLEASH · Expand mod ${di+1}  (+⚡${CFG.unleashGrowthBonus})`,
+    desc: `Add a blank and a +25% face. Ceiling goes up; so does future pain.`,
+    tag:'unleash',
   }));
 
-  const allOpts = [...attackOpts.slice(0, 8), ...modBlankOpts.slice(0, 6), ...expandOpts];
+  const specialOpts = [];
+  (p.attack||[]).forEach((d, di)=>{
+    specialOpts.push({
+      key: `surge-${d.id}`,
+      growth: { kind:'atkSurge', dieId:d.id, unleash:true },
+      title: `UNLEASH · Surge attack die ${di+1}  (+⚡${CFG.unleashGrowthBonus})`,
+      desc: `+1 to every face on this die (${d.faces.join('·')} → ${d.faces.map(v=>v+1).join('·')}). Same fantasy as crew forging — louder.`,
+      tag:'unleash',
+    });
+  });
+  if ((p.modifiers||[]).length < CFG.maxParMods){
+    specialOpts.push({
+      key: 'newmod',
+      growth: { kind:'newMod', unleash:true },
+      title: `UNLEASH · Spawn 2nd modifier die  (+⚡${CFG.unleashGrowthBonus})`,
+      desc: `A whole new mutation die (blanks + +5 / +15% / +25%). Huge for you tonight — and forever.`,
+      tag:'unleash',
+    });
+  }
+  if ((p.attack||[]).length < CFG.maxParAttack){
+    specialOpts.push({
+      key: 'atkdie',
+      growth: { kind:'atkDie', unleash:true },
+      title: `UNLEASH · Grow an extra attack die  (+⚡${CFG.unleashGrowthBonus})`,
+      desc: `Permanent extra attack die starting 2–7. Loud. Hard to walk back.`,
+      tag:'unleash',
+    });
+  }
+
+  const allOpts = [...attackOpts, ...modBlankOpts, ...expandOpts, ...specialOpts];
   window._growthOpts = allOpts;
 
   return `<div class="panel">
     <div class="center small" style="margin-bottom:8px">Parasite surge: <b style="color:var(--energy)">+${CFG.parasiteStipend} Energy</b>. Win pays <b style="color:var(--danger)">${CFG.parasiteWinPts(r)} pts</b>.</div>
-    <div class="warn-box">You <b>must</b> grow the parasite — attack die or modifier. Win tonight… without arming the next host too hard.</div>
+    <div class="warn-box">You <b>must</b> grow it. <b>CONTAIN</b> = safer ship. <b>UNLEASH</b> = win tonight (+⚡${CFG.unleashGrowthBonus}) but arms future hosts.</div>
 
     <h3 class="mt0">Forced growth</h3>
     <div class="growth-grid">
       ${allOpts.map((o, idx)=>{
         const picked = g && JSON.stringify(g)===JSON.stringify(o.growth);
-        return `<button class="growth-opt ${picked?'picked':''}" onclick="pickGrowthIdx(${idx})" ${o.disabled?'disabled':''}>
+        return `<button class="growth-opt ${picked?'picked':''} ${o.tag||''}" onclick="pickGrowthIdx(${idx})" ${o.disabled?'disabled':''}>
           <div class="go-title">${esc(o.title)}</div>
           <div class="go-desc">${esc(o.desc)}</div>
         </button>`;
@@ -1040,14 +1355,6 @@ function parasiteShopHTML(r){
     </div>
 
     <h3>Optional Energy spends</h3>
-    <div class="shop-item">
-      <div><div class="si-name">♻️ Rerolls</div><div class="si-desc">Reroll weak attack or blank modifiers</div></div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <button class="buy-btn" onclick="parReroll(-1)" ${cart.rerolls<=0?'disabled':''}>−</button>
-        <b style="font-family:'IBM Plex Mono',monospace">${cart.rerolls}</b>
-        <button class="buy-btn" onclick="parReroll(1)" ${left<CFG.rerollCost?'disabled':''}>+</button>
-      </div>
-    </div>
     <div class="shop-item">
       <div><div class="si-name">🎲 Temp attack die</div><div class="si-desc">+1d6 this round only</div></div>
       <div style="display:flex;align-items:center;gap:8px">
@@ -1064,11 +1371,11 @@ function parasiteShopHTML(r){
         ${cart.pushMod?'✓ QUEUED':'⚡'+CFG.pushModCost}
       </button>
     </div>
-    <div class="spent-preview">Spend ⚡${cost} of ⚡${budget} · bank ⚡${left}</div>
+    <div class="spent-preview">Upgrade spend ⚡${cost} of ⚡${budget} · ⚡${left} left for rerolls (or next round)</div>
   </div>
   <div class="fixed-cta">
-    <button class="btn danger" onclick="doSubmitParasite()" ${must?'disabled':''}>
-      ${must ? 'Choose forced growth first' : 'Unleash the parasite'}
+    <button class="btn danger" onclick="beginParasiteRoll()" ${must?'disabled':''}>
+      ${must ? 'Choose forced growth first' : 'Done upgrading — Roll parasite'}
     </button>
   </div>`;
 }
@@ -1076,11 +1383,6 @@ function pickGrowthIdx(idx){
   const o = (window._growthOpts||[])[idx];
   if (!o || o.disabled) return;
   cart.growth = deep(o.growth);
-  render();
-}
-function parReroll(delta){
-  cart.rerolls = Math.max(0, cart.rerolls+delta);
-  if (cartCost(true) > myBudget(true)) cart.rerolls = Math.max(0, cart.rerolls-1);
   render();
 }
 function parTemp(delta){
@@ -1096,33 +1398,149 @@ function togglePushMod(){
   if (cartCost(true) > myBudget(true)) cart.pushMod = false;
   render();
 }
-function doSubmitParasite(){
+function previewParasiteDice(){
+  const p = deep(G.parasite);
+  if (cart.growth) applyForcedGrowth(p, cart.growth);
+  if (cart.pushMod){
+    const d = (p.modifiers||[]).find(x=>x.faces.some(f=>f.type==='blank'));
+    if (d){
+      const bi = d.faces.findIndex(f=>f.type==='blank');
+      if (bi>=0) d.faces[bi] = { type:'pct', n:25 };
+    }
+  }
+  const attack = deep(p.attack||[]);
+  for (let i=0;i<(cart.tempAttack||0);i++) attack.push({ id:'temp'+i, faces:stdFaces(), temp:true });
+  return { attack, modifiers: deep(p.modifiers||[]) };
+}
+function beginParasiteRoll(){
+  if (!cart.growth) return;
+  const { attack, modifiers } = previewParasiteDice();
+  session.aRolls = attack.map(d=>{
+    const rolled = rollFace(d.faces);
+    return { dieId:d.id, faces:deep(d.faces), index:rolled.index, v:rolled.value, first:rolled.value, rerolled:false, temp:!!d.temp };
+  });
+  session.mRolls = modifiers.map(d=>{
+    const rolled = rollModFace(d.faces);
+    return { dieId:d.id, faces:deep(d.faces), index:rolled.index, face:rolled.face, first:deep(rolled.face), rerolled:false };
+  });
+  session.phase = 'roll';
+  session.paidRerolls = 0;
+  session.freeLeft = freeRerollThisRound(true) ? 1 : 0;
+  session.selectedRoll = null;
+  session.shake = true;
+  render();
+  setTimeout(()=>{ if (session) session.shake = false; render(); }, 700);
+}
+function parasiteRollHTML(r){
+  const cost = cartCost(true), budget = myBudget(true), left = budget - cost;
+  const aRolls = session.aRolls || [];
+  const mRolls = session.mRolls || [];
+  const attackSum = aRolls.reduce((s,d)=>s+d.v,0);
+  const { flatMods, pctMods, modBreakdown } = enrichModRolls(mRolls, attackSum);
+  const base = parasiteBaseNow(r, G.parasite);
+  const total = base + attackSum + flatMods + pctMods;
+  const free = session.freeLeft||0;
+  const sel = session.selectedRoll;
+  const canReroll = canAffordReroll(true) && sel && (sel.type==='atk' || sel.type==='mod');
+  const rerollLabel = free ? `Re-roll selected (free)` : `Re-roll selected ⚡${CFG.rerollCost}`;
+  return `<div class="panel">
+    <h3 class="mt0">Parasite roll</h3>
+    <p class="hint">Tap a die to select it, then press Re-roll.${free?` You have <b style="color:var(--energy)">1 free</b>.`:''}</p>
+    <div class="lane-label">Attack</div>
+    <div class="dice-row">
+      ${aRolls.map((d,i)=>{
+        const picked = sel && sel.type==='atk' && sel.index===i;
+        return `<div class="die-wrap can-pick ${picked?'selected':''}" onclick="pickParRoll('atk',${i})">
+          ${dieHTML('attack', session.shake?null:d.v, session.shake?'rolling':'')}
+          <div class="die-sub">${d.rerolled?`${d.first}→${d.v}`:''}${d.temp?' · temp':''}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="lane-label">Modifiers</div>
+    <div class="dice-row">
+      ${mRolls.map((d,i)=>{
+        const picked = sel && sel.type==='mod' && sel.index===i;
+        return `<div class="die-wrap can-pick ${picked?'selected':''}" onclick="pickParRoll('mod',${i})">
+          ${dieHTML('mod', session.shake?'?':modFaceLabel(d.face), session.shake?'rolling':'')}
+          <div class="die-sub ${modFaceClass(d.face)}">${modBreakdown[i]?modBreakdown[i].label:modFaceLabel(d.face)}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <button class="btn reroll" onclick="confirmRerollPar()" ${canReroll?'':'disabled'}>${rerollLabel}</button>
+    <div class="small center" style="margin-top:8px">base ${base} + atk ${attackSum} + flat ${flatMods} + % ${pctMods}</div>
+    <div class="center total-big par">${total}</div>
+    <div class="spent-preview">⚡${left} left · paid rerolls ${session.paidRerolls||0}${free?` · free ${free}`:''}</div>
+  </div>
+  <div class="fixed-cta"><button class="btn danger" onclick="lockParasiteRoll()">Lock in final roll</button></div>`;
+}
+function pickParRoll(type, i){
+  if (!session || session.phase!=='roll' || session.shake) return;
+  session.selectedRoll = { type, index:i };
+  render();
+}
+function confirmRerollPar(){
+  if (!session || !session.selectedRoll) return;
+  if (session.selectedRoll.type==='atk') rerollParAtk(session.selectedRoll.index);
+  else if (session.selectedRoll.type==='mod') rerollParMod(session.selectedRoll.index);
+}
+function rerollParAtk(i){
+  if (!session || session.phase!=='roll') return;
+  if (!canAffordReroll(true)) return;
+  const d = session.aRolls[i]; if (!d) return;
+  if (!spendRerollCharge(true)) return;
+  const again = rollFace(d.faces);
+  d.first = d.v; d.v = again.value; d.index = again.index; d.rerolled = true;
+  session.selectedRoll = { type:'atk', index:i };
+  render();
+}
+function rerollParMod(i){
+  if (!session || session.phase!=='roll') return;
+  if (!canAffordReroll(true)) return;
+  const d = session.mRolls[i]; if (!d) return;
+  if (!spendRerollCharge(true)) return;
+  const again = rollModFace(d.faces);
+  d.first = deep(d.face); d.face = again.face; d.index = again.index; d.rerolled = true;
+  session.selectedRoll = { type:'mod', index:i };
+  render();
+}
+function lockParasiteRoll(){
   if (!cart.growth) return;
   const push = cart.pushMod ? {
     dieId: (G.parasite.modifiers.find(d=>d.faces.some(f=>f.type==='blank'))||{}).id,
     newFace: { type:'pct', n:25 },
   } : null;
+  const attackSum = (session.aRolls||[]).reduce((s,d)=>s+d.v,0);
+  const { modBreakdown } = enrichModRolls(session.mRolls, attackSum);
   submitAction({
     role:'parasite',
+    phase:'locked',
     growth: cart.growth,
-    rerolls: cart.rerolls||0,
+    rerollBuys: session.paidRerolls||0,
     tempAttack: cart.tempAttack||0,
     pushMod: push,
+    aRolls: session.aRolls,
+    mRolls: modBreakdown,
     at: Date.now(),
   });
+  session = { round:G.round, phase:'upgrade', rolls:null, aRolls:null, mRolls:null, paidRerolls:0, freeLeft:0, shake:false, selectedRoll:null };
 }
 
 /* ---------- waiting ---------- */
 function waitingHTML(r){
   const acts = (G.rounds[r]&&G.rounds[r].actions)||{};
   return `<div class="panel">
-    <h3 class="mt0 center">Orders locked in</h3>
-    <p class="small center">Battle erupts the moment everyone submits.</p>
-    ${PIDS.map(p=>`<div class="wait-row">
-      <span class="em">${PLAYERS[p].emoji}</span> <b>${PLAYERS[p].name}</b>
-      ${G.schedule[r-1]===p?'<span class="small" style="color:var(--bio)">parasite</span>':''}
-      <span class="st ${acts[p]?'in':'thinking'}">${acts[p]?'READY':'plotting…'}</span>
-    </div>`).join('')}
+    <h3 class="mt0 center">Final roll locked in</h3>
+    <p class="small center">Battle erupts when everyone locks their roll.</p>
+    ${PIDS.map(p=>{
+      const a = acts[p];
+      let st = 'plotting…', cls = 'thinking';
+      if (actionLocked(a)){ st = 'READY'; cls = 'in'; }
+      return `<div class="wait-row">
+        <span class="em">${PLAYERS[p].emoji}</span> <b>${PLAYERS[p].name}</b>
+        ${G.schedule[r-1]===p?'<span class="small" style="color:var(--bio)">parasite</span>':''}
+        <span class="st ${cls}">${st}</span>
+      </div>`;
+    }).join('')}
   </div>`;
 }
 
@@ -1168,8 +1586,9 @@ function playReplay(r, manual){
         </div>
       </div>`).join('')}
     <div class="panel center" style="border-color:#9aff6b44">
-      <span style="font-size:${evo.size*0.75}px" class="parasite-emoji">${evo.emoji}</span>
+      ${brainParasiteSVG(Math.round(evo.size*0.85), evo.stage)}
       <div class="p-name">${evo.name}</div>
+      <div class="p-tagline">${evo.tag}</div>
       <div class="lane-label">Attack</div>
       <div class="dice-row" style="margin:6px 0" id="pd-atk">
         ${(res.aRolls||[]).map(()=>`<div class="die-wrap">${dieHTML('attack',null,'rolling')}</div>`).join('')}
@@ -1259,17 +1678,23 @@ function showVerdict(r, res){
   const v = $('#verdict'); if (!v) return;
   const badges = p => (res.awards[p].tags||[]).map(t=>{
     if (t==='mvp') return '<span class="badge mvp">MVP</span>';
+    if (t==='underdog') return '<span class="badge" style="background:#3a2a1055;color:var(--energy)">underdog ⚡</span>';
     const c = t.replace('cat-','');
     return `<span class="badge cat-${c}">${COLOR_META[c].icon} ${COLOR_META[c].name}</span>`;
   }).join('');
   const mutNote = (()=>{
     const m = res.winMutation;
     if (!m) return '';
+    if (m.kind==='blankToPct') return 'Infection spread: a blank mutated into +10%.';
+    if (m.kind==='atkSurge') return 'The parasite’s attack faces surged upward.';
     if (m.kind==='blankToFlat') return 'A blank mutated into +1 base damage.';
     if (m.kind==='atkBump') return 'An attack face mutated upward.';
     return 'The parasite mutated.';
   })();
   const mut = mutNote ? `<div class="small center" style="color:var(--bio);margin-top:6px">${mutNote}</div>` : '';
+  const adaptNote = res.adaptGain
+    ? `<div class="small center" style="color:var(--danger);margin-top:6px">Crew stomped by ${res.humanTotal - res.parTotal}. Parasite base adapts <b>+${res.adaptGain}</b> (now +${res.adaptBaseAfter} total).</div>`
+    : '';
   v.innerHTML = `
     <div class="vs-bar">
       <div class="vs-side h"><div class="lbl">Crew</div><div class="val">${res.humanTotal}</div></div>
@@ -1280,18 +1705,17 @@ function showVerdict(r, res){
     <div class="result-banner ${res.humansWin?'h':'p'}">
       ${res.humansWin ? 'THE CREW HOLDS THE SHIP' : 'THE PARASITE FEASTS'}
     </div>
-    ${mut}
+    ${mut}${adaptNote}
     <div class="panel">
       ${PIDS.map(p=>{
         const a = res.awards[p];
-        const mine = p===me;
-        const ptsTxt = mine ? `+${a.pts} pts` : (a.pts>0?'+<span class="secret">??</span> pts':'—');
+        const after = (G.players[p] && G.players[p].pts) || 0;
         return `<div class="award-row">
           <span class="who">${PLAYERS[p].emoji} ${PLAYERS[p].name}${p===res.parId?' 🦠':''}${badges(p)}</span>
-          <span>${ptsTxt} · ⚡+${a.energy}</span>
+          <span>+${a.pts} pts → <b>${after}</b> · ⚡+${a.energy}</span>
         </div>`;
       }).join('')}
-      <div class="small center" style="margin-top:8px">Scores stay secret until the end.</div>
+      <div class="small center" style="margin-top:8px">Scores are open — plan who you can’t afford to feed.</div>
     </div>`;
   const btn = $('#skipBtn');
   if (btn){ btn.textContent = 'Continue ➜'; btn.className = 'btn'; }
@@ -1362,7 +1786,7 @@ function confettiBurst(){
     s.style.animationDelay = Math.random()*3+'s';
     sf.appendChild(s);
   }
-  window._showPts = false;
+  window._showPts = true;
   if (configOK()) initFirebase();
   render();
 })();
