@@ -47,8 +47,8 @@ If the crew already played the older token version, tap **Start new game** once 
 ## Step 5 — Host it (GitHub Pages)
 
 1. Push this folder to GitHub (it's already a repo folder).
-2. On github.com: repo → **Settings → Pages** → Source: **Deploy from a branch** → Branch: `main`, folder `/ (root)` → **Save**.
-3. In a minute your game is live at `https://YOURNAME.github.io/spacetribes-parasite/`.
+2. On github.com: repo → **Settings → Pages** → Source: **GitHub Actions** (not “Deploy from a branch”).
+3. The `Deploy Pages` workflow runs on every push to `main`. Live URL: `https://YOURNAME.github.io/spacetribes-parasite/`.
 
 Text that link to Brian, Joel, and Chris. Each guy opens it on his phone, taps his character once, and his phone remembers him. Add it to the home screen (Share → Add to Home Screen) and it feels like an app.
 
