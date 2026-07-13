@@ -2,53 +2,83 @@
 
 Four crew members. One alien parasite that jumps between you. Eight rounds. Secret scores. One champion.
 
+**Note:** This is the Energy / face-forge ruleset (schema v2). Starting a new game wipes the old token-based save — they are not compatible.
+
 ## The Setup
 
-Each round, one of you is **the Parasite** — the game shows the full possession schedule from round 1, so you always know when your villain turns are coming. Everyone is the parasite exactly twice: once in rounds 1–4 (the Infestation) and once in rounds 5–8 (the Critical Phase, where everything pays double-ish).
+Each round, one of you is **the Parasite** — the schedule is visible from round 1. Everyone hosts exactly twice: once in rounds 1–4 (Infestation) and once in rounds 5–8 (Critical Phase).
 
-Each round, everyone secretly submits their moves from their phone. The instant the 4th person locks in, the dice battle erupts and everyone gets the replay.
+Everyone secretly spends **Energy** on their phone. When the 4th person locks in, the battle resolves and everyone gets the replay.
+
+## Energy ⚡
+
+Energy is yours. It banks between rounds. Spend it as a human or as the parasite. Hoarding for clutch rerolls is a real strategy.
+
+- Everyone starts with **4 Energy**.
+- Each resolved round pays a **+1 stipend** to everyone, plus win/loss bonuses.
+- On your parasite turn you also get a **+2 surge** before you spend.
+
+### As a human, spend Energy on:
+
+| Spend | Cost | Effect |
+|---|---|---|
+| **Forge a face** | 1 | Pick one face on one die and bump it +1 (cap 12). A d6 can become `1,2,3,4,5,8`. |
+| **Add a die** | 3 | Add another 1–6 die to your pool (max 5 dice). Choose Weapons, Strength, or Agility. |
+| **Battle reroll** | 1 each | After rolling, auto-reroll your weakest below-average dice. |
+| **Free reroll forever** | 5 | Lasting perk: +1 free reroll charge every round. |
+
+### As the parasite, spend Energy on (optional):
+
+| Spend | Cost | Effect |
+|---|---|---|
+| **Battle reroll** | 1 each | Reroll weak attack dice or blank modifiers. |
+| **Temp attack die** | 2 | Extra d6 this round only (max 2). |
+| **Push +25%** | 3 | Permanently turn a blank modifier face into +25% (dangerous for future hosts). |
+
+## Forced growth (parasite must)
+
+When you host, you **must** grow the parasite before locking in. Choose one:
+
+- **Feed attack** — bump one face on an attack die
+- **Feed modifier** — turn a blank into **+5 base** or **+10%**, or expand a modifier die (add sides, including a nasty +25%)
+
+You want tonight’s win. You do **not** want to hand the next host a monster. That is the squeeze.
 
 ## The Battle
 
-The 3 humans each roll 3 dice — 🔫 Weapons (red), 💪 Strength (blue), ⚡ Agility (green) — 9 dice total for the crew. The parasite has a **base score that grows every single round on its own** (it's spreading through the ship), plus its own dice.
+**Crew:** each human rolls all of their forged dice. Totals combine.
 
-Crew's 9 dice ≥ parasite's total → **the crew holds the ship**. Otherwise the parasite feasts. Ties go to the crew.
+**Parasite:**
 
-## Scoring (kept secret until the end!)
+1. Start from a small **base** (grows with the round).
+2. Roll **attack dice** → attack sum.
+3. Roll **modifier dice** (blanks, flat `+N` base damage, `+10%` / `+25%` of attack sum).
+4. `parasite total = base + attack + flats + percent bonuses`.
+
+Crew wins if crew total ≥ parasite total (ties go to the crew).
+
+If the **parasite wins**, it also **mutates** (e.g. a blank becomes +1 base, or an attack face bumps). The ship gets sicker.
+
+## Scoring (secret until the end)
 
 | | Rounds 1–4 | Rounds 5–8 |
 |---|---|---|
 | Crew wins — each human | 10 pts | 15 pts |
 | MVP bonus (highest personal total) | +5 | +8 |
-| Category win (highest single die per color, even in a loss) | +3 each | +4 each |
+| Category win (highest die per color) | +3 each | +4 each |
 | Parasite wins | 25 pts | 40 pts |
 
-Category ties are contested — nobody gets the bonus. You can only see your own score (tap the ⭐). Everyone else shows •••. The final reveal after round 8 counts everyone up from 4th place to the champion.
-
-## Tokens ⚙️
-
-Everyone starts with 5. You earn them every round win or lose (winning is better), plus +1 per category win. When you're the parasite, the alien surges through you: **+3 bonus tokens that round**.
-
-### As a human, spend tokens on:
-
-- **Die upgrades** (permanent!) — raise a die from 1–6 to 2–7, up to 5–10. Upgraded dice get visibly bigger. Costs 2, then 3, 4, 5 per step.
-- **Reroll insurance** (1 token, this round only) — that die automatically rerolls once if it comes up in the bottom third.
-
-### As the parasite, spend tokens on:
-
-**This round only:** extra dice (3 tokens each, max 3), ☠️ **Venom Cloud** (5 tokens — every human die rolls −1), 🔥 **Feeding Frenzy** (3 tokens — +10 bonus points if you win).
-
-**Permanent evolutions** — these carry over to whoever hosts the parasite next, including future-you: 🛡 **Thicker Hide** (+2 base score, buy up to 5), ♻️ **Regeneration** (always rerolls its lowest die), 🦾 **Extra Limb** (a permanent 3rd core die).
+Category ties are contested — nobody gets that bonus. Tap ⭐ to peek at your own score only. After round 8, everyone is revealed from 4th to champion.
 
 ## The Strategy of It
 
-Early rounds favor the crew — the parasite is a spore. But it grows +1 base every round automatically, and every evolution you buy as parasite makes it deadlier for everyone after you. Do you fatten the monster on your early turn so it's unstoppable when you host it again in the Critical Phase... knowing your friends get to wield it first?
+Forge early to compound face value, or bank Energy for a pile of rerolls in the Critical Phase?
 
-Humans face their own squeeze: upgrade dice early and compound the value, or hoard tokens for rerolls and clutch late-round fights? And those category bonuses are sneaky — they pay even when the crew loses, so a selfish max-out on Weapons might beat being a team player.
+As parasite, do you bump a safe attack face, or feed a modifier blank into +5 / +10% knowing your friends inherit it — and you host again later?
 
-The Critical Phase (rounds 5–8) is where games are won: bigger payouts, a monstrous parasite, and nobody knows who's actually ahead. Trash talk accordingly.
+Modifier dice are the digital-only nightmare: blanks keep it honest, percents turn a hot attack roll into a feast.
 
 ## House Rules Worth Trying
 
-- **Round pace:** one round per day keeps the tension delicious. Or blitz a whole game on pizza night.
+- **Round pace:** one round per day, or blitz on pizza night.
 - **The Loser Hosts:** whoever finishes 4th buys wings next time.
