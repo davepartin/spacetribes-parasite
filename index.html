@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b1020">
+<title>Space Tribes: Parasite</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+:root{
+  --bg:#0b1020; --panel:#141b33; --panel2:#1b2447; --line:#2a3560;
+  --text:#e8ecff; --dim:#8a94c0; --gold:#ffd166; --danger:#ff5d73;
+  --good:#3ddc97; --red:#ff5d73; --blue:#4da3ff; --green:#3ddc97;
+  --purple:#b57bff;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  min-height:100%; overscroll-behavior-y:contain;}
+body{background:
+  radial-gradient(1200px 600px at 70% -10%, #1b2447aa, transparent),
+  radial-gradient(800px 500px at -10% 110%, #2a165288, transparent),
+  var(--bg);}
+#app{max-width:520px;margin:0 auto;padding:12px 14px 90px;position:relative;min-height:100vh;}
+h1,h2,h3{margin:0 0 8px;}
+button{font-family:inherit;border:none;cursor:pointer;}
+.btn{display:block;width:100%;padding:15px;border-radius:14px;font-size:17px;font-weight:800;
+  background:linear-gradient(135deg,#4da3ff,#b57bff);color:#fff;box-shadow:0 4px 18px #4da3ff44;
+  transition:transform .1s;}
+.btn:active{transform:scale(.97);}
+.btn.disabled{background:#2a3560;color:var(--dim);box-shadow:none;pointer-events:none;}
+.btn.danger{background:linear-gradient(135deg,#ff5d73,#b57bff);box-shadow:0 4px 18px #ff5d7344;}
+.btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--dim);box-shadow:none;font-weight:600;}
+.small{font-size:12.5px;color:var(--dim);}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;}
+.starfield{position:fixed;inset:0;pointer-events:none;z-index:0;}
+.starfield i{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.5;animation:tw 3s infinite;}
+@keyframes tw{0%,100%{opacity:.15}50%{opacity:.7}}
+
+/* ===== character select ===== */
+.char-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;}
+.char-card{background:var(--panel);border:2px solid var(--line);border-radius:18px;padding:18px 10px;
+  text-align:center;transition:transform .12s;position:relative;overflow:hidden;}
+.char-card:active{transform:scale(.95);}
+.char-card .avatar{font-size:52px;display:block;filter:drop-shadow(0 4px 10px #0008);}
+.char-card .cname{font-size:20px;font-weight:900;margin-top:6px;}
+.char-card .ctitle{font-size:12px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;}
+.char-card .taken{position:absolute;top:8px;right:10px;font-size:11px;color:var(--gold);}
+
+/* ===== header ===== */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;position:sticky;top:0;
+  background:linear-gradient(#0b1020f0,#0b1020e0);backdrop-filter:blur(8px);z-index:20;padding:8px 0;}
+.me-chip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+  border-radius:99px;padding:6px 12px 6px 8px;font-weight:800;font-size:14px;}
+.me-chip .em{font-size:20px;}
+.stat-chip{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:7px 12px;
+  font-weight:800;font-size:14px;display:flex;align-items:center;gap:5px;}
+.stat-chip.pts{color:var(--gold);}
+.round-strip{display:flex;gap:5px;margin:2px 0 12px;overflow-x:auto;padding-bottom:4px;}
+.rnode{flex:0 0 auto;width:44px;border-radius:10px;border:1.5px solid var(--line);background:var(--panel);
+  text-align:center;padding:4px 0 5px;position:relative;}
+.rnode .rn{font-size:10px;color:var(--dim);font-weight:700;}
+.rnode .re{font-size:17px;line-height:1.2;}
+.rnode.now{border-color:var(--gold);box-shadow:0 0 12px #ffd16655;}
+.rnode.done{opacity:.45;}
+.rnode.late{background:linear-gradient(#1b2447,#3a1b47);}
+.rnode .rw{position:absolute;top:-6px;right:-4px;font-size:11px;}
+
+/* ===== role banner ===== */
+.role-banner{border-radius:16px;padding:14px;text-align:center;margin-bottom:12px;border:1.5px solid var(--line);}
+.role-banner.human{background:linear-gradient(135deg,#12325c66,#14532d55);border-color:#4da3ff66;}
+.role-banner.parasite{background:linear-gradient(135deg,#4c0f2955,#3a105e88);border-color:#ff5d7388;}
+.role-banner .big{font-size:19px;font-weight:900;}
+.role-banner .sub{font-size:13px;color:var(--dim);margin-top:3px;}
+
+/* ===== dice ===== */
+.dice-row{display:flex;justify-content:center;gap:14px;margin:12px 0;flex-wrap:wrap;}
+.die-wrap{text-align:center;}
+.die{width:64px;height:64px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+  position:relative;margin:0 auto;background:#f4f6ff;color:#111;font-weight:900;
+  box-shadow:inset 0 -5px 0 #0002, 0 5px 14px #0006;transition:transform .15s;}
+.die.red{background:linear-gradient(145deg,#ffe3e8,#ffb3bf);box-shadow:inset 0 -5px 0 #c2334a55,0 5px 14px #ff5d7333;}
+.die.blue{background:linear-gradient(145deg,#dcedff,#a8cfff);box-shadow:inset 0 -5px 0 #2a67b755,0 5px 14px #4da3ff33;}
+.die.green{background:linear-gradient(145deg,#dcffef,#a9f0cd);box-shadow:inset 0 -5px 0 #1e9e6a55,0 5px 14px #3ddc9733;}
+.die.purple{background:linear-gradient(145deg,#efdcff,#cfa9ff);box-shadow:inset 0 -5px 0 #7a3bd955,0 5px 14px #b57bff44;color:#2a1045;}
+.die .num{font-size:26px;}
+.die .pips{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:76%;height:76%;}
+.die .pips i{border-radius:50%;background:#1b2447;place-self:center;width:22%;height:22%;visibility:hidden;}
+.die.lv2{transform:scale(1.08);}
+.die.lv3{transform:scale(1.16);}
+.die.lv4{transform:scale(1.24);}
+.die.lv5{transform:scale(1.32);box-shadow:0 0 18px var(--gold),inset 0 -5px 0 #0003;}
+.die .lvltag{position:absolute;top:-9px;right:-9px;background:var(--gold);color:#3a2a00;font-size:10px;
+  font-weight:900;border-radius:8px;padding:2px 5px;box-shadow:0 2px 6px #0006;}
+.die.rolling{animation:shake .55s ease-in-out infinite;}
+@keyframes shake{0%,100%{transform:rotate(0) translateY(0)}25%{transform:rotate(-14deg) translateY(-7px)}
+  50%{transform:rotate(9deg)}75%{transform:rotate(-6deg) translateY(-4px)}}
+.die-label{font-size:11px;font-weight:800;letter-spacing:.5px;margin-top:8px;text-transform:uppercase;}
+.die-label.red{color:var(--red);} .die-label.blue{color:var(--blue);} .die-label.green{color:var(--green);}
+.die-sub{font-size:10.5px;color:var(--dim);}
+.reroll-flash{animation:flashy .5s;}
+@keyframes flashy{0%{box-shadow:0 0 0 4px var(--gold)}100%{}}
+
+/* ===== shop ===== */
+.shop-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel2);
+  border:1px solid var(--line);border-radius:13px;padding:11px 12px;margin-bottom:9px;}
+.shop-item .si-name{font-weight:800;font-size:14.5px;}
+.shop-item .si-desc{font-size:12px;color:var(--dim);margin-top:2px;}
+.buy-btn{background:var(--gold);color:#3a2a00;font-weight:900;border-radius:10px;padding:9px 13px;font-size:14px;
+  white-space:nowrap;min-width:64px;}
+.buy-btn:disabled{background:#2a3560;color:#586092;}
+.buy-btn.owned{background:transparent;border:1.5px solid var(--good);color:var(--good);}
+.qty-ctrl{display:flex;align-items:center;gap:8px;}
+.qty-ctrl button{width:34px;height:34px;border-radius:9px;background:var(--panel);border:1px solid var(--line);
+  color:var(--text);font-size:18px;font-weight:900;}
+.qty-ctrl .qv{min-width:20px;text-align:center;font-weight:900;}
+
+/* ===== parasite ===== */
+.parasite-stage{text-align:center;padding:8px 0 2px;}
+.parasite-emoji{display:inline-block;filter:drop-shadow(0 0 22px #ff5d7388);animation:pulse 2.6s infinite;}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+.p-name{font-size:17px;font-weight:900;color:var(--danger);letter-spacing:1px;}
+.p-base{font-size:13px;color:var(--dim);}
+.p-base b{color:var(--text);font-size:16px;}
+.evo-tags{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px;}
+.evo-tag{font-size:11px;background:#4c0f2966;border:1px solid #ff5d7355;color:#ffb3bf;
+  padding:3px 9px;border-radius:99px;font-weight:700;}
+
+/* ===== waiting / status ===== */
+.wait-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);}
+.wait-row:last-child{border-bottom:none;}
+.wait-row .em{font-size:22px;}
+.wait-row .st{margin-left:auto;font-size:12px;font-weight:800;}
+.st.in{color:var(--good);} .st.thinking{color:var(--dim);animation:tw 1.6s infinite;}
+
+/* ===== battle / results ===== */
+.vs-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 6px;}
+.vs-side{flex:1;text-align:center;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:10px;}
+.vs-side .lbl{font-size:11px;color:var(--dim);font-weight:800;text-transform:uppercase;letter-spacing:1px;}
+.vs-side .val{font-size:30px;font-weight:900;}
+.vs-side.h .val{color:var(--blue);} .vs-side.p .val{color:var(--danger);}
+.vs-x{font-weight:900;color:var(--dim);}
+.result-banner{text-align:center;border-radius:16px;padding:16px;margin:12px 0;font-weight:900;font-size:20px;}
+.result-banner.h{background:linear-gradient(135deg,#0e3a2455,#12325c88);border:1.5px solid var(--good);color:var(--good);}
+.result-banner.p{background:linear-gradient(135deg,#4c0f2988,#3a105e88);border:1.5px solid var(--danger);color:var(--danger);}
+.award-row{display:flex;justify-content:space-between;padding:7px 4px;border-bottom:1px dashed var(--line);font-size:14px;}
+.award-row:last-child{border-bottom:none;}
+.award-row .who{font-weight:700;}
+.badge{font-size:10.5px;font-weight:900;padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:middle;}
+.badge.mvp{background:var(--gold);color:#3a2a00;}
+.badge.cat-red{background:#ff5d7333;color:var(--red);border:1px solid var(--red);}
+.badge.cat-blue{background:#4da3ff33;color:var(--blue);border:1px solid var(--blue);}
+.badge.cat-green{background:#3ddc9733;color:var(--green);border:1px solid var(--green);}
+.secret{color:var(--gold);font-weight:900;letter-spacing:2px;}
+
+/* ===== final reveal ===== */
+.reveal-row{display:flex;align-items:center;gap:12px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:14px;padding:13px;margin-bottom:10px;opacity:0;transform:translateY(18px);transition:all .6s;}
+.reveal-row.show{opacity:1;transform:none;}
+.reveal-row .place{font-size:22px;font-weight:900;width:36px;}
+.reveal-row .em{font-size:30px;}
+.reveal-row .pts-final{margin-left:auto;font-size:24px;font-weight:900;color:var(--gold);}
+.reveal-row.winner{border-color:var(--gold);box-shadow:0 0 24px #ffd16644;background:linear-gradient(135deg,#3a2a0055,#1b2447);}
+.confetti{position:fixed;top:-10px;font-size:20px;animation:fall linear forwards;z-index:99;pointer-events:none;}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.3;}}
+
+/* misc */
+.fixed-cta{position:fixed;bottom:0;left:0;right:0;z-index:30;padding:12px 14px calc(12px + env(safe-area-inset-bottom));
+  background:linear-gradient(transparent,#0b1020 40%);max-width:520px;margin:0 auto;}
+.log-entry{border-left:3px solid var(--line);padding:8px 10px;margin-bottom:8px;font-size:13px;background:var(--panel2);border-radius:0 10px 10px 0;}
+.log-entry b{color:var(--gold);}
+.center{text-align:center;}
+.mt0{margin-top:0;} .hidden{display:none !important;}
+.spent-preview{font-size:13px;color:var(--gold);font-weight:800;text-align:center;margin:6px 0;}
+a{color:var(--blue);}
+code{background:#00000055;padding:2px 6px;border-radius:6px;font-size:12px;word-break:break-all;}
+.setup-step{margin-bottom:14px;}
+.setup-step .n{display:inline-block;width:22px;height:22px;background:var(--gold);color:#3a2a00;border-radius:50%;
+  text-align:center;font-weight:900;font-size:13px;line-height:22px;margin-right:6px;}
+</style>
+</head>
+<body>
+<div class="starfield" id="starfield"></div>
+<div id="app"></div>
+
+<script>
+/* ============================================================
+   SPACE TRIBES: PARASITE
+   4-player async dice battle for Dave, Brian, Joel & Chris
+   ============================================================
+   SETUP: paste your Firebase config below (see SETUP.md)      */
+
+const firebaseConfig = {
+  apiKey: "PASTE_YOUR_API_KEY",
+  authDomain: "PASTE.firebaseapp.com",
+  databaseURL: "https://PASTE-default-rtdb.firebaseio.com",
+  projectId: "PASTE",
+  storageBucket: "PASTE.appspot.com",
+  messagingSenderId: "PASTE",
+  appId: "PASTE"
+};
+
+/* ================= GAME CONSTANTS (tuned via simulation) ================= */
+const PLAYERS = {
+  dave:  { name:'Dave',  emoji:'👨‍🚀', color:'#ffd166', title:'Captain'  },
+  brian: { name:'Brian', emoji:'🧑‍🚀', color:'#4da3ff', title:'Gunner'   },
+  joel:  { name:'Joel',  emoji:'👨‍🔧', color:'#3ddc97', title:'Engineer' },
+  chris: { name:'Chris', emoji:'🕵️',  color:'#b57bff', title:'Scout'    },
+};
+const PIDS = ['dave','brian','joel','chris'];
+const COLORS = ['red','blue','green'];
+const COLOR_META = {
+  red:   { name:'Weapons',  icon:'🔫' },
+  blue:  { name:'Strength', icon:'💪' },
+  green: { name:'Agility',  icon:'⚡' },
+};
+const TOTAL_ROUNDS = 8;
+const CFG = {
+  startTokens: 5,
+  dieMaxLevel: 5,
+  upgradeCost: lvl => lvl + 1,          // level 1→2 costs 2 ... 4→5 costs 5
+  rerollCost: 1,                        // per die, auto-fires if roll is in bottom third
+  parasiteBase: r => 18 + r,            // grows every round on its own!
+  hideBonus: 2, hideCost: 3, hideMax: 5,
+  regenCost: 4, limbCost: 6,
+  tempDieCost: 3, tempDieMax: 3,
+  venomCost: 5, frenzyCost: 3, frenzyBonus: 10,
+  stipend: 3,                           // extra tokens on your parasite round
+  humanWinPts:  r => r >= 5 ? 15 : 10,
+  mvpPts:       r => r >= 5 ? 8 : 5,
+  catPts:       r => r >= 5 ? 4 : 3,
+  parasiteWinPts: r => r >= 5 ? 40 : 25,
+  humanWinTok: 2, humanLossTok: 2, parWinTok: 3, parLossTok: 2, catTok: 1,
+};
+const EVO_STAGES = [
+  { min:0,  name:'THE SPORE',    emoji:'🦠', size:56 },
+  { min:2,  name:'THE LARVA',    emoji:'🐛', size:64 },
+  { min:4,  name:'THE CRAWLER',  emoji:'🦂', size:74 },
+  { min:6,  name:'THE RAVAGER',  emoji:'👾', size:86 },
+  { min:8,  name:'THE DEVOURER', emoji:'🐙', size:100 },
+];
+function evoStage(round){ let s=EVO_STAGES[0]; for(const e of EVO_STAGES) if(round>=e.min) s=e; return s; }
+
+/* ================= UTIL ================= */
+const $ = sel => document.querySelector(sel);
+const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const rand6 = () => 1 + Math.floor(Math.random()*6);
+const dieRoll = lvl => lvl + Math.floor(Math.random()*6);   // level L rolls L..L+5
+function pipHTML(v){
+  if (v > 6) return `<span class="num">${v}</span>`;
+  const map = {1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+  let cells='';
+  for (let i=0;i<9;i++) cells += `<i style="visibility:${map[v].includes(i)?'visible':'hidden'}"></i>`;
+  return `<span class="pips">${cells}</span>`;
+}
+function dieHTML(color, lvl, value, extraCls=''){
+  return `<div class="die ${color} lv${lvl} ${extraCls}" data-color="${color}">
+    ${value==null?`<span class="num">?</span>`:pipHTML(value)}
+    ${lvl>1?`<span class="lvltag">Lv${lvl}</span>`:''}
+  </div>`;
+}
+
+/* ================= STATE ================= */
+let db=null, gameRef=null;
+let G=null;                 // live game snapshot from Firebase
+let me = localStorage.getItem('stp_me') || null;
+let cart = null;            // local unsent purchases for the current round
+let cartRound = 0;
+let animating = false;
+
+function newGameData(){
+  // schedule: everyone is the parasite once in rounds 1-4 and once in rounds 5-8
+  const shuf = a => { a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+  let early=shuf(PIDS), late=shuf(PIDS), guard=0;
+  while (early[3]===late[0] && guard++<50) late=shuf(PIDS); // avoid back-to-back R4/R5
+  const players={};
+  PIDS.forEach(p=>players[p]={pts:0, tokens:CFG.startTokens, dice:{red:1,blue:1,green:1}});
+  return {
+    createdAt: Date.now(), status:'active', round:1,
+    schedule: [...early, ...late],
+    players, parasite:{hide:0, regen:false, limb:false},
+    rounds:{},
+  };
+}
+
+/* ================= ROUND RESOLUTION (deterministic once written) ================= */
+function resolveRound(g){
+  // called inside a firebase transaction — mutates & returns g
+  const r = g.round, late = r>=5;
+  const actions = (g.rounds && g.rounds[r] && g.rounds[r].actions) || {};
+  if (PIDS.some(p=>!actions[p])) return g;                 // not everyone in yet
+  if (g.rounds[r].result) return g;                        // already resolved
+  const parId = g.schedule[r-1];
+  const humans = PIDS.filter(p=>p!==parId);
+  const pAct = actions[parId];
+
+  // --- apply purchases & deduct tokens ---
+  humans.forEach(h=>{
+    const a = actions[h], pl = g.players[h];
+    let spent = 0;
+    COLORS.forEach(c=>{
+      let ups = Math.max(0, Math.min(a.upgrades && a.upgrades[c] || 0, CFG.dieMaxLevel - pl.dice[c]));
+      for (let i=0;i<ups;i++){ spent += CFG.upgradeCost(pl.dice[c]); pl.dice[c]++; }
+      if (a.rerolls && a.rerolls[c]) spent += CFG.rerollCost;
+    });
+    pl.tokens = Math.max(0, pl.tokens - spent);
+  });
+  { // parasite purchases (stipend added first)
+    const pl = g.players[parId];
+    pl.tokens += CFG.stipend;
+    let spent = 0;
+    const hideBuy = Math.max(0, Math.min(pAct.buyHide||0, CFG.hideMax - (g.parasite.hide||0)));
+    spent += hideBuy * CFG.hideCost; g.parasite.hide = (g.parasite.hide||0) + hideBuy;
+    if (pAct.buyRegen && !g.parasite.regen){ spent += CFG.regenCost; g.parasite.regen = true; }
+    if (pAct.buyLimb && !g.parasite.limb){ spent += CFG.limbCost; g.parasite.limb = true; }
+    const temp = Math.max(0, Math.min(pAct.tempDice||0, CFG.tempDieMax));
+    spent += temp * CFG.tempDieCost;
+    if (pAct.venom) spent += CFG.venomCost;
+    if (pAct.frenzy) spent += CFG.frenzyCost;
+    pl.tokens = Math.max(0, pl.tokens - spent);
+    pAct.tempDice = temp;
+  }
+
+  // --- roll human dice ---
+  const rolls = {}; let humanTotal = 0;
+  humans.forEach(h=>{
+    const a = actions[h], pl = g.players[h];
+    rolls[h] = {};
+    COLORS.forEach(c=>{
+      const lvl = pl.dice[c];
+      let v = dieRoll(lvl), first = v, rerolled = false;
+      if (a.rerolls && a.rerolls[c] && v <= lvl+1){ v = dieRoll(lvl); rerolled = true; }
+      let venomed = false;
+      if (pAct.venom && v > 1){ v--; venomed = true; }
+      rolls[h][c] = { v, lvl, first, rerolled, venomed };
+      humanTotal += v;
+    });
+  });
+
+  // --- roll parasite ---
+  const base = CFG.parasiteBase(r) + (g.parasite.hide||0)*CFG.hideBonus;
+  const nDice = 2 + (pAct.tempDice||0) + (g.parasite.limb?1:0);
+  let pRolls = Array.from({length:nDice}, ()=>({v:rand6(), rerolled:false}));
+  if (g.parasite.regen){
+    let mi=0; pRolls.forEach((d,i)=>{ if(d.v<pRolls[mi].v) mi=i; });
+    pRolls[mi] = { v:rand6(), first:pRolls[mi].v, rerolled:true };
+  }
+  const parTotal = base + pRolls.reduce((s,d)=>s+d.v,0);
+
+  // --- outcome & awards ---
+  const humansWin = humanTotal >= parTotal;   // ties go to the crew
+  const awards = {}; PIDS.forEach(p=>awards[p]={pts:0, tokens:0, tags:[]});
+  let mvp = null;
+  if (humansWin){
+    humans.forEach(h=>{ awards[h].pts += CFG.humanWinPts(r); awards[h].tokens += CFG.humanWinTok; });
+    mvp = humans.reduce((a,b)=>{
+      const ta = COLORS.reduce((s,c)=>s+rolls[a][c].v,0), tb = COLORS.reduce((s,c)=>s+rolls[b][c].v,0);
+      return tb>ta ? b : a;
+    });
+    awards[mvp].pts += CFG.mvpPts(r); awards[mvp].tags.push('mvp');
+    awards[parId].tokens += CFG.parLossTok;
+  } else {
+    awards[parId].pts += CFG.parasiteWinPts(r) + (pAct.frenzy ? CFG.frenzyBonus : 0);
+    awards[parId].tokens += CFG.parWinTok;
+    if (pAct.frenzy) awards[parId].tags.push('frenzy');
+    humans.forEach(h=>{ awards[h].tokens += CFG.humanLossTok; });
+  }
+  // category winners: highest single die per color among humans (ties = contested)
+  const cats = {};
+  COLORS.forEach(c=>{
+    const sorted = humans.map(h=>({h, v:rolls[h][c].v})).sort((a,b)=>b.v-a.v);
+    if (sorted[0].v > sorted[1].v){
+      cats[c] = sorted[0].h;
+      awards[sorted[0].h].pts += CFG.catPts(r);
+      awards[sorted[0].h].tokens += CFG.catTok;
+      awards[sorted[0].h].tags.push('cat-'+c);
+    } else cats[c] = null;
+  });
+  PIDS.forEach(p=>{ g.players[p].pts += awards[p].pts; g.players[p].tokens += awards[p].tokens; });
+
+  g.rounds[r].result = {
+    parId, base, humanTotal, parTotal, humansWin, late,
+    rolls, pRolls, cats, mvp, awards,
+    venom: !!pAct.venom, frenzy: !!pAct.frenzy, tempDice: pAct.tempDice||0,
+    parasiteAfter: {...g.parasite},
+    resolvedAt: Date.now(),
+  };
+  if (r >= TOTAL_ROUNDS) g.status = 'over';
+  else g.round = r + 1;
+  return g;
+}
+
+/* ================= FIREBASE ================= */
+function configOK(){ return firebaseConfig.apiKey && !firebaseConfig.apiKey.includes('PASTE'); }
+function initFirebase(){
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+  gameRef = db.ref('games/current');
+  gameRef.on('value', snap=>{
+    const v = snap.val();
+    if (!v){ gameRef.set(newGameData()); return; }
+    // normalize (firebase drops empty objects)
+    v.rounds = v.rounds || {};
+    for (const k in v.rounds){ v.rounds[k].actions = v.rounds[k].actions || {}; }
+    v.parasite = v.parasite || {hide:0, regen:false, limb:false};
+    const prevRound = G ? G.round : 0;
+    G = v;
+    if (G.round !== cartRound){ cart = null; }
+    maybeResolve();
+    render();
+  });
+}
+function maybeResolve(retry){
+  if (!G || G.status!=='active') return;
+  const rd = G.rounds[G.round];
+  if (!rd || rd.result) return;
+  if (PIDS.some(p=>!(rd.actions&&rd.actions[p]))) return;
+  gameRef.transaction(g=>{
+    if (!g) return g;                       // let the retry handle a cold cache
+    g.rounds = g.rounds || {};
+    if (!g.rounds[g.round] || g.rounds[g.round].result) return g;
+    const acts = g.rounds[g.round].actions || {};
+    if (PIDS.some(p=>!acts[p])) return g;
+    return resolveRound(g);
+  }, (err)=>{
+    if (err && !retry) setTimeout(()=>maybeResolve(true), 1500);
+  });
+}
+function submitAction(action){
+  const r = G.round;
+  db.ref(`games/current/rounds/${r}/actions/${me}`).set(action);
+}
+function startNewGame(){
+  if (confirm('Start a brand new game? The current one will be wiped for everyone.'))
+    gameRef.set(newGameData());
+}
+
+/* ================= CART (local, pre-submit) ================= */
+function freshCart(isParasite){
+  return isParasite
+    ? { tempDice:0, venom:false, frenzy:false, buyHide:0, buyRegen:false, buyLimb:false }
+    : { upgrades:{red:0,blue:0,green:0}, rerolls:{red:false,blue:false,green:false} };
+}
+function cartCost(isParasite){
+  if (!cart) return 0;
+  if (isParasite){
+    let c = cart.tempDice*CFG.tempDieCost + cart.buyHide*CFG.hideCost;
+    if (cart.venom) c += CFG.venomCost;
+    if (cart.frenzy) c += CFG.frenzyCost;
+    if (cart.buyRegen) c += CFG.regenCost;
+    if (cart.buyLimb) c += CFG.limbCost;
+    return c;
+  }
+  let c = 0; const dice = G.players[me].dice;
+  COLORS.forEach(col=>{
+    for (let i=0;i<cart.upgrades[col];i++) c += CFG.upgradeCost(dice[col]+i);
+    if (cart.rerolls[col]) c += CFG.rerollCost;
+  });
+  return c;
+}
+function myBudget(isParasite){ return G.players[me].tokens + (isParasite?CFG.stipend:0); }
+
+/* ================= RENDER ================= */
+function seenKey(){ return `stp_seen_${G.createdAt}`; }
+function lastSeen(){ return parseInt(localStorage.getItem(seenKey())||'0',10); }
+function markSeen(r){ localStorage.setItem(seenKey(), String(r)); }
+
+function render(){
+  if (animating) return;
+  const app = $('#app');
+  if (!configOK()){ app.innerHTML = setupScreen(); return; }
+  if (!me){ app.innerHTML = charSelectScreen(); return; }
+  if (!G){ app.innerHTML = `<div class="center" style="padding-top:40vh"><h2>Contacting the ship…</h2><div class="small">connecting to Firebase</div></div>`; return; }
+
+  // unseen finished round? play the battle replay first
+  const lastResolved = Object.keys(G.rounds).map(Number).filter(r=>G.rounds[r].result).sort((a,b)=>b-a)[0] || 0;
+  if (lastResolved > lastSeen()){
+    playReplay(lastResolved);
+    return;
+  }
+  if (G.status==='over'){ app.innerHTML = finalScreen(); runFinalReveal(); return; }
+  app.innerHTML = gameScreen();
+}
+
+function setupScreen(){
+  return `<div style="padding-top:8vh">
+    <div class="center"><span style="font-size:64px">🛸</span></div>
+    <h1 class="center">Space Tribes: <span style="color:var(--danger)">Parasite</span></h1>
+    <div class="panel">
+      <h3>One-time setup needed</h3>
+      <div class="setup-step"><span class="n">1</span>Create a free project at <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a></div>
+      <div class="setup-step"><span class="n">2</span>Add a <b>Realtime Database</b> (start in <b>test mode</b>)</div>
+      <div class="setup-step"><span class="n">3</span>Project settings → add a <b>Web app</b> → copy the <code>firebaseConfig</code> block</div>
+      <div class="setup-step"><span class="n">4</span>Paste it into the top of <code>index.html</code> where it says PASTE</div>
+      <div class="small">Full walkthrough in SETUP.md — takes about 5 minutes.</div>
+    </div>
+  </div>`;
+}
+
+function charSelectScreen(){
+  return `<div style="padding-top:6vh">
+    <div class="center"><span style="font-size:56px">🛸</span></div>
+    <h1 class="center" style="font-size:26px">Space Tribes: <span style="color:var(--danger)">Parasite</span></h1>
+    <p class="center small">Who are you, crew member?</p>
+    <div class="char-grid">
+      ${PIDS.map(p=>{const c=PLAYERS[p];return `
+        <button class="char-card" onclick="pickChar('${p}')" style="border-color:${c.color}55">
+          <span class="avatar">${c.emoji}</span>
+          <span class="cname" style="color:${c.color}">${c.name}</span>
+          <span class="ctitle">${c.title}</span>
+        </button>`;}).join('')}
+    </div>
+    <p class="center small" style="margin-top:16px">Your phone remembers you — you only pick once.</p>
+  </div>`;
+}
+function pickChar(p){ me = p; localStorage.setItem('stp_me', p); render(); }
+
+function roundStripHTML(){
+  return `<div class="round-strip">${G.schedule.map((p,i)=>{
+    const r=i+1, cls = ['rnode', r===G.round&&G.status==='active'?'now':'', r<G.round||G.status==='over'?'done':'', r>=5?'late':''].join(' ');
+    const res = G.rounds[r] && G.rounds[r].result;
+    const w = res ? (res.humansWin?'🛡️':'💀') : '';
+    return `<div class="${cls}"><div class="rn">R${r}${r>=5?' ×2':''}</div><div class="re">${PLAYERS[p].emoji}</div>${w?`<div class="rw">${w}</div>`:''}</div>`;
+  }).join('')}</div>`;
+}
+
+function parasitePanelHTML(r){
+  const evo = evoStage(r);
+  const base = CFG.parasiteBase(r) + (G.parasite.hide||0)*CFG.hideBonus;
+  const nDice = 2 + (G.parasite.limb?1:0);
+  const tags = [];
+  if (G.parasite.hide) tags.push(`🛡 Thicker Hide ×${G.parasite.hide} (+${G.parasite.hide*CFG.hideBonus})`);
+  if (G.parasite.regen) tags.push('♻️ Regeneration');
+  if (G.parasite.limb) tags.push('🦾 Extra Limb');
+  return `<div class="panel parasite-stage">
+    <span class="parasite-emoji" style="font-size:${evo.size}px">${evo.emoji}</span>
+    <div class="p-name">${evo.name}</div>
+    <div class="p-base">Base score <b>${base}</b> + <b>${nDice}</b>🎲 &nbsp;·&nbsp; grows every round</div>
+    ${tags.length?`<div class="evo-tags">${tags.map(t=>`<span class="evo-tag">${t}</span>`).join('')}</div>`:''}
+  </div>`;
+}
+
+function topbarHTML(){
+  const pl = G.players[me], c = PLAYERS[me];
+  return `<div class="topbar">
+    <button class="me-chip" onclick="switchChar()" title="switch player">
+      <span class="em">${c.emoji}</span> ${c.name}
+    </button>
+    <div style="display:flex;gap:7px">
+      <div class="stat-chip">⚙️ ${pl.tokens}</div>
+      <div class="stat-chip pts" onclick="togglePts()" id="ptsChip">${window._showPts?`⭐ ${pl.pts}`:'⭐ <span class="secret">•••</span>'}</div>
+    </div>
+  </div>`;
+}
+function togglePts(){ window._showPts = !window._showPts; render(); }
+function switchChar(){ if (confirm('Switch to a different crew member on this phone?')){ me=null; localStorage.removeItem('stp_me'); render(); } }
+
+function gameScreen(){
+  const r = G.round, parId = G.schedule[r-1], isPar = parId===me, late = r>=5;
+  const myAct = G.rounds[r] && G.rounds[r].actions && G.rounds[r].actions[me];
+  if (!cart || cartRound!==r){ cart = freshCart(isPar); cartRound = r; }
+
+  let body;
+  if (myAct) body = waitingHTML(r);
+  else body = isPar ? parasiteShopHTML(r) : humanShopHTML(r);
+
+  return `${topbarHTML()}
+    ${roundStripHTML()}
+    <div class="role-banner ${isPar?'parasite':'human'}">
+      <div class="big">${isPar ? '🦠 THE PARASITE IS IN YOU' : `Round ${r} — ${PLAYERS[parId].name} is the Parasite`}</div>
+      <div class="sub">${late ? '⚠️ CRITICAL PHASE — all rewards boosted!' : 'Infestation phase'} · Round ${r} of ${TOTAL_ROUNDS}</div>
+    </div>
+    ${parasitePanelHTML(r)}
+    ${body}
+    ${historyHTML()}
+    <button class="btn ghost" style="margin-bottom:70px" onclick="startNewGame()">🔄 Reset &amp; start a new game</button>`;
+}
+
+/* ---------- human shop ---------- */
+function humanShopHTML(r){
+  const pl = G.players[me];
+  const cost = cartCost(false), budget = myBudget(false), left = budget - cost;
+  return `<div class="panel">
+    <h3 class="mt0">Your battle dice</h3>
+    <div class="dice-row">
+      ${COLORS.map(c=>{
+        const lvl = pl.dice[c] + cart.upgrades[c];
+        return `<div class="die-wrap">
+          ${dieHTML(c, lvl, null)}
+          <div class="die-label ${c}">${COLOR_META[c].icon} ${COLOR_META[c].name}</div>
+          <div class="die-sub">rolls ${lvl}–${lvl+5}${cart.rerolls[c]?' · ♻️':''}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <h3>Spend your tokens</h3>
+    ${COLORS.map(c=>{
+      const cur = pl.dice[c] + cart.upgrades[c];
+      const upCost = CFG.upgradeCost(cur);
+      const maxed = cur >= CFG.dieMaxLevel;
+      return `<div class="shop-item">
+        <div><div class="si-name">${COLOR_META[c].icon} Upgrade ${COLOR_META[c].name}</div>
+        <div class="si-desc">${maxed?'MAXED OUT':'→ rolls '+(cur+1)+'–'+(cur+6)+' forever'}</div></div>
+        <div class="qty-ctrl">
+          <button onclick="humCart('down','${c}')" ${cart.upgrades[c]<=0?'disabled':''}>−</button>
+          <span class="qv">${cart.upgrades[c]||''}</span>
+          <button onclick="humCart('up','${c}')" ${maxed||left<upCost?'disabled':''}>+</button>
+          <span class="small" style="min-width:34px;text-align:right">${maxed?'':'⚙️'+upCost}</span>
+        </div>
+      </div>`;
+    }).join('')}
+    ${COLORS.map(c=>`<div class="shop-item">
+        <div><div class="si-name">♻️ Reroll insurance: ${COLOR_META[c].name}</div>
+        <div class="si-desc">Auto-rerolls this die once if it rolls low</div></div>
+        <button class="buy-btn ${cart.rerolls[c]?'owned':''}" onclick="humCart('reroll','${c}')"
+          ${!cart.rerolls[c]&&left<CFG.rerollCost?'disabled':''}>${cart.rerolls[c]?'✓ ON':'⚙️'+CFG.rerollCost}</button>
+      </div>`).join('')}
+    <div class="spent-preview">Spending ⚙️${cost} · ⚙️${left} left after battle prep</div>
+  </div>
+  <div class="fixed-cta"><button class="btn" onclick="doSubmitHuman()">🎲 Lock in &amp; roll</button></div>`;
+}
+function humCart(op, c){
+  const pl = G.players[me];
+  if (op==='up') cart.upgrades[c]++;
+  if (op==='down') cart.upgrades[c] = Math.max(0, cart.upgrades[c]-1);
+  if (op==='reroll') cart.rerolls[c] = !cart.rerolls[c];
+  if (cartCost(false) > myBudget(false)){ // undo if over budget
+    if (op==='up') cart.upgrades[c]--;
+    if (op==='reroll') cart.rerolls[c] = false;
+  }
+  render();
+}
+function doSubmitHuman(){
+  submitAction({ role:'human', upgrades:cart.upgrades, rerolls:cart.rerolls, at:Date.now() });
+}
+
+/* ---------- parasite shop ---------- */
+function parasiteShopHTML(r){
+  const cost = cartCost(true), budget = myBudget(true), left = budget - cost;
+  const p = G.parasite;
+  return `<div class="panel">
+    <div class="center small" style="margin-bottom:8px">The parasite surges through you… <b style="color:var(--gold)">+${CFG.stipend} bonus tokens</b> to spend. Win this round: <b style="color:var(--danger)">${CFG.parasiteWinPts(r)} pts</b></div>
+    <h3 class="mt0">⚔️ This round only</h3>
+    <div class="shop-item">
+      <div><div class="si-name">🎲 Temporary extra die</div><div class="si-desc">+1d6 to the parasite's total tonight</div></div>
+      <div class="qty-ctrl">
+        <button onclick="parCart('tempDown')" ${cart.tempDice<=0?'disabled':''}>−</button>
+        <span class="qv">${cart.tempDice||''}</span>
+        <button onclick="parCart('tempUp')" ${cart.tempDice>=CFG.tempDieMax||left<CFG.tempDieCost?'disabled':''}>+</button>
+        <span class="small" style="min-width:34px;text-align:right">⚙️${CFG.tempDieCost}</span>
+      </div>
+    </div>
+    <div class="shop-item">
+      <div><div class="si-name">☠️ Venom Cloud</div><div class="si-desc">Every human die rolls −1 this round</div></div>
+      <button class="buy-btn ${cart.venom?'owned':''}" onclick="parCart('venom')" ${!cart.venom&&left<CFG.venomCost?'disabled':''}>${cart.venom?'✓ ON':'⚙️'+CFG.venomCost}</button>
+    </div>
+    <div class="shop-item">
+      <div><div class="si-name">🔥 Feeding Frenzy</div><div class="si-desc">+${CFG.frenzyBonus} bonus points if you win</div></div>
+      <button class="buy-btn ${cart.frenzy?'owned':''}" onclick="parCart('frenzy')" ${!cart.frenzy&&left<CFG.frenzyCost?'disabled':''}>${cart.frenzy?'✓ ON':'⚙️'+CFG.frenzyCost}</button>
+    </div>
+    <h3>🧬 Evolve it forever <span class="small">(carries to the next host!)</span></h3>
+    <div class="shop-item">
+      <div><div class="si-name">🛡 Thicker Hide</div><div class="si-desc">+${CFG.hideBonus} base score permanently (${p.hide||0}/${CFG.hideMax} bought)</div></div>
+      <div class="qty-ctrl">
+        <button onclick="parCart('hideDown')" ${cart.buyHide<=0?'disabled':''}>−</button>
+        <span class="qv">${cart.buyHide||''}</span>
+        <button onclick="parCart('hideUp')" ${(p.hide||0)+cart.buyHide>=CFG.hideMax||left<CFG.hideCost?'disabled':''}>+</button>
+        <span class="small" style="min-width:34px;text-align:right">⚙️${CFG.hideCost}</span>
+      </div>
+    </div>
+    <div class="shop-item">
+      <div><div class="si-name">♻️ Regeneration</div><div class="si-desc">Parasite always rerolls its lowest die</div></div>
+      ${p.regen?`<button class="buy-btn owned">✓ EVOLVED</button>`
+        :`<button class="buy-btn ${cart.buyRegen?'owned':''}" onclick="parCart('regen')" ${!cart.buyRegen&&left<CFG.regenCost?'disabled':''}>${cart.buyRegen?'✓':'⚙️'+CFG.regenCost}</button>`}
+    </div>
+    <div class="shop-item">
+      <div><div class="si-name">🦾 Extra Limb</div><div class="si-desc">Parasite rolls a 3rd core die every round</div></div>
+      ${p.limb?`<button class="buy-btn owned">✓ EVOLVED</button>`
+        :`<button class="buy-btn ${cart.buyLimb?'owned':''}" onclick="parCart('limb')" ${!cart.buyLimb&&left<CFG.limbCost?'disabled':''}>${cart.buyLimb?'✓':'⚙️'+CFG.limbCost}</button>`}
+    </div>
+    <div class="spent-preview">Spending ⚙️${cost} of ⚙️${budget} · ⚙️${left} kept for later</div>
+  </div>
+  <div class="fixed-cta"><button class="btn danger" onclick="doSubmitParasite()">💀 Unleash the parasite</button></div>`;
+}
+function parCart(op){
+  if (op==='tempUp') cart.tempDice++;
+  if (op==='tempDown') cart.tempDice = Math.max(0, cart.tempDice-1);
+  if (op==='hideUp') cart.buyHide++;
+  if (op==='hideDown') cart.buyHide = Math.max(0, cart.buyHide-1);
+  if (op==='venom') cart.venom = !cart.venom;
+  if (op==='frenzy') cart.frenzy = !cart.frenzy;
+  if (op==='regen') cart.buyRegen = !cart.buyRegen;
+  if (op==='limb') cart.buyLimb = !cart.buyLimb;
+  if (cartCost(true) > myBudget(true)){
+    if (op==='tempUp') cart.tempDice--;
+    if (op==='hideUp') cart.buyHide--;
+    if (op==='venom') cart.venom=false;
+    if (op==='frenzy') cart.frenzy=false;
+    if (op==='regen') cart.buyRegen=false;
+    if (op==='limb') cart.buyLimb=false;
+  }
+  render();
+}
+function doSubmitParasite(){
+  submitAction({ role:'parasite', tempDice:cart.tempDice, venom:cart.venom, frenzy:cart.frenzy,
+    buyHide:cart.buyHide, buyRegen:cart.buyRegen, buyLimb:cart.buyLimb, at:Date.now() });
+}
+
+/* ---------- waiting ---------- */
+function waitingHTML(r){
+  const acts = (G.rounds[r]&&G.rounds[r].actions)||{};
+  return `<div class="panel">
+    <h3 class="mt0 center">✅ Orders locked in!</h3>
+    <p class="small center">The battle erupts the moment everyone submits.</p>
+    ${PIDS.map(p=>`<div class="wait-row">
+      <span class="em">${PLAYERS[p].emoji}</span> <b>${PLAYERS[p].name}</b>
+      ${G.schedule[r-1]===p?'<span class="small" style="color:var(--danger)">🦠 parasite</span>':''}
+      <span class="st ${acts[p]?'in':'thinking'}">${acts[p]?'READY':'plotting…'}</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+/* ---------- history ---------- */
+function historyHTML(){
+  const done = Object.keys(G.rounds).map(Number).filter(r=>G.rounds[r].result).sort((a,b)=>b-a);
+  if (!done.length) return '';
+  return `<div class="panel">
+    <h3 class="mt0">📜 Battle log</h3>
+    ${done.map(r=>{
+      const res = G.rounds[r].result;
+      return `<div class="log-entry">
+        <b>R${r}</b> ${res.humansWin?'🛡️ Crew won':'💀 Parasite ('+PLAYERS[res.parId].name+') won'}
+        — ${res.humanTotal} vs ${res.parTotal}
+        ${res.mvp?` · ⭐MVP ${PLAYERS[res.mvp].name}`:''}
+        <button class="buy-btn" style="float:right;padding:4px 10px;font-size:11px" onclick="playReplay(${r},true)">▶︎</button>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+/* ---------- battle replay animation ---------- */
+function playReplay(r, manual){
+  const res = G.rounds[r] && G.rounds[r].result;
+  if (!res){ return; }
+  animating = true;
+  const humans = PIDS.filter(p=>p!==res.parId);
+  const evo = evoStage(r);
+  const app = $('#app');
+  app.innerHTML = `
+    <div class="center" style="padding-top:12px">
+      <h2 style="margin-bottom:2px">Round ${r} — BATTLE ${res.late?'<span style="color:var(--gold)">×2 CRITICAL</span>':''}</h2>
+      <div class="small">${PLAYERS[res.parId].name} hosts ${evo.name}</div>
+    </div>
+    ${humans.map(h=>`
+      <div class="panel" style="padding:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+          <span style="font-size:22px">${PLAYERS[h].emoji}</span><b>${PLAYERS[h].name}</b>
+          <span id="ht-${h}" style="margin-left:auto;font-weight:900;font-size:20px;color:var(--blue)"></span>
+        </div>
+        <div class="dice-row" style="margin:6px 0" id="hd-${h}">
+          ${COLORS.map(c=>{const d=res.rolls[h][c];return `<div class="die-wrap">${dieHTML(c,d.lvl,null,'rolling')}<div class="die-sub" id="note-${h}-${c}"></div></div>`;}).join('')}
+        </div>
+      </div>`).join('')}
+    <div class="panel center" style="border-color:#ff5d7366">
+      <span style="font-size:${evo.size*0.8}px" class="parasite-emoji">${evo.emoji}</span>
+      <div class="p-name">${evo.name} ${res.venom?'· ☠️ VENOM CLOUD':''}</div>
+      <div class="small">base <b style="color:var(--text)">${res.base}</b> + dice</div>
+      <div class="dice-row" style="margin:8px 0" id="pd">
+        ${res.pRolls.map(()=>`<div class="die-wrap">${dieHTML('purple',1,null,'rolling')}</div>`).join('')}
+      </div>
+      <div id="pt" style="font-weight:900;font-size:24px;color:var(--danger)"></div>
+    </div>
+    <div id="verdict"></div>
+    <div class="fixed-cta"><button class="btn ghost" id="skipBtn" onclick="finishReplay(${r})">skip ⏭</button></div>`;
+  window.scrollTo(0,0);
+
+  // animate dice: cycle random faces, settle staggered
+  const settleJobs = [];
+  humans.forEach((h,hi)=>COLORS.forEach((c,ci)=>{
+    const d = res.rolls[h][c];
+    const el = app.querySelector(`#hd-${h} .die[data-color=${c}]`);
+    settleJobs.push({el, delay: 600 + (hi*3+ci)*260, final:d.v, note:$(`#note-${h}-${c}`)===null?null:`note-${h}-${c}`, info:d});
+  }));
+  res.pRolls.forEach((d,i)=>{
+    const el = app.querySelectorAll('#pd .die')[i];
+    settleJobs.push({el, delay: 600 + (9)*260 + i*300, final:d.v, info:d, parasite:true});
+  });
+  const cycler = setInterval(()=>{
+    settleJobs.forEach(j=>{ if (j.el && j.el.classList.contains('rolling'))
+      j.el.innerHTML = pipHTML(rand6()) + (j.el.querySelector('.lvltag')?'':''); });
+  }, 90);
+  window._replayTimers = [cycler];
+  settleJobs.forEach(j=>{
+    window._replayTimers.push(setTimeout(()=>{
+      if (!j.el) return;
+      j.el.classList.remove('rolling');
+      const lvlTag = j.parasite?'' : (j.info.lvl>1?`<span class="lvltag">Lv${j.info.lvl}</span>`:'');
+      j.el.innerHTML = pipHTML(j.final) + lvlTag;
+      if (j.info.rerolled||j.info.venomed) j.el.classList.add('reroll-flash');
+    }, j.delay));
+  });
+  // per-die notes (reroll / venom)
+  humans.forEach(h=>COLORS.forEach(c=>{
+    const d = res.rolls[h][c];
+    if (d.rerolled || d.venomed){
+      window._replayTimers.push(setTimeout(()=>{
+        const ne = document.getElementById(`note-${h}-${c}`);
+        if (ne) ne.innerHTML = `${d.rerolled?`♻️${d.first}→`:''}${d.venomed?'☠️':''}${d.v}`;
+      }, 600 + 9*260 + 200));
+    }
+  }));
+  const totalDelay = 600 + 9*260 + res.pRolls.length*300 + 400;
+  window._replayTimers.push(setTimeout(()=>{
+    countUp($('#ht-'+humans[0]), COLORS.reduce((s,c)=>s+res.rolls[humans[0]][c].v,0));
+    countUp($('#ht-'+humans[1]), COLORS.reduce((s,c)=>s+res.rolls[humans[1]][c].v,0));
+    countUp($('#ht-'+humans[2]), COLORS.reduce((s,c)=>s+res.rolls[humans[2]][c].v,0));
+    countUp($('#pt'), res.parTotal, 'base '+res.base+' → ');
+  }, totalDelay));
+  window._replayTimers.push(setTimeout(()=>{ showVerdict(r, res); }, totalDelay + 900));
+}
+function countUp(el, target, prefix=''){
+  if (!el) return;
+  const t0 = performance.now(), dur = 700;
+  const tick = now=>{
+    const k = Math.min(1,(now-t0)/dur);
+    el.textContent = prefix + Math.round(target*(1-Math.pow(1-k,3)));
+    if (k<1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+function showVerdict(r, res){
+  const v = $('#verdict'); if (!v) return;
+  const badges = p => (res.awards[p].tags||[]).map(t=>{
+    if (t==='mvp') return '<span class="badge mvp">MVP</span>';
+    if (t==='frenzy') return '<span class="badge mvp">🔥FRENZY</span>';
+    const c = t.replace('cat-','');
+    return `<span class="badge cat-${c}">${COLOR_META[c].icon} ${COLOR_META[c].name}</span>`;
+  }).join('');
+  v.innerHTML = `
+    <div class="vs-bar">
+      <div class="vs-side h"><div class="lbl">Crew</div><div class="val">${res.humanTotal}</div></div>
+      <div class="vs-x">VS</div>
+      <div class="vs-side p"><div class="lbl">Parasite</div><div class="val">${res.parTotal}</div></div>
+    </div>
+    <div class="result-banner ${res.humansWin?'h':'p'}">
+      ${res.humansWin ? '🛡️ THE CREW HOLDS THE SHIP!' : '💀 THE PARASITE FEASTS!'}
+    </div>
+    <div class="panel">
+      ${PIDS.map(p=>{
+        const a = res.awards[p];
+        const mine = p===me;
+        const ptsTxt = mine ? `+${a.pts} pts` : (a.pts>0?'+<span class="secret">??</span> pts':'—');
+        return `<div class="award-row">
+          <span class="who">${PLAYERS[p].emoji} ${PLAYERS[p].name}${p===res.parId?' 🦠':''}${badges(p)}</span>
+          <span>${ptsTxt} · ⚙️+${a.tokens}</span>
+        </div>`;
+      }).join('')}
+      <div class="small center" style="margin-top:8px">Scores stay secret until the end. 🤫</div>
+    </div>`;
+  const btn = $('#skipBtn');
+  if (btn){ btn.textContent = 'Continue ➜'; btn.className = 'btn'; }
+  if (v.scrollIntoView) v.scrollIntoView({behavior:'smooth'});
+}
+function finishReplay(r){
+  (window._replayTimers||[]).forEach(t=>{clearTimeout(t);clearInterval(t);});
+  markSeen(Math.max(lastSeen(), r));   // replaying an old round must not rewind "seen"
+  animating = false;
+  render();
+}
+
+/* ---------- final reveal ---------- */
+function finalScreen(){
+  return `<div style="padding-top:5vh">
+    <div class="center"><span style="font-size:60px">🏆</span></div>
+    <h1 class="center">FINAL SCORES</h1>
+    <p class="center small">8 rounds. 2 possessions each. Only one legend.</p>
+    <div id="revealZone" style="margin-top:18px"></div>
+    <div id="newGameZone" class="hidden" style="margin-top:20px">
+      <button class="btn" onclick="startNewGame()">🚀 Play again</button>
+    </div>
+  </div>`;
+}
+function runFinalReveal(){
+  const ranked = PIDS.map(p=>({p, pts:G.players[p].pts})).sort((a,b)=>a.pts-b.pts); // 4th first
+  const zone = $('#revealZone');
+  const medals = ['','🥉','🥈','🥇'];
+  ranked.forEach((e,i)=>{
+    setTimeout(()=>{
+      const isWin = i===ranked.length-1;
+      const row = document.createElement('div');
+      row.className = 'reveal-row'+(isWin?' winner':'');
+      row.innerHTML = `<span class="place">${medals[i]||'4th'}</span>
+        <span class="em">${PLAYERS[e.p].emoji}</span>
+        <b>${PLAYERS[e.p].name}</b>${isWin?' <span class="badge mvp">CHAMPION</span>':''}
+        <span class="pts-final">0</span>`;
+      zone.prepend(row);
+      requestAnimationFrame(()=>row.classList.add('show'));
+      countUp(row.querySelector('.pts-final'), e.pts);
+      if (isWin){ confettiBurst(); $('#newGameZone').classList.remove('hidden'); }
+    }, 900*i + 400);
+  });
+}
+function confettiBurst(){
+  const glyphs = ['🎉','⭐','🛸','🎲','💥','🦠'];
+  for (let i=0;i<40;i++){
+    const s = document.createElement('span');
+    s.className = 'confetti';
+    s.textContent = glyphs[Math.floor(Math.random()*glyphs.length)];
+    s.style.left = Math.random()*100+'vw';
+    s.style.animationDuration = (2+Math.random()*2.5)+'s';
+    s.style.animationDelay = (Math.random()*1.5)+'s';
+    document.body.appendChild(s);
+    setTimeout(()=>s.remove(), 6000);
+  }
+}
+
+/* ================= BOOT ================= */
+(function boot(){
+  // starfield
+  const sf = $('#starfield');
+  for (let i=0;i<60;i++){
+    const s = document.createElement('i');
+    s.style.left = Math.random()*100+'vw';
+    s.style.top = Math.random()*100+'vh';
+    s.style.animationDelay = Math.random()*3+'s';
+    sf.appendChild(s);
+  }
+  window._showPts = false;
+  if (configOK()) initFirebase();
+  render();
+})();
+</script>
+</body>
+</html>
