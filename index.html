@@ -72,14 +72,16 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .stat-chip.energy{color:var(--energy);border-color:#f5c04255;}
 .stat-chip.pts{color:var(--energy);}
 .round-strip{display:flex;gap:4px;margin:0 0 10px;overflow-x:auto;padding-bottom:2px;}
-.rnode{flex:0 0 auto;width:42px;border-radius:9px;border:1.5px solid var(--line);background:var(--panel);
-  text-align:center;padding:3px 0 4px;position:relative;}
+.rnode{flex:0 0 auto;width:52px;border-radius:9px;border:1.5px solid var(--line);background:var(--panel);
+  text-align:center;padding:4px 2px 5px;position:relative;}
 .rnode .rn{font-size:9px;color:var(--dim);font-weight:700;}
-.rnode .re{font-size:15px;line-height:1.15;}
+.rnode .re{font-size:11px;line-height:1.2;font-weight:800;margin-top:2px;font-family:'IBM Plex Sans',sans-serif;}
 .rnode.now{border-color:var(--energy);box-shadow:0 0 10px #f5c04233;}
 .rnode.done{opacity:.4;}
 .rnode.late{background:#1a1810;}
 .rnode .rw{position:absolute;top:-5px;right:-3px;font-size:10px;}
+.rnode .avatar-img{display:none;}
+.strip-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:0 0 4px;}
 
 .turn-coach{border-radius:12px;padding:12px;margin-bottom:10px;border:1.5px solid var(--line);
   background:linear-gradient(135deg,#122030,#0e2818);}
@@ -244,10 +246,10 @@ const firebaseConfig = {
 };
 
 const PLAYERS = {
-  dave:  { name:'Dave',  img:'assets/crew-dave.png',  color:'#f0b429', title:'Captain'  },
-  brian: { name:'Brian', img:'assets/crew-brian.png', color:'#4db8ff', title:'Gunner'   },
-  joel:  { name:'Joel',  img:'assets/crew-joel.png',  color:'#3ecf8e', title:'Engineer' },
-  chris: { name:'Chris', img:'assets/crew-chris.png', color:'#9aff6b', title:'Scout'    },
+  dave:  { name:'Dave',  short:'Dave',  img:'assets/crew-dave.png',  color:'#f0b429', title:'Captain'  },
+  brian: { name:'Brian', short:'Brian', img:'assets/crew-brian.png', color:'#4db8ff', title:'Gunner'   },
+  joel:  { name:'Joel',  short:'Joel',  img:'assets/crew-joel.png',  color:'#3ecf8e', title:'Engineer' },
+  chris: { name:'Chris', short:'Chris', img:'assets/crew-chris.png', color:'#9aff6b', title:'Scout'    },
 };
 function crewImg(id, cls=''){
   const c = PLAYERS[id];
@@ -894,11 +896,17 @@ function charSelectScreen(){
 function pickChar(p){ me = p; localStorage.setItem('stp_me', p); render(); }
 
 function roundStripHTML(){
-  return `<div class="round-strip">${G.schedule.map((p,i)=>{
-    const r=i+1, cls = ['rnode', r===G.round&&G.status==='active'?'now':'', r<G.round||G.status==='over'?'done':'', r>=5?'late':''].join(' ');
+  return `<div class="strip-label">Who’s infected each round</div>
+  <div class="round-strip">${G.schedule.map((p,i)=>{
+    const r=i+1, c=PLAYERS[p];
+    const cls = ['rnode', r===G.round&&G.status==='active'?'now':'', r<G.round||G.status==='over'?'done':'', r>=5?'late':''].join(' ');
     const res = G.rounds[r] && G.rounds[r].result;
     const w = res ? (res.humansWin?'🛡️':'💀') : '';
-    return `<div class="${cls}"><div class="rn">R${r}${r>=5?' ×2':''}</div><div class="re">${crewImg(p,'tiny')}</div>${w?`<div class="rw">${w}</div>`:''}</div>`;
+    return `<div class="${cls}" title="${c.name} infected in round ${r}" style="border-color:${r===G.round&&G.status==='active'?'var(--energy)':c.color+'55'}">
+      <div class="rn">R${r}${r>=5?' ×2':''}</div>
+      <div class="re" style="color:${c.color}">${c.short}</div>
+      ${w?`<div class="rw">${w}</div>`:''}
+    </div>`;
   }).join('')}</div>`;
 }
 
