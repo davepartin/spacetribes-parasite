@@ -26,7 +26,7 @@ body{background:
   radial-gradient(700px 420px at 50% -5%, #1a3a2a66, transparent),
   radial-gradient(600px 400px at 100% 40%, #3a152055, transparent),
   var(--bg);}
-#app{max-width:520px;margin:0 auto;padding:10px 12px 108px;position:relative;min-height:100vh;z-index:1;}
+#app{max-width:520px;margin:0 auto;padding:10px 12px 150px;position:relative;min-height:100vh;z-index:1;}
 h1,h2,h3{margin:0 0 6px;font-family:'Orbitron',sans-serif;letter-spacing:.03em;line-height:1.2;}
 h3{font-size:15px;}
 button{font-family:inherit;border:none;cursor:pointer;}
@@ -203,8 +203,28 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .confetti{position:fixed;top:-10px;font-size:18px;animation:fall linear forwards;z-index:99;pointer-events:none;}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.3;}}
 
-.fixed-cta{position:fixed;bottom:0;left:0;right:0;z-index:30;padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+.fixed-cta{position:fixed;bottom:calc(52px + env(safe-area-inset-bottom));left:0;right:0;z-index:30;padding:10px 12px 8px;
   background:linear-gradient(transparent,#081018 38%);max-width:520px;margin:0 auto;}
+.bottom-dock{position:fixed;bottom:0;left:0;right:0;z-index:32;max-width:520px;margin:0 auto;
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:8px 12px calc(8px + env(safe-area-inset-bottom));
+  background:linear-gradient(transparent,#081018 55%);}
+.dock-btn{width:auto;min-width:96px;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:700;
+  background:var(--panel);border:1.5px solid var(--line);color:var(--text);box-shadow:0 2px 10px #0006;}
+.dock-btn:active{transform:scale(.97);}
+.dock-btn.reset{border-color:#ff5a4e55;color:#ffb0a8;}
+.dock-btn.help{border-color:#4da3ff55;color:#a8d4ff;}
+.modal-back{position:fixed;inset:0;z-index:80;background:#041018cc;display:flex;align-items:flex-end;justify-content:center;
+  padding:12px;backdrop-filter:blur(4px);}
+.modal-sheet{width:100%;max-width:520px;max-height:min(78vh,640px);overflow:auto;background:var(--panel);
+  border:1px solid var(--line);border-radius:16px 16px 12px 12px;padding:16px 14px 18px;
+  box-shadow:0 -8px 40px #000a;}
+.modal-sheet h2{margin:0 0 8px;font-size:18px;}
+.modal-sheet h3{margin:14px 0 6px;font-size:13px;color:var(--energy);}
+.modal-sheet p,.modal-sheet li{font-size:13px;line-height:1.45;color:var(--text);margin:0 0 6px;}
+.modal-sheet ul{margin:0 0 8px;padding-left:18px;color:var(--dim);}
+.modal-sheet li{color:var(--dim);}
+.modal-close{margin-top:12px;}
 .log-entry{border-left:3px solid var(--line);padding:7px 9px;margin-bottom:6px;font-size:12px;background:var(--panel2);border-radius:0 8px 8px 0;}
 .log-entry b{color:var(--energy);}
 .center{text-align:center;}
@@ -429,7 +449,7 @@ let me = localStorage.getItem('stp_me') || null;
 let cart = null;
 let cartRound = 0;
 let animating = false;
-let ui = { selectedDie: null, selectedFace: null, selectedModFace: null };
+let ui = { selectedDie: null, selectedFace: null, selectedModFace: null, showHelp: false };
 let session = null; // local turn: { phase:'upgrade'|'roll', ... }
 
 function newGameData(){
@@ -773,8 +793,60 @@ function submitAction(action){
   db.ref(`games/current/rounds/${r}/actions/${me}`).set(action);
 }
 function startNewGame(){
-  if (confirm('Start a brand new game? The current one will be wiped for everyone.'))
+  if (confirm('Are you sure?\n\nThis resets the game for everyone and starts over.'))
     gameRef.set(newGameData());
+}
+function confirmResetGame(){ startNewGame(); }
+function openInstructions(){ ui.showHelp = true; render(); }
+function closeInstructions(){ ui.showHelp = false; render(); }
+function bottomDockHTML(){
+  return `<div class="bottom-dock">
+    <button type="button" class="dock-btn reset" onclick="confirmResetGame()">Reset</button>
+    <button type="button" class="dock-btn help" onclick="openInstructions()">Instructions</button>
+  </div>`;
+}
+function instructionsModalHTML(){
+  if (!ui.showHelp) return '';
+  return `<div class="modal-back" onclick="if(event.target===this)closeInstructions()">
+    <div class="modal-sheet" role="dialog" aria-label="Instructions">
+      <h2>How to play</h2>
+      <p>Four crew. One parasite. Eight rounds. Open scores. Highest points wins.</p>
+
+      <h3>Each round</h3>
+      <ul>
+        <li>One crew member is <b>infected</b> (see the round strip).</li>
+        <li>Everyone does <b>Upgrade → Roll → Lock in</b> on their phone.</li>
+        <li>When all four lock in, the battle resolves for everyone.</li>
+      </ul>
+
+      <h3>Energy ⚡</h3>
+      <ul>
+        <li>Start with <b>5</b>. Leftover banks forever.</li>
+        <li><b>Forge</b> a face (+1) for ⚡1 · extra die ⚡3 · reroll ⚡1.</li>
+        <li>Infected get a <b>+3 surge</b> that round.</li>
+      </ul>
+
+      <h3>If you’re infected</h3>
+      <ul>
+        <li>You <b>must</b> grow the parasite (CONTAIN or UNLEASH) before rolling.</li>
+        <li>CONTAIN = safer for later infected. UNLEASH = stronger tonight, meaner later.</li>
+      </ul>
+
+      <h3>Battle</h3>
+      <ul>
+        <li>Crew totals add up. Parasite = base + attack dice + modifiers.</li>
+        <li>Crew wins ties. Parasite wins mutate it for next time.</li>
+      </ul>
+
+      <h3>Scoring</h3>
+      <ul>
+        <li>Standings are open — don’t feed the leader.</li>
+        <li>Rounds 5–8 pay bigger rewards (×2 on the strip).</li>
+      </ul>
+
+      <button class="btn modal-close" onclick="closeInstructions()">Got it</button>
+    </div>
+  </div>`;
 }
 
 /* ================= CART ================= */
@@ -1010,7 +1082,8 @@ function gameScreen(){
     ${parasitePanelHTML(r)}
     ${body}
     ${historyHTML()}
-    <button class="btn ghost" style="margin-bottom:70px" onclick="startNewGame()">Reset &amp; start a new game</button>`;
+    ${bottomDockHTML()}
+    ${instructionsModalHTML()}`;
 }
 
 /* ---------- human shop ---------- */
