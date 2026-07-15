@@ -1,12 +1,14 @@
 # Space Tribes: Parasite
 
-An asynchronous 4-player dice-battle game for Dave, Brian, Joel & Chris. A hostile alien parasite possesses one crew member each round — humans forge custom die faces with **Energy**, the parasite grows **attack + modifier dice**, and **open standings** create the politics of who you can afford to feed.
+An asynchronous 4-player dice-battle for Dave, Brian, Joel & Chris.
 
-The entire game is one file: **`index.html`**. No build step, no server code.
+**Schema v4:** 10 rounds — Training → Infection (you + the monster) → Boss reveal. Human mod die (2-2-2), Scar die for heavy growth, exploding parasite dice + **Instinct** die.
 
-- **[SETUP.md](SETUP.md)** — 5-minute walkthrough: free Firebase database + GitHub Pages hosting
-- **[RULES.md](RULES.md)** — Energy, face forging, parasite modifiers, scoring
+The entire game is one file: **`index.html`**. No build step.
 
-Open the hosted page on your phone, tap your character once, and your phone remembers you. Play a round a day or blitz a whole game in an evening.
+- **[SETUP.md](SETUP.md)** — Firebase + GitHub Pages  
+- **[RULES.md](RULES.md)** — full v4 crew manual  
 
-**Schema v3:** turns are Upgrade → Roll → Lock in. If the app asks you to start a new game, do that once so everyone shares the same rules.
+Open the hosted page on your phone, tap your character once, and your phone remembers you.
+
+If the app asks you to start a new game after this update, do that once so everyone shares Schema v4.

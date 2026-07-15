@@ -265,6 +265,25 @@ code{background:#00000055;padding:2px 5px;border-radius:5px;font-size:12px;word-
 .total-big{font-size:32px;font-weight:800;font-family:'IBM Plex Mono',monospace;line-height:1;margin:8px 0;}
 .total-big.crew{color:var(--blue);} .total-big.par{color:var(--danger);}
 .hint{font-size:13px;color:var(--dim);text-align:center;margin:6px 0;line-height:1.4;}
+
+.die.scar{background:linear-gradient(160deg,#2a1018,#12080c);color:#ff8a9a;border:1px solid #ff5a4e55;}
+.die.instinct{background:linear-gradient(160deg,#2a2410,#1a1408);color:#f5c042;border:1px solid #f5c04255;}
+.die.scar .face-num{color:#ff8a9a;background:#12080c;}
+.die.instinct .face-num{color:#f5c042;background:#1a1408;}
+.face-chip.scar{background:#2a1018;color:#ff8a9a;border-color:#ff5a4e55;}
+.face-chip.instinct{background:#2a2410;color:#f5c042;border-color:#f5c04255;}
+.face-chip.energy-face{background:#1a2838;color:#7ec8ff;border-color:#4da3ff55;}
+.face-chip.base-face{background:#2a2010;color:#f5c042;border-color:#f5c04255;}
+.boss-meter{font-family:'IBM Plex Mono',monospace;color:var(--danger);font-weight:800;}
+.rnode.fog .re{color:var(--dim);}
+.rnode.train{border-color:#4da3ff55;}
+.rnode.boss{border-color:#f5c04266;background:#1a1810;}
+.growth-opt.soft{border-color:#3ecf8e55;}
+.growth-opt.heavy{border-color:#ff5a4e66;}
+.growth-opt.soft.picked{border-color:var(--good);}
+.growth-opt.heavy.picked{border-color:var(--danger);}
+.fusion-chip{display:inline-block;padding:4px 8px;border-radius:8px;background:#8dff6a18;border:1px solid #8dff6a44;color:var(--bio);font-size:12px;font-weight:700;}
+
 </style>
 </head>
 <body>
@@ -274,9 +293,9 @@ code{background:#00000055;padding:2px 5px;border-radius:5px;font-size:12px;word-
 
 <script>
 /* ============================================================
-   SPACE TRIBES: PARASITE — Energy / Face Forge / Modifiers
-   4-player async dice battle for Dave, Brian, Joel & Chris
-   Schema v2 — start a new game; old saves are incompatible.
+   SPACE TRIBES: PARASITE — Schema v4
+   10 rounds · Training → Infection → Boss
+   Host = human dice + parasite package (Instinct die)
    ============================================================ */
 
 const firebaseConfig = {
@@ -308,56 +327,93 @@ function parasiteArtHTML(size, stage){
 const PIDS = ['dave','brian','joel','chris'];
 const COLORS = ['red','blue','green'];
 const COLOR_META = {
-  red:   { name:'Weapons',  icon:'🔫' },
-  blue:  { name:'Strength', icon:'💪' },
-  green: { name:'Agility',  icon:'⚡' },
+  red:   { name:'Weapons',  icon:'W' },
+  blue:  { name:'Strength', icon:'S' },
+  green: { name:'Agility',  icon:'A' },
 };
-const TOTAL_ROUNDS = 8;
-const SCHEMA = 3; // upgrade → roll → lock-in turns
+
+const TOTAL_ROUNDS = 10;
+const SCHEMA = 4;
 
 const CFG = {
-  startEnergy: 5,
+  roundStipend: 5,
   forgeCost: 1,
+  forgeBump: 2,
   addDieCost: 3,
   rerollCost: 1,
-  freeRerollPerkCost: 5,
-  faceCap: 0,                        // 0 = no cap — forge as high as Energy allows
-  maxDicePerColor: 2,                // starter + one extra per Weapons/Strength/Agility
+  freeRerollPerkCost: 4,
+  modUpgradeCost: 2,
+  faceCap: 0,
+  maxDicePerColor: 2,
   maxParAttack: 4,
-  maxParMods: 2,
-  parasiteStipend: 3,                // Energy lever so the infected can reroll / clutch
-  unleashGrowthBonus: 1,             // Energy bribe for picking Unleash growth
-  tempAttackCost: 2,
-  tempAttackMax: 2,
-  pushModCost: 3,
-  // Playtested with unlimited human forges + Energy rerolls:
-  // hot attack faces (2–7), stipend 3, Unleash die-surge → ~60% crew overall, late ~45%
-  parasiteBase: r => 18 + r,
-  // If crew stomps by more than 5, parasite base adapts permanently (auto-balance)
-  adaptMargin: 5,
-  adaptGain: margin => Math.min(5, 2 + Math.floor((margin - 6) / 4)), // 6–9:+2, 10–13:+3, 14–17:+4, 18+:+5
-  humanWinPts:  r => r >= 5 ? 12 : 8,
-  mvpPts:       r => r >= 5 ? 5 : 3,
-  catPts:       r => r >= 5 ? 3 : 2,
-  parasiteWinPts: r => 8,
-  underdogEnergy: 1,                       // last place(s) bank +1 Energy each round
-  humanWinEn: 2, humanLossEn: 1, parWinEn: 2, parLossEn: 1, catEn: 1,
-  roundStipend: 1,
+  // points
+  trainRankPts: [6,4,2,1],
+  humanWinPts: r => r >= 6 ? 12 : 8,
+  hostWinPts:  r => r >= 6 ? 10 : 8,
+  mvpPts:      r => r >= 6 ? 5 : 3,
+  catPts:      r => r >= 6 ? 3 : 2,
+  heroBonus:   [12, 8, 5, 3],
+  heroFailBonus:[4, 3, 2, 1],
+  killBlowPts: 5,
+  winEn: 2,
+  catEn: 1,
+  lossEn: 0,
+  // parasite middle-balance
+  startFusion: 0.60,
+  fusionCap: 0.85,
+  fusionStep: 0.10,
+  startAura: 3,
+  auraGain: 4,
+  softMeter: 1,
+  heavyMeter: 3,
+  winMeter: 1,
+  hpBase: 100,
+  hpPerMeter: 3,
 };
+
+const MOD_LEVELS = {
+  energy: [2, 3, 4],
+  pct:    [20, 30, 40],
+  base:   [3, 5, 7],
+};
+
+const SCAR_FACES = {
+  1: [
+    { id:'drain',   label:'−2⚡',   desc:'Lose 2 Energy' },
+    { id:'bleed',   label:'−10%',  desc:'−10% attack' },
+    { id:'static',  label:'Static', desc:'Mod die ignored' },
+    { id:'fumble',  label:'Fumble', desc:'Reroll highest die' },
+    { id:'penalty', label:'−5pts', desc:'Lose 5 points' },
+    { id:'shatter', label:'Shatter', desc:'Lose strongest die' },
+  ],
+  2: [
+    { id:'drain',   label:'−4⚡',   desc:'Lose 4 Energy' },
+    { id:'bleed',   label:'−20%',  desc:'−20% attack' },
+    { id:'static',  label:'Static+', desc:'Mod ignored & −1⚡' },
+    { id:'fumble',  label:'Fumble2', desc:'Reroll two highest' },
+    { id:'penalty', label:'−10pts', desc:'Lose 10 points' },
+    { id:'shatter', label:'Shatter+', desc:'Lose strongest die & −5pts' },
+  ],
+};
+
+// Instinct die — the fun parasite specialty die (always rolled)
+const INSTINCT_FACES = [
+  { id:'gnash',  label:'Gnash',  desc:'+8 flat' },
+  { id:'fever',  label:'Fever',  desc:'+25% of parasite attack' },
+  { id:'twin',   label:'Twin',   desc:'Double your lowest attack die' },
+  { id:'echo',   label:'Echo',   desc:"Add your highest human die" },
+  { id:'blank',  label:'—',      desc:'Nothing' },
+  { id:'explode',label:'Boom',   desc:'Extra exploding attack die' },
+];
 
 const EVO_STAGES = [
   { min:0,  name:'THE SPORE',    size:108, stage:0, tag:'Nesting in the cortex' },
   { min:2,  name:'THE LARVA',    size:116, stage:1, tag:'Tunnels through memory' },
   { min:4,  name:'THE CRAWLER',  size:124, stage:2, tag:'Wraps the brain stem' },
   { min:6,  name:'THE RAVAGER',  size:132, stage:3, tag:'Owns the infected mind' },
-  { min:8,  name:'THE DEVOURER', size:140, stage:4, tag:'Hive consciousness' },
+  { min:10, name:'THE DEVOURER', size:140, stage:4, tag:'Exposed. Hungry. Free.' },
 ];
-function evoStage(mutations){ let s=EVO_STAGES[0]; for(const e of EVO_STAGES) if(mutations>=e.min) s=e; return s; }
-
-/** Custom brain-nesting parasite SVG — grows meaner with stage */
-function brainParasiteSVG(size, stage){
-  return parasiteArtHTML(size, stage);
-}
+function evoStage(m){ let s=EVO_STAGES[0]; for(const e of EVO_STAGES) if(m>=e.min) s=e; return s; }
 
 /* ================= UTIL ================= */
 const $ = sel => document.querySelector(sel);
@@ -365,7 +421,9 @@ const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&
 const deep = o => JSON.parse(JSON.stringify(o));
 const uid = (p) => p + '_' + Math.random().toString(36).slice(2,7);
 function stdFaces(){ return [1,2,3,4,5,6]; }
-function hotFaces(){ return [2,3,4,5,6,7]; } // parasite attack dice — can grow larger via Unleash
+function hotFaces(){ return [3,4,5,6,7,8]; } // middle-balance starter
+function shuffle(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
 function starterDice(){
   return [
     { id:'w1', color:'red',   faces:stdFaces() },
@@ -373,64 +431,100 @@ function starterDice(){
     { id:'a1', color:'green', faces:stdFaces() },
   ];
 }
+function starterModDie(){
+  // 2 energy, 2 pct, 2 base — all level 0
+  return [
+    { kind:'energy', level:0 }, { kind:'energy', level:0 },
+    { kind:'pct', level:0 },    { kind:'pct', level:0 },
+    { kind:'base', level:0 },   { kind:'base', level:0 },
+  ];
+}
 function starterParasite(){
   return {
     mutations: 0,
-    adaptBase: 0, // climbs when crew stomps — keeps the monster relevant
+    bossMeter: 0,
+    fusionPct: CFG.startFusion,
+    auraFlat: CFG.startAura,
     attack: [
       { id:'atk1', faces:hotFaces() },
       { id:'atk2', faces:hotFaces() },
     ],
-    // Hotter starter mod: blanks keep variance, flats/% make early wins possible
-    modifiers: [
-      { id:'mod1', faces: [
-        { type:'blank' },
-        { type:'blank' },
-        { type:'blank' },
-        { type:'flat', n:4 },
+    // shared mod die (3 faces) — grows via soft/heavy
+    mod: {
+      id:'pmod',
+      faces: [
         { type:'flat', n:5 },
-        { type:'pct', n:15 },
-      ]},
-    ],
+        { type:'flat', n:8 },
+        { type:'pct', n:20 },
+      ],
+    },
+    // Instinct faces can be upgraded (ids reference INSTINCT_FACES; blank can become better)
+    instinct: INSTINCT_FACES.map(f => f.id),
   };
 }
-function parasiteBaseNow(r, parasite){
-  return CFG.parasiteBase(r) + ((parasite && parasite.adaptBase) || 0);
+
+function roundKind(r){
+  if (r === 1) return 'training';
+  if (r >= 2 && r <= 9) return 'infection';
+  if (r === 10) return 'boss';
+  return 'over';
+}
+function hostIdForRound(g, r){
+  if (roundKind(r) !== 'infection') return null;
+  return g.schedule[r-2]; // schedule is 8 long for rounds 2-9
+}
+function bossHP(g){ return CFG.hpBase + CFG.hpPerMeter * ((g.parasite && g.parasite.bossMeter) || 0); }
+
+function modFaceValue(face){
+  return MOD_LEVELS[face.kind][Math.min(2, face.level|0)];
+}
+function modFaceLabel(face){
+  if (!face) return '?';
+  const v = modFaceValue(face);
+  if (face.kind==='energy') return '+'+v+'⚡';
+  if (face.kind==='pct') return '+'+v+'%';
+  if (face.kind==='base') return 'B+'+v;
+  return '?';
+}
+function modFaceClass(face){
+  if (!face) return 'blank';
+  if (face.kind==='energy') return 'energy-face';
+  if (face.kind==='pct') return 'pct';
+  if (face.kind==='base') return 'base-face';
+  return 'blank';
+}
+function pModLabel(f){
+  if (!f || f.type==='blank') return '—';
+  if (f.type==='flat') return '+'+f.n;
+  if (f.type==='pct') return '+'+f.n+'%';
+  return '?';
+}
+function instinctLabel(id){
+  const f = INSTINCT_FACES.find(x=>x.id===id);
+  return f ? f.label : id;
 }
 
 function rollFace(faces){
   const i = Math.floor(Math.random()*faces.length);
   return { index:i, value:faces[i] };
 }
-function rollModFace(faces){
-  const i = Math.floor(Math.random()*faces.length);
-  return { index:i, face: deep(faces[i]) };
+function rollIndex(n){ return Math.floor(Math.random()*n); }
+
+/** Exploding attack die — on max face, roll once more and add (classic dice fun). */
+function rollExplodingAttack(faces){
+  const first = rollFace(faces);
+  const max = Math.max(...faces);
+  let total = first.value;
+  let bonus = null;
+  if (first.value === max){
+    const extra = rollFace(faces);
+    total += extra.value;
+    bonus = extra;
+  }
+  return { index:first.index, value:total, shown:first.value, exploded:!!bonus, bonus };
 }
-function faceAvg(faces){
-  return faces.reduce((s,v)=>s+v,0)/faces.length;
-}
-function modFaceLabel(f){
-  if (!f || f.type==='blank') return '—';
-  if (f.type==='flat') return '+'+f.n;
-  if (f.type==='pct') return '+'+f.n+'%';
-  return '?';
-}
-function modFaceClass(f){
-  if (!f || f.type==='blank') return 'blank';
-  return f.type;
-}
-function expectedParThreat(p, r){
-  const base = parasiteBaseNow(r, p);
-  const atk = (p.attack||[]).reduce((s,d)=>s+faceAvg(d.faces),0);
-  let flatExp=0, pctExp=0;
-  (p.modifiers||[]).forEach(d=>{
-    d.faces.forEach(f=>{
-      if (f.type==='flat') flatExp += f.n / d.faces.length;
-      if (f.type==='pct') pctExp += (atk * f.n / 100) / d.faces.length;
-    });
-  });
-  return Math.round(base + atk + flatExp + pctExp);
-}
+
+function faceAvg(faces){ return faces.reduce((s,v)=>s+v,0)/faces.length; }
 
 function pipHTML(v){
   if (typeof v !== 'number' || v < 1) return `<span class="num">?</span>`;
@@ -444,8 +538,8 @@ function dieHTML(color, value, extraCls=''){
   let face;
   if (value==null) face = `<span class="num">?</span>`;
   else if (typeof value==='number') face = pipHTML(value);
-  else face = `<span class="num">${esc(value)}</span>`;
-  return `<div class="die ${color} ${extraCls}" data-color="${color}">${face}</div>`;
+  else face = `<span class="num">${esc(String(value))}</span>`;
+  return `<div class="die ${color} ${extraCls}">${face}</div>`;
 }
 function facesStripHTML(faces, opts={}){
   const { dieId, selectable, picked, forgedSet } = opts;
@@ -457,14 +551,6 @@ function facesStripHTML(faces, opts={}){
     return `<button class="face-chip ${hot?'hot':''} ${forged?'forged':''} ${pick?'picked':''}" ${onclick}>${v}</button>`;
   }).join('')}</div>`;
 }
-function modFacesStripHTML(faces, opts={}){
-  const { dieId, selectable, picked } = opts;
-  return `<div class="face-strip">${faces.map((f,i)=>{
-    const pick = picked && picked.dieId===dieId && picked.faceIndex===i;
-    const onclick = selectable ? `onclick="pickModFace('${dieId}',${i})"` : '';
-    return `<button class="face-chip ${modFaceClass(f)} ${pick?'picked':''}" ${onclick}>${modFaceLabel(f)}</button>`;
-  }).join('')}</div>`;
-}
 
 /* ================= STATE ================= */
 let db=null, gameRef=null;
@@ -474,148 +560,188 @@ let cart = null;
 let cartRound = 0;
 let animating = false;
 let ui = { selectedDie: null, selectedFace: null, selectedModFace: null, showHelp: false };
-let session = null; // local turn: { phase:'upgrade'|'roll', ... }
+let session = null;
 
 function newGameData(){
-  const shuf = a => { a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
-  let early=shuf(PIDS), late=shuf(PIDS), guard=0;
-  while (early[3]===late[0] && guard++<50) late=shuf(PIDS);
-  const players={};
-  PIDS.forEach(p=>players[p]={
-    pts:0, energy:CFG.startEnergy,
-    dice: starterDice(),
-    perks: { freeReroll:false },
+  const early = shuffle(PIDS);
+  let late = shuffle(PIDS), guard=0;
+  while (early[3]===late[0] && guard++<40) late = shuffle(PIDS);
+  const players = {};
+  PIDS.forEach(p=>{
+    players[p] = {
+      pts: 0,
+      energy: 0, // stipend applied at round start via resolve/awards; first round gets stipend on resolve of "round 0" — give opening bank
+      dice: starterDice(),
+      modDie: starterModDie(),
+      scarLv: 0,
+      perks: { freeReroll:false },
+    };
   });
+  // opening energy = one stipend so R1 feels good
+  PIDS.forEach(p=> players[p].energy = CFG.roundStipend);
   return {
     schema: SCHEMA,
-    createdAt: Date.now(), status:'active', round:1,
-    schedule: [...early, ...late],
-    players, parasite: starterParasite(),
-    rounds:{},
+    createdAt: Date.now(),
+    status: 'active',
+    round: 1,
+    schedule: [...early, ...late], // 8 hosts for rounds 2-9
+    players,
+    parasite: starterParasite(),
+    rounds: {},
+    escaped: false,
   };
 }
 
-/* ================= GROWTH HELPERS ================= */
 function findDie(list, id){ return (list||[]).find(d=>d.id===id); }
-function applyForge(die, faceIndex, amount=1){
+function applyForge(die, faceIndex, amount){
   if (!die || faceIndex<0 || faceIndex>=die.faces.length) return false;
   const next = die.faces[faceIndex] + amount;
   if (CFG.faceCap && next > CFG.faceCap) return false;
   die.faces[faceIndex] = next;
   return true;
 }
-function countColor(dice, color){
-  return (dice||[]).filter(d=>d.color===color).length;
-}
+function countColor(dice, color){ return (dice||[]).filter(d=>d.color===color).length; }
 function canAddColor(pl, color, pendingColor){
-  const n = countColor(pl.dice, color) + (pendingColor===color ? 1 : 0);
-  return n < CFG.maxDicePerColor;
+  return countColor(pl.dice, color) + (pendingColor===color?1:0) < CFG.maxDicePerColor;
 }
-function applyForcedGrowth(parasite, growth){
-  if (!growth || !growth.kind) return false;
-  if (growth.kind==='attack'){
-    const d = findDie(parasite.attack, growth.dieId);
-    return applyForge(d, growth.faceIndex, growth.amount || 2);
-  }
-  if (growth.kind==='modBlank'){
-    const d = findDie(parasite.modifiers, growth.dieId);
-    if (!d || growth.faceIndex==null) return false;
-    const f = d.faces[growth.faceIndex];
-    if (!f || f.type!=='blank') return false;
-    d.faces[growth.faceIndex] = deep(growth.newFace);
-    return true;
-  }
-  if (growth.kind==='modExpand'){
-    const d = findDie(parasite.modifiers, growth.dieId);
-    if (!d || d.faces.length >= 8) return false;
-    const room = 8 - d.faces.length;
-    if (room >= 1) d.faces.push({ type:'blank' });
-    if (room >= 2) d.faces.push(deep(growth.newFace || { type:'pct', n:25 }));
-    else if (room === 1) d.faces[d.faces.length-1] = deep(growth.newFace || { type:'pct', n:25 });
-    return true;
-  }
-  if (growth.kind==='newMod'){
-    if ((parasite.modifiers||[]).length >= CFG.maxParMods) return false;
-    parasite.modifiers.push({
-      id: uid('mod'),
-      faces: [
-        { type:'blank' }, { type:'blank' }, { type:'blank' },
-        { type:'flat', n:5 }, { type:'pct', n:15 }, { type:'pct', n:25 },
-      ],
-    });
-    return true;
-  }
-  if (growth.kind==='atkDie'){
-    if ((parasite.attack||[]).length >= CFG.maxParAttack) return false;
-    parasite.attack.push({ id: uid('atk'), faces: hotFaces() });
-    return true;
-  }
-  if (growth.kind==='atkSurge'){
-    // Unleash: +1 to every face on one attack die (parasite "larger dice")
-    const d = findDie(parasite.attack, growth.dieId) || (parasite.attack||[])[0];
-    if (!d) return false;
-    d.faces = d.faces.map(v=>v+1);
-    return true;
-  }
-  return false;
-}
-function winMutate(parasite){
-  // Infection spreads: a blank becomes +10% — future infected inherit the fever
-    for (const d of parasite.modifiers||[]){
-    const bi = d.faces.findIndex(f=>f.type==='blank');
-    if (bi>=0){
-      d.faces[bi] = { type:'pct', n:10 };
-      parasite.mutations = (parasite.mutations||0)+1;
-      return { kind:'blankToPct', dieId:d.id, faceIndex:bi };
-    }
-  }
-  const atks = parasite.attack||[];
-  if (atks.length){
-    const d = atks[Math.floor(Math.random()*atks.length)];
-    d.faces = d.faces.map(v=>v+1);
-    parasite.mutations = (parasite.mutations||0)+1;
-    return { kind:'atkSurge', dieId:d.id, bumped:true };
-  }
-  parasite.mutations = (parasite.mutations||0)+1;
-  return { kind:'mutationTick' };
-}
-
-function applyHumanForges(pl, forges){
-  let n = 0;
-  (forges||[]).forEach(f=>{
-    const d = findDie(pl.dice, f.dieId);
-    if (applyForge(d, f.faceIndex)) n++;
-  });
-  return n;
-}
-
-function previewHumanDice(pl, cartObj){
-  const dice = deep(pl.dice);
-  (cartObj.forges||[]).forEach(f=>{
-    const d = findDie(dice, f.dieId);
-    applyForge(d, f.faceIndex);
-  });
-  if (cartObj.addDie){
-    dice.push({ id:'preview', color: cartObj.addDie, faces:stdFaces() });
-  }
-  return dice;
-}
-
 function actionLocked(a){ return a && a.phase === 'locked'; }
-function enrichModRolls(mRolls, attackSum){
-  let flatMods = 0, pctMods = 0;
-  const modBreakdown = (mRolls||[]).map(m=>{
-    const face = m.face || { type:'blank' };
-    if (face.type==='blank') return { ...m, face, applied:0, label:'blank' };
-    if (face.type==='flat'){ flatMods += face.n; return { ...m, face, applied:face.n, label:'+'+face.n }; }
-    if (face.type==='pct'){
-      const add = Math.floor(attackSum * face.n / 100);
-      pctMods += add;
-      return { ...m, face, applied:add, label:'+'+face.n+'% → +'+add };
+
+/* ================= GROWTH ================= */
+function softGrowthOptions(p){
+  const opts = [];
+  opts.push({ key:'surge', lane:'soft', title:'Surge a die', desc:'+1 to every face on one parasite attack die. Boss Meter +1.' });
+  opts.push({ key:'push_mod', lane:'soft', title:'Push the mod', desc:'Upgrade the weakest parasite mod face. Boss Meter +1.' });
+  if ((p.fusionPct||0) < CFG.fusionCap - 1e-9){
+    opts.push({ key:'fusion', lane:'soft', title:'Deepen fusion', desc:`Fusion ${Math.round(p.fusionPct*100)}% → ${Math.round(Math.min(CFG.fusionCap, p.fusionPct+CFG.fusionStep)*100)}% of your human attack. Boss Meter +1.` });
+  }
+  opts.push({ key:'aura', lane:'soft', title:'Harden aura', desc:`Permanent +${CFG.auraGain} to parasite portion. Boss Meter +1.` });
+  return opts;
+}
+function heavyGrowthOptions(p){
+  return [
+    { key:'new_die', lane:'heavy', title:'Spawn attack die', desc:'Add a new exploding attack die (3–8). Gain a Scar. Boss Meter +3.' },
+    { key:'ribcage', lane:'heavy', title:'Ribcage Burst', desc:'+2 to every face on ALL parasite attack dice. Gain a Scar. Boss Meter +3.' },
+    { key:'full_fusion', lane:'heavy', title:'Full Fusion', desc:'This round only: add 100% of your human attack again. Gain a Scar. Boss Meter +3.' },
+    { key:'instinct_up', lane:'heavy', title:'Awaken Instinct', desc:'Replace Instinct blank with Fever (+25%), or boost Gnash. Gain a Scar. Boss Meter +3.' },
+  ];
+}
+function applySoftGrowth(parasite, key){
+  parasite.bossMeter = (parasite.bossMeter||0) + CFG.softMeter;
+  parasite.mutations = (parasite.mutations||0) + 1;
+  if (key==='surge'){
+    const d = (parasite.attack||[])[0];
+    if (d) d.faces = d.faces.map(v=>v+1);
+    return { key, lane:'soft' };
+  }
+  if (key==='push_mod'){
+    const faces = parasite.mod.faces;
+    const rank = f => {
+      if (!f || f.type==='blank') return 0;
+      if (f.type==='flat') return 1 + (f.n>=8?1:0);
+      if (f.type==='pct') return 3 + (f.n>=25?1:0) + (f.n>=35?1:0);
+      return 5;
+    };
+    let bi = 0;
+    for (let i=1;i<faces.length;i++) if (rank(faces[i]) < rank(faces[bi])) bi = i;
+    const r = rank(faces[bi]);
+    const ladder = [
+      { type:'flat', n:5 }, { type:'flat', n:8 },
+      { type:'pct', n:15 }, { type:'pct', n:25 }, { type:'pct', n:35 },
+    ];
+    faces[bi] = deep(ladder[Math.min(r, ladder.length-1)]);
+    return { key, lane:'soft' };
+  }
+  if (key==='fusion'){
+    parasite.fusionPct = Math.min(CFG.fusionCap, (parasite.fusionPct||CFG.startFusion) + CFG.fusionStep);
+    return { key, lane:'soft' };
+  }
+  if (key==='aura'){
+    parasite.auraFlat = (parasite.auraFlat||0) + CFG.auraGain;
+    return { key, lane:'soft' };
+  }
+  return null;
+}
+function applyHeavyGrowth(parasite, key, hostPl){
+  parasite.bossMeter = (parasite.bossMeter||0) + CFG.heavyMeter;
+  parasite.mutations = (parasite.mutations||0) + 1;
+  if (hostPl && (hostPl.scarLv||0) < 2) hostPl.scarLv = (hostPl.scarLv||0) + 1;
+  let fusionOverride = null;
+  if (key==='new_die'){
+    if ((parasite.attack||[]).length < CFG.maxParAttack){
+      parasite.attack.push({ id: uid('atk'), faces: hotFaces() });
     }
-    return { ...m, face, applied:0, label:'?' };
+  } else if (key==='ribcage'){
+    (parasite.attack||[]).forEach(d=>{ d.faces = d.faces.map(v=>v+2); });
+  } else if (key==='full_fusion'){
+    fusionOverride = 1.0;
+  } else if (key==='instinct_up'){
+    const inst = parasite.instinct || INSTINCT_FACES.map(f=>f.id);
+    const bi = inst.indexOf('blank');
+    if (bi>=0) inst[bi] = 'fever';
+    else {
+      const gi = inst.indexOf('gnash');
+      // mark empowered gnash by duplicating fever if needed
+      if (gi>=0) inst[gi] = 'fever';
+    }
+    parasite.instinct = inst;
+  }
+  return { key, lane:'heavy', fusionOverride, scarLv: hostPl ? hostPl.scarLv : 0 };
+}
+
+/* ================= COMBAT HELPERS ================= */
+function computeHumanTotal(rolls, modRoll, scarRoll, scarLv){
+  // rolls: [{v, color, dieId}], modRoll: {kind, level, value} | null if static
+  // scar applied already to rolls/mod in session; this is for resolve
+  let attack = (rolls||[]).reduce((s,d)=>s+(d.v||0), 0);
+  let total = attack;
+  let pendingEnergy = 0;
+  if (modRoll && modRoll.kind==='energy') pendingEnergy = modRoll.value;
+  if (modRoll && modRoll.kind==='pct') total += Math.floor(attack * modRoll.value / 100);
+  if (modRoll && modRoll.kind==='base') total += modRoll.value;
+  return { attack, total, pendingEnergy };
+}
+
+function computeParasitePortion(parasite, aRolls, modRoll, instinctRoll, humanAttack, highestHumanDie, fusionOverride){
+  let atk = (aRolls||[]).reduce((s,d)=>s+(d.v||0), 0);
+  let flat = 0, pctAdd = 0;
+  if (modRoll){
+    if (modRoll.type==='flat') flat += modRoll.n;
+    if (modRoll.type==='pct') pctAdd += Math.floor(atk * modRoll.n / 100);
+  }
+  const fusionPct = fusionOverride != null ? fusionOverride : (parasite.fusionPct||CFG.startFusion);
+  const fusion = Math.floor(humanAttack * fusionPct);
+  let instinctAdd = 0;
+  let instinctNote = instinctRoll;
+  if (instinctRoll === 'gnash') instinctAdd = 8;
+  else if (instinctRoll === 'fever') instinctAdd = Math.floor(atk * 0.25);
+  else if (instinctRoll === 'twin'){
+    const vals = (aRolls||[]).map(d=>d.v||0);
+    instinctAdd = vals.length ? Math.min(...vals) : 0;
+  } else if (instinctRoll === 'echo'){
+    instinctAdd = highestHumanDie || 0;
+  } else if (instinctRoll === 'explode'){
+    // already may include exploded die in aRolls via session — add one more hot die here if not present
+    // resolve uses instinctExplodeV if provided on roll payload
+  } else if (instinctRoll && typeof instinctRoll === 'object' && instinctRoll.id==='explode'){
+    instinctAdd = instinctRoll.extra || 0;
+    instinctNote = 'explode';
+  }
+  const aura = parasite.auraFlat || 0;
+  const total = atk + flat + pctAdd + fusion + instinctAdd + aura;
+  return { atk, flat, pctAdd, fusion, fusionPct, instinctAdd, aura, total, instinctNote };
+}
+
+function expectedParThreat(p){
+  const atk = (p.attack||[]).reduce((s,d)=>s+faceAvg(d.faces),0);
+  let flatExp=0, pctExp=0;
+  (p.mod && p.mod.faces || []).forEach(f=>{
+    const n = (p.mod.faces||[]).length || 1;
+    if (f.type==='flat') flatExp += f.n / n;
+    if (f.type==='pct') pctExp += (atk * f.n / 100) / n;
   });
-  return { flatMods, pctMods, modBreakdown };
+  // instinct rough +4 EV, fusion uses ~20 human attack estimate
+  const fusion = Math.floor(22 * (p.fusionPct||CFG.startFusion));
+  return Math.round(atk + flatExp + pctExp + fusion + (p.auraFlat||0) + 5);
 }
 
 /* ================= ROUND RESOLUTION ================= */
@@ -624,25 +750,34 @@ function resolveRound(g){
   const actions = (g.rounds && g.rounds[r] && g.rounds[r].actions) || {};
   if (PIDS.some(p=>!actionLocked(actions[p]))) return g;
   if (g.rounds[r].result) return g;
-  const parId = g.schedule[r-1];
-  const humans = PIDS.filter(p=>p!==parId);
-  const pAct = actions[parId];
 
-  // --- humans: energy spends (dice already rolled by each player) ---
-  humans.forEach(h=>{
-    const a = actions[h], pl = g.players[h];
+  const kind = roundKind(r);
+  const hostId = hostIdForRound(g, r);
+
+  // Apply human spends for everyone
+  PIDS.forEach(pid=>{
+    const a = actions[pid], pl = g.players[pid];
     let spent = 0;
     const forges = a.forges || [];
     spent += forges.length * CFG.forgeCost;
-    applyHumanForges(pl, forges);
+    forges.forEach(f=>{
+      const d = findDie(pl.dice, f.dieId);
+      applyForge(d, f.faceIndex, CFG.forgeBump);
+    });
+    // mod upgrades
+    (a.modUps||[]).forEach(idx=>{
+      const face = pl.modDie[idx];
+      if (face && face.level < 2){
+        face.level += 1;
+        spent += CFG.modUpgradeCost;
+      }
+    });
     if (a.addDie && canAddColor(pl, a.addDie, null)){
       spent += CFG.addDieCost;
       const fromRoll = (a.rolls||[]).find(d=>d.tempNew);
-      const newId = fromRoll ? fromRoll.dieId : uid(a.addDie[0]);
-      pl.dice.push({ id: newId, color: a.addDie, faces: stdFaces() });
+      pl.dice.push({ id: fromRoll ? fromRoll.dieId : uid(a.addDie[0]), color: a.addDie, faces: stdFaces() });
     }
-    const rerolls = Math.max(0, a.rerollBuys||0);
-    spent += rerolls * CFG.rerollCost;
+    spent += Math.max(0, a.rerollBuys||0) * CFG.rerollCost;
     if (a.buyFreeReroll && !pl.perks.freeReroll){
       spent += CFG.freeRerollPerkCost;
       pl.perks.freeReroll = true;
@@ -650,115 +785,208 @@ function resolveRound(g){
     pl.energy = Math.max(0, (pl.energy||0) - spent);
   });
 
-  // --- parasite: stipend, forced growth, optional spends ---
-  {
-    const pl = g.players[parId];
-    pl.energy = (pl.energy||0) + CFG.parasiteStipend;
-    let spent = 0;
-    const growth = pAct.growth;
-    if (growth){
-      applyForcedGrowth(g.parasite, growth);
-      g.parasite.mutations = (g.parasite.mutations||0) + 1;
-      if (growth.unleash || growth.spicy) pl.energy += CFG.unleashGrowthBonus;
-    }
-    const rerolls = Math.max(0, pAct.rerollBuys||0);
-    spent += rerolls * CFG.rerollCost;
-    const temp = Math.max(0, Math.min(pAct.tempAttack||0, CFG.tempAttackMax));
-    spent += temp * CFG.tempAttackCost;
-    if (pAct.pushMod && pAct.pushMod.dieId!=null){
-      const d = findDie(g.parasite.modifiers, pAct.pushMod.dieId);
-      if (d){
-        const bi = d.faces.findIndex(f=>f.type==='blank');
-        if (bi>=0){
-          d.faces[bi] = deep(pAct.pushMod.newFace || { type:'pct', n:25 });
-          spent += CFG.pushModCost;
-          g.parasite.mutations = (g.parasite.mutations||0) + 1;
-        }
+  // Host growth
+  let growthResult = null;
+  let fusionOverride = null;
+  if (kind==='infection' && hostId){
+    const a = actions[hostId];
+    const growth = a.growth;
+    if (growth && growth.key){
+      if (growth.lane==='heavy'){
+        growthResult = applyHeavyGrowth(g.parasite, growth.key, g.players[hostId]);
+        fusionOverride = growthResult.fusionOverride;
+      } else {
+        growthResult = applySoftGrowth(g.parasite, growth.key);
       }
     }
-    pl.energy = Math.max(0, pl.energy - spent);
-    pAct._tempAttack = temp;
   }
 
-  // --- use each player's locked-in rolls ---
-  const rolls = {}; let humanTotal = 0;
-  humans.forEach(h=>{
-    const dieRolls = deep(actions[h].rolls || []);
-    rolls[h] = dieRolls;
-    humanTotal += dieRolls.reduce((s,d)=>s+(d.v||0), 0);
-  });
+  const awards = {};
+  PIDS.forEach(p=> awards[p]={pts:0, energy:0, tags:[], pendingEnergy:0});
 
-  const base = parasiteBaseNow(r, g.parasite);
-  let aRolls = deep(pAct.aRolls || []);
-  let mRolls = deep(pAct.mRolls || []);
-  const attackSum = aRolls.reduce((s,d)=>s+(d.v||0), 0);
-  const { flatMods, pctMods, modBreakdown } = enrichModRolls(mRolls, attackSum);
-  const parTotal = base + attackSum + flatMods + pctMods;
-
-  // --- outcome & awards ---
-  const humansWin = humanTotal >= parTotal;
-  const awards = {}; PIDS.forEach(p=>awards[p]={pts:0, energy:0, tags:[]});
-  let mvp = null;
-  let winMutation = null;
-  let adaptGain = 0;
-  if (humansWin){
-    humans.forEach(h=>{ awards[h].pts += CFG.humanWinPts(r); awards[h].energy += CFG.humanWinEn; });
-    mvp = humans.reduce((a,b)=>{
-      const ta = rolls[a].reduce((s,d)=>s+d.v,0), tb = rolls[b].reduce((s,d)=>s+d.v,0);
-      return tb>ta ? b : a;
+  // --- TRAINING ---
+  if (kind==='training'){
+    const totals = {};
+    const rolls = {};
+    PIDS.forEach(pid=>{
+      const a = actions[pid];
+      rolls[pid] = deep(a.rolls||[]);
+      const mod = a.modRoll || null;
+      const scar = a.scarRoll || null;
+      // apply scar point losses already in action ptsDelta
+      const { attack, total, pendingEnergy } = computeHumanTotal(a.rolls, mod, scar, g.players[pid].scarLv);
+      totals[pid] = total;
+      awards[pid].pendingEnergy = Math.max(0, pendingEnergy - (a.scarEnergyLoss||0));
+      if (a.ptsDelta) awards[pid].pts += a.ptsDelta; // negative from scar
     });
-    awards[mvp].pts += CFG.mvpPts(r); awards[mvp].tags.push('mvp');
-    awards[parId].energy += CFG.parLossEn;
-    // Auto-balance: crew stomps feed the next infected base
-    const margin = humanTotal - parTotal;
-    if (margin > CFG.adaptMargin){
-      adaptGain = CFG.adaptGain(margin);
-      g.parasite.adaptBase = (g.parasite.adaptBase||0) + adaptGain;
-    }
-  } else {
-    awards[parId].pts += CFG.parasiteWinPts(r);
-    awards[parId].energy += CFG.parWinEn;
-    humans.forEach(h=>{ awards[h].energy += CFG.humanLossEn; });
-    winMutation = winMutate(g.parasite);
+    const order = PIDS.slice().sort((a,b)=> totals[b]-totals[a]);
+    order.forEach((pid,i)=>{ awards[pid].pts += CFG.trainRankPts[i]; awards[pid].tags.push('train'); });
+    // categories
+    const cats = {};
+    COLORS.forEach(c=>{
+      const best = PIDS.map(h=>{
+        const vals = (rolls[h]||[]).filter(d=>d.color===c).map(d=>d.v);
+        return { h, v: vals.length ? Math.max(...vals) : -1 };
+      }).sort((a,b)=>b.v-a.v);
+      if (best[0].v > best[1].v && best[0].v >= 0){
+        cats[c] = best[0].h;
+        awards[best[0].h].pts += CFG.catPts(r);
+        awards[best[0].h].energy += CFG.catEn;
+        awards[best[0].h].tags.push('cat-'+c);
+      } else cats[c] = null;
+    });
+    PIDS.forEach(p=>{
+      awards[p].energy += CFG.roundStipend;
+      g.players[p].pts = Math.max(0, g.players[p].pts + awards[p].pts);
+      g.players[p].energy += awards[p].energy + (awards[p].pendingEnergy||0);
+    });
+    g.rounds[r].result = {
+      kind, rolls, totals, cats, awards,
+      growth: null, hostId: null,
+      resolvedAt: Date.now(),
+    };
   }
-  // category winners: highest single die per color among humans
-  const cats = {};
-  COLORS.forEach(c=>{
-    const best = humans.map(h=>{
-      const vals = rolls[h].filter(d=>d.color===c).map(d=>d.v);
-      return { h, v: vals.length ? Math.max(...vals) : -1 };
-    }).sort((a,b)=>b.v-a.v);
-    if (best[0].v > best[1].v && best[0].v >= 0){
-      cats[c] = best[0].h;
-      awards[best[0].h].pts += CFG.catPts(r);
-      awards[best[0].h].energy += CFG.catEn;
-      awards[best[0].h].tags.push('cat-'+c);
-    } else cats[c] = null;
-  });
-  // round stipend + underdog Energy (last place stays in the fight)
-  const minPts = Math.min(...PIDS.map(p=>g.players[p].pts + awards[p].pts));
-  PIDS.forEach(p=>{
-    awards[p].energy += CFG.roundStipend;
-    if ((g.players[p].pts + awards[p].pts) === minPts){
-      awards[p].energy += CFG.underdogEnergy;
-      awards[p].tags.push('underdog');
-    }
-    g.players[p].pts += awards[p].pts;
-    g.players[p].energy += awards[p].energy;
-  });
 
-  g.rounds[r].result = {
-    parId, base, attackSum, flatMods, pctMods,
-    humanTotal, parTotal, humansWin, late: r>=5,
-    rolls, aRolls, mRolls: modBreakdown, cats, mvp, awards,
-    growth: pAct.growth || null,
-    tempAttack: pAct._tempAttack||0,
-    winMutation,
-    adaptGain,
-    adaptBaseAfter: g.parasite.adaptBase||0,
-    parasiteAfter: deep(g.parasite),
-    resolvedAt: Date.now(),
-  };
+  // --- INFECTION ---
+  else if (kind==='infection'){
+    const humans = PIDS.filter(p=>p!==hostId);
+    const rolls = {};
+    const humanTotals = {};
+    let crewTotal = 0;
+    humans.forEach(h=>{
+      const a = actions[h];
+      rolls[h] = deep(a.rolls||[]);
+      const { attack, total, pendingEnergy } = computeHumanTotal(a.rolls, a.modRoll, a.scarRoll, g.players[h].scarLv);
+      humanTotals[h] = { attack, total };
+      crewTotal += total;
+      awards[h].pendingEnergy = Math.max(0, pendingEnergy - (a.scarEnergyLoss||0));
+      if (a.ptsDelta) awards[h].pts += a.ptsDelta;
+    });
+
+    const hAct = actions[hostId];
+    rolls[hostId] = deep(hAct.rolls||[]);
+    const hostHuman = computeHumanTotal(hAct.rolls, hAct.modRoll, hAct.scarRoll, g.players[hostId].scarLv);
+    awards[hostId].pendingEnergy = Math.max(0, hostHuman.pendingEnergy - (hAct.scarEnergyLoss||0));
+    if (hAct.ptsDelta) awards[hostId].pts += hAct.ptsDelta;
+
+    const highestHumanDie = Math.max(0, ...(hAct.rolls||[]).map(d=>d.v||0));
+    let instinctPayload = hAct.instinctRoll;
+    if (instinctPayload === 'explode' || (instinctPayload && instinctPayload.id==='explode')){
+      // use extra from action
+      instinctPayload = { id:'explode', extra: (hAct.instinctExtra||0) };
+    }
+    const parPart = computeParasitePortion(
+      g.parasite,
+      hAct.aRolls || [],
+      hAct.pModRoll || null,
+      instinctPayload,
+      hostHuman.attack,
+      highestHumanDie,
+      fusionOverride
+    );
+    // if explode was rolled in session with extra already in instinctExtra
+    if (hAct.instinctRoll==='explode' && hAct.instinctExtra){
+      parPart.instinctAdd = hAct.instinctExtra;
+      parPart.total = parPart.atk + parPart.flat + parPart.pctAdd + parPart.fusion + parPart.instinctAdd + parPart.aura;
+    }
+
+    const hostTotal = hostHuman.total + parPart.total;
+    const hostWins = hostTotal > crewTotal; // ties → crew
+
+    let mvp = null;
+    if (!hostWins){
+      humans.forEach(h=>{
+        awards[h].pts += CFG.humanWinPts(r);
+        awards[h].energy += CFG.winEn;
+      });
+      mvp = humans.reduce((a,b)=> (humanTotals[b].total > humanTotals[a].total ? b : a));
+      awards[mvp].pts += CFG.mvpPts(r);
+      awards[mvp].tags.push('mvp');
+    } else {
+      awards[hostId].pts += CFG.hostWinPts(r);
+      awards[hostId].energy += CFG.winEn;
+      g.parasite.bossMeter = (g.parasite.bossMeter||0) + CFG.winMeter;
+    }
+
+    const cats = {};
+    COLORS.forEach(c=>{
+      const pool = humans; // categories among crew only
+      const best = pool.map(h=>{
+        const vals = (rolls[h]||[]).filter(d=>d.color===c).map(d=>d.v);
+        return { h, v: vals.length ? Math.max(...vals) : -1 };
+      }).sort((a,b)=>b.v-a.v);
+      if (best.length>=2 && best[0].v > best[1].v && best[0].v >= 0){
+        cats[c] = best[0].h;
+        awards[best[0].h].pts += CFG.catPts(r);
+        awards[best[0].h].energy += CFG.catEn;
+        awards[best[0].h].tags.push('cat-'+c);
+      } else if (best.length===1 && best[0].v>=0){
+        cats[c] = best[0].h;
+        awards[best[0].h].pts += CFG.catPts(r);
+        awards[best[0].h].energy += CFG.catEn;
+        awards[best[0].h].tags.push('cat-'+c);
+      } else cats[c] = null;
+    });
+
+    PIDS.forEach(p=>{
+      awards[p].energy += CFG.roundStipend;
+      g.players[p].pts = Math.max(0, g.players[p].pts + awards[p].pts);
+      g.players[p].energy += awards[p].energy + (awards[p].pendingEnergy||0);
+    });
+
+    g.rounds[r].result = {
+      kind, hostId, hostWins,
+      crewTotal, hostTotal,
+      hostHuman: hostHuman.total, hostAttack: hostHuman.attack,
+      parPart, growth: growthResult,
+      rolls, humanTotals, cats, mvp, awards,
+      aRolls: hAct.aRolls||[], pModRoll: hAct.pModRoll||null,
+      instinctRoll: hAct.instinctRoll, instinctExtra: hAct.instinctExtra||0,
+      bossMeter: g.parasite.bossMeter,
+      parasiteAfter: deep(g.parasite),
+      resolvedAt: Date.now(),
+    };
+  }
+
+  // --- BOSS ---
+  else if (kind==='boss'){
+    const rolls = {};
+    const totals = {};
+    let crewTotal = 0;
+    PIDS.forEach(pid=>{
+      const a = actions[pid];
+      rolls[pid] = deep(a.rolls||[]);
+      const { total, pendingEnergy } = computeHumanTotal(a.rolls, a.modRoll, a.scarRoll, g.players[pid].scarLv);
+      totals[pid] = total;
+      crewTotal += total;
+      awards[pid].pendingEnergy = Math.max(0, pendingEnergy - (a.scarEnergyLoss||0));
+      if (a.ptsDelta) awards[pid].pts += a.ptsDelta;
+    });
+    const hp = bossHP(g);
+    const cleared = crewTotal >= hp;
+    g.escaped = !cleared;
+    const order = PIDS.slice().sort((a,b)=> totals[b]-totals[a]);
+    const bonus = cleared ? CFG.heroBonus : CFG.heroFailBonus;
+    order.forEach((pid,i)=>{
+      awards[pid].pts += bonus[i];
+      awards[pid].tags.push(cleared ? 'hero' : 'escape');
+    });
+    if (cleared){
+      awards[order[0]].pts += CFG.killBlowPts;
+      awards[order[0]].tags.push('kill');
+    }
+    PIDS.forEach(p=>{
+      // no next-round stipend
+      g.players[p].pts = Math.max(0, g.players[p].pts + awards[p].pts);
+      g.players[p].energy += (awards[p].pendingEnergy||0);
+    });
+    g.rounds[r].result = {
+      kind, rolls, totals, crewTotal, hp, cleared, escaped: !cleared,
+      awards, hero: order[0], bossMeter: g.parasite.bossMeter,
+      resolvedAt: Date.now(),
+    };
+  }
+
   if (r >= TOTAL_ROUNDS) g.status = 'over';
   else g.round = r + 1;
   return g;
@@ -772,60 +1000,51 @@ function initFirebase(){
   gameRef = db.ref('games/current');
   gameRef.on('value', snap=>{
     const v = snap.val();
-    if (!v){ gameRef.set(newGameData()); return; }
-    v.rounds = v.rounds || {};
-    for (const k in v.rounds){ v.rounds[k].actions = v.rounds[k].actions || {}; }
-    // old schema — force reset prompt via flag
+    if (!v){ startNewGame(); return; }
     if ((v.schema||1) < SCHEMA){
-      G = { ...newGameData(), status:'need_reset', legacy:true };
+      G = { ...v, status:'need_reset' };
       render();
       return;
     }
-    v.parasite = v.parasite || starterParasite();
-    v.parasite.adaptBase = v.parasite.adaptBase || 0;
-    PIDS.forEach(p=>{
-      if (!v.players[p]) return;
-      v.players[p].energy = v.players[p].energy ?? v.players[p].tokens ?? CFG.startEnergy;
-      v.players[p].perks = v.players[p].perks || { freeReroll:false };
-      if (!Array.isArray(v.players[p].dice)) v.players[p].dice = starterDice();
-    });
     G = v;
-    if (G.round !== cartRound){ cart = null; session = null; ui = { selectedDie:null, selectedFace:null, selectedModFace:null }; }
     maybeResolve();
     render();
   });
 }
 function maybeResolve(retry){
-  if (!G || G.status!=='active') return;
-  const rd = G.rounds[G.round];
-  if (!rd || rd.result) return;
-  if (PIDS.some(p=>!actionLocked(rd.actions&&rd.actions[p]))) return;
+  if (!G || G.status!=='active' || animating) return;
+  const r = G.round;
+  const actions = (G.rounds && G.rounds[r] && G.rounds[r].actions) || {};
+  if (PIDS.some(p=>!actionLocked(actions[p]))) return;
+  if (G.rounds[r] && G.rounds[r].result) return;
   gameRef.transaction(g=>{
-    if (!g) return g;
+    if (!g || g.status!=='active') return;
     if ((g.schema||1) < SCHEMA) return g;
-    g.rounds = g.rounds || {};
-    if (!g.rounds[g.round] || g.rounds[g.round].result) return g;
-    const acts = g.rounds[g.round].actions || {};
-    if (PIDS.some(p=>!actionLocked(acts[p]))) return g;
     return resolveRound(g);
-  }, (err)=>{
-    if (err && !retry) setTimeout(()=>maybeResolve(true), 1500);
+  }).then(res=>{
+    if (!res.committed && !retry) setTimeout(()=>maybeResolve(true), 400);
   });
 }
 function submitAction(action){
+  if (!me || !G) return;
   const r = G.round;
-  db.ref(`games/current/rounds/${r}/actions/${me}`).set(action);
+  gameRef.child('rounds/'+r+'/actions/'+me).set(action);
 }
 function startNewGame(){
-  if (confirm('Are you sure?\n\nThis resets the game for everyone and starts over.'))
-    gameRef.set(newGameData());
+  const data = newGameData();
+  if (gameRef) gameRef.set(data);
+  else G = data;
+  session = null; cart = null;
+  localStorage.removeItem('stp_seen_'+(G && G.createdAt));
 }
-function confirmResetGame(){ startNewGame(); }
+function confirmResetGame(){
+  if (confirm('Start a fresh Schema v4 game? This wipes the current run.')) startNewGame();
+}
 function openInstructions(){ ui.showHelp = true; render(); }
 function closeInstructions(){ ui.showHelp = false; render(); }
 function bottomDockHTML(){
   return `<div class="bottom-dock">
-    <button type="button" class="dock-btn reset" onclick="confirmResetGame()">Reset</button>
+    <button type="button" class="dock-btn reset" onclick="confirmResetGame()">New game</button>
     <button type="button" class="dock-btn help" onclick="openInstructions()">Instructions</button>
   </div>`;
 }
@@ -833,961 +1052,690 @@ function instructionsModalHTML(){
   if (!ui.showHelp) return '';
   return `<div class="modal-back" onclick="if(event.target===this)closeInstructions()">
     <div class="modal-sheet" role="dialog" aria-label="Instructions">
-      <h2>How to play</h2>
-      <p>Four crew. One parasite. Eight rounds. Open scores. Highest points wins.</p>
-
-      <h3>Each round</h3>
+      <h2>How to play (v2)</h2>
+      <p>10 rounds. Training → Infection → Boss. Open scores. Highest points is the hero — unless the parasite escapes.</p>
+      <h3>Energy</h3>
       <ul>
-        <li>One crew member is <b>infected</b> (see the round strip).</li>
-        <li>Everyone does <b>Upgrade → Roll → Lock in</b> on their phone.</li>
-        <li>When all four lock in, the battle resolves for everyone.</li>
+        <li><b>+5⚡</b> every round. Unspent banks.</li>
+        <li>Win (crew or host): <b>+2⚡</b>. Category: <b>+1⚡</b>. Loss: nothing extra.</li>
+        <li>Forge a face <b>+2</b> for 1⚡ · extra die 3⚡ · free first reroll perk 4⚡ · mod upgrade 2⚡.</li>
       </ul>
-
-      <h3>Energy ⚡</h3>
+      <h3>Mod die (2-2-2)</h3>
       <ul>
-        <li>Start with <b>5</b>. Leftover banks forever.</li>
-        <li><b>Forge</b> a face (+1) for ⚡1 · extra die ⚡3 · reroll ⚡1.</li>
-        <li>Infected get a <b>+3 surge</b> that round.</li>
+        <li>2 Energy · 2 % · 2 Base. Always rolls. Upgrade a face for 2⚡ (max L3).</li>
       </ul>
-
-      <h3>If you’re infected</h3>
+      <h3>Infection (R2–9)</h3>
       <ul>
-        <li>You <b>must</b> grow the parasite (CONTAIN or UNLEASH) before rolling.</li>
-        <li>CONTAIN = safer for later infected. UNLEASH = stronger tonight, meaner later.</li>
+        <li>You know the host <b>this round only</b>.</li>
+        <li>Host = <b>your dice + the monster</b>. Must grow soft or heavy.</li>
+        <li>Heavy growth → <b>Scar die</b> (all bad, L1 then L2). Rerollable.</li>
+        <li>Fun die: <b>Instinct</b> — Gnash, Fever, Twin, Echo, Boom (explode).</li>
+        <li>Parasite attack dice <b>explode</b> on max.</li>
       </ul>
-
-      <h3>Battle</h3>
+      <h3>Round 10</h3>
       <ul>
-        <li>Crew totals add up. Parasite = base + attack dice + modifiers.</li>
-        <li>Crew wins ties. Parasite wins mutate it for next time.</li>
+        <li>Boss HP = 100 + 3×Boss Meter. Beat it for hero bonuses. Fail → parasite escapes.</li>
       </ul>
-
-      <h3>Scoring</h3>
-      <ul>
-        <li>Standings are open — don’t feed the leader.</li>
-        <li>Rounds 5–8 pay bigger rewards (×2 on the strip).</li>
-      </ul>
-
       <button class="btn modal-close" onclick="closeInstructions()">Got it</button>
     </div>
   </div>`;
 }
 
-/* ================= CART ================= */
-function freshCart(isParasite){
-  return isParasite
-    ? { growth:null, tempAttack:0, pushMod:false }
-    : { forges:[], addDie:null, buyFreeReroll:false };
+/* ================= CART / SESSION ================= */
+function freshCart(isHost){
+  return {
+    forges: [], modUps: [], addDie: null, buyFreeReroll: false,
+    growth: null, // host only {key, lane}
+  };
 }
-function cartCost(isParasite){
-  if (!cart) return 0;
-  if (isParasite){
-    let c = (cart.tempAttack||0) * CFG.tempAttackCost;
-    if (cart.pushMod) c += CFG.pushModCost;
-    if (session && session.paidRerolls) c += session.paidRerolls * CFG.rerollCost;
-    return c;
-  }
-  let c = (cart.forges||[]).length * CFG.forgeCost;
+function cartCost(){
+  let c = 0;
+  c += (cart.forges||[]).length * CFG.forgeCost;
+  c += (cart.modUps||[]).length * CFG.modUpgradeCost;
   if (cart.addDie) c += CFG.addDieCost;
   if (cart.buyFreeReroll) c += CFG.freeRerollPerkCost;
-  if (session && session.paidRerolls) c += session.paidRerolls * CFG.rerollCost;
   return c;
 }
-function myBudget(isParasite){ return (G.players[me].energy||0) + (isParasite?CFG.parasiteStipend:0); }
+function myBudget(){ return (G.players[me].energy||0); }
+function energyLeft(){ return myBudget() - cartCost() - ((session && session.paidRerolls)||0)*CFG.rerollCost; }
 function forgedSetFromCart(){
   const s = new Set();
-  (cart.forges||[]).forEach(f=>s.add(f.dieId+':'+f.faceIndex));
+  (cart.forges||[]).forEach(f=> s.add(f.dieId+':'+f.faceIndex));
   return s;
 }
-function freeRerollThisRound(isParasite){
-  const pl = G.players[me];
-  return !!(pl.perks && pl.perks.freeReroll) || (!isParasite && cart && cart.buyFreeReroll);
+function freeRerollThisRound(){
+  return !!(G.players[me].perks && G.players[me].perks.freeReroll) || (cart && cart.buyFreeReroll);
 }
-function energyLeft(isParasite){ return myBudget(isParasite) - cartCost(isParasite); }
-function canAffordReroll(isParasite){
-  if (!session) return false;
-  if ((session.freeLeft||0) > 0) return true;
-  return energyLeft(isParasite) >= CFG.rerollCost;
+function canAffordReroll(){
+  if (session.freeLeft > 0) return true;
+  return energyLeft() >= CFG.rerollCost;
 }
-function spendRerollCharge(isParasite){
-  if (!session) return false;
-  if ((session.freeLeft||0) > 0){ session.freeLeft--; return true; }
-  if (energyLeft(isParasite) >= CFG.rerollCost){
-    session.paidRerolls = (session.paidRerolls||0) + 1;
-    return true;
-  }
+function spendRerollCharge(){
+  if (session.freeLeft > 0){ session.freeLeft--; return true; }
+  if (energyLeft() >= CFG.rerollCost){ session.paidRerolls++; return true; }
   return false;
 }
-function resetSessionForRound(r, isPar){
-  if (!cart || cartRound!==r){ cart = freshCart(isPar); cartRound = r; }
-  if (!session || session.round!==r){
-    session = { round:r, phase:'upgrade', rolls:null, aRolls:null, mRolls:null, paidRerolls:0, freeLeft:0, shake:false, selectedRoll:null };
-    ui = { selectedDie:null, selectedFace:null, selectedModFace:null };
+function resetSessionForRound(r){
+  if (!session || session.round !== r){
+    session = { round:r, phase:'upgrade', rolls:null, modRoll:null, scarRoll:null,
+      aRolls:null, pModRoll:null, instinctRoll:null, instinctExtra:0,
+      paidRerolls:0, freeLeft:0, shake:false, selectedRoll:null, ptsDelta:0 };
   }
+  if (cartRound !== r || !cart){ cart = freshCart(); cartRound = r; }
 }
-
-/* ================= RENDER ================= */
 function seenKey(){ return `stp_seen_${G.createdAt}`; }
 function lastSeen(){ return parseInt(localStorage.getItem(seenKey())||'0',10); }
 function markSeen(r){ localStorage.setItem(seenKey(), String(r)); }
 
+function previewHumanDice(pl){
+  const dice = deep(pl.dice);
+  (cart.forges||[]).forEach(f=>{
+    const d = findDie(dice, f.dieId);
+    applyForge(d, f.faceIndex, CFG.forgeBump);
+  });
+  if (cart.addDie) dice.push({ id:'preview', color: cart.addDie, faces:stdFaces() });
+  return dice;
+}
+function previewModDie(pl){
+  const m = deep(pl.modDie);
+  (cart.modUps||[]).forEach(idx=>{ if (m[idx] && m[idx].level<2) m[idx].level++; });
+  return m;
+}
+
+/* ================= RENDER SHELL ================= */
 function render(){
-  if (animating) return;
   const app = $('#app');
   if (!configOK()){ app.innerHTML = setupScreen(); return; }
-  if (!me){ app.innerHTML = charSelectScreen(); return; }
-  if (!G){ app.innerHTML = `<div class="center" style="padding-top:40vh"><h2>Contacting the ship…</h2><div class="small">connecting to Firebase</div></div>`; return; }
+  if (!G){ app.innerHTML = `<div class="panel center"><p>Connecting…</p></div>`; return; }
   if (G.status==='need_reset'){
-    app.innerHTML = `<div style="padding-top:12vh" class="center">
-      <div class="brand-hero">Space Tribes: <span>Parasite</span></div>
-      <div class="panel" style="margin-top:18px;text-align:left">
-        <h3>Game update ready</h3>
-        <p class="small">Turns are now Upgrade → Roll → Lock in. Start a fresh game so everyone is on the new rules.</p>
-        <button class="btn" onclick="startNewGame()">🚀 Start new game</button>
-      </div>
-    </div>`;
+    app.innerHTML = `<div class="panel center">
+      <h2>Schema v4</h2>
+      <p class="small">Turns are Training → Infection → Boss. Host = you + the monster. Start a fresh game.</p>
+      <button class="btn" onclick="startNewGame()">Start v4 game</button>
+    </div>${bottomDockHTML()}`;
     return;
   }
-
-  const lastResolved = Object.keys(G.rounds).map(Number).filter(r=>G.rounds[r].result).sort((a,b)=>b-a)[0] || 0;
-  if (lastResolved > lastSeen()){
-    playReplay(lastResolved);
+  if (!me){ app.innerHTML = charSelectScreen(); return; }
+  if (G.status==='over'){
+    // show final if R10 resolved
+    const res = G.rounds[10] && G.rounds[10].result;
+    if (res && lastSeen() < 10){
+      app.innerHTML = topbarHTML() + verdictHTML(10) + bottomDockHTML() + instructionsModalHTML();
+      return;
+    }
+    app.innerHTML = finalScreen() + bottomDockHTML();
+    setTimeout(runFinalReveal, 50);
     return;
   }
-  if (G.status==='over'){ app.innerHTML = finalScreen(); runFinalReveal(); return; }
-  app.innerHTML = gameScreen();
+  // auto-show last result if unseen
+  const prev = G.round - 1;
+  if (prev >= 1 && G.rounds[prev] && G.rounds[prev].result && lastSeen() < prev && !animating){
+    app.innerHTML = topbarHTML() + verdictHTML(prev) + bottomDockHTML() + instructionsModalHTML();
+    return;
+  }
+  app.innerHTML = gameScreen() + instructionsModalHTML();
 }
 
 function setupScreen(){
-  return `<div style="padding-top:8vh">
-    <div class="center"><span style="font-size:64px">🛸</span></div>
-    <h1 class="center brand-hero">Space Tribes: <span>Parasite</span></h1>
-    <div class="panel">
-      <h3>One-time setup needed</h3>
-      <div class="setup-step"><span class="n">1</span>Create a free project at <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a></div>
-      <div class="setup-step"><span class="n">2</span>Add a <b>Realtime Database</b> (start in <b>test mode</b>)</div>
-      <div class="setup-step"><span class="n">3</span>Project settings → add a <b>Web app</b> → copy the <code>firebaseConfig</code> block</div>
-      <div class="setup-step"><span class="n">4</span>Paste it into the top of <code>index.html</code> where it says PASTE</div>
-      <div class="small">Full walkthrough in SETUP.md — takes about 5 minutes.</div>
-    </div>
-  </div>`;
+  return `<div class="panel"><h1 class="brand-hero">SPACE TRIBES: <span>PARASITE</span></h1>
+    <p class="small">Add your Firebase config to play.</p></div>`;
 }
-
 function charSelectScreen(){
-  return `<div style="padding-top:6vh">
-    <div class="center"><span style="font-size:56px">🛸</span></div>
-    <h1 class="center brand-hero" style="font-size:24px">Space Tribes: <span>Parasite</span></h1>
-    <p class="center small">Who are you, crew member?</p>
-    <div class="char-grid">
-      ${PIDS.map(p=>{const c=PLAYERS[p];return `
-        <button class="char-card" onclick="pickChar('${p}')" style="border-color:${c.color}55">
-          ${crewImg(p)}
-          <span class="cname" style="color:${c.color}">${c.name}</span>
-          <span class="ctitle">${c.title}</span>
-        </button>`;}).join('')}
-    </div>
-    <p class="center small" style="margin-top:16px">Your phone remembers you — you only pick once.</p>
+  return `<div class="center" style="padding-top:4vh">
+    <h1 class="brand-hero">SPACE TRIBES: <span>PARASITE</span></h1>
+    <p class="small">Pick your crew. This phone remembers you.</p>
+    <div class="char-grid">${PIDS.map(p=>`
+      <button class="char-card" onclick="pickChar('${p}')">
+        ${crewImg(p)}<div class="cname">${PLAYERS[p].name}</div>
+        <div class="ctitle">${PLAYERS[p].title}</div>
+      </button>`).join('')}</div>
   </div>`;
 }
 function pickChar(p){ me = p; localStorage.setItem('stp_me', p); render(); }
 
-function roundStripHTML(){
-  return `<div class="strip-label">Who’s infected each round</div>
-  <div class="round-strip">${G.schedule.map((p,i)=>{
-    const r=i+1, c=PLAYERS[p];
-    const cls = ['rnode', r===G.round&&G.status==='active'?'now':'', r<G.round||G.status==='over'?'done':'', r>=5?'late':''].join(' ');
-    const res = G.rounds[r] && G.rounds[r].result;
-    const w = res ? (res.humansWin?'🛡️':'💀') : '';
-    return `<div class="${cls}" title="${c.name} infected in round ${r}" style="border-color:${r===G.round&&G.status==='active'?'var(--energy)':c.color+'55'}">
-      <div class="rn">R${r}${r>=5?' ×2':''}</div>
-      <div class="re" style="color:${c.color}">${c.short}</div>
-      ${w?`<div class="rw">${w}</div>`:''}
-    </div>`;
-  }).join('')}</div>`;
-}
-
-function parasitePanelHTML(r){
-  const p = G.parasite;
-  const evo = evoStage(p.mutations||0);
-  const threat = expectedParThreat(p, r);
-  const base = parasiteBaseNow(r, p);
-  const adapt = p.adaptBase||0;
-  return `<div class="panel parasite-stage">
-    ${brainParasiteSVG(evo.size, evo.stage)}
-    <div class="p-name">${evo.name}</div>
-    <div class="p-tagline">${evo.tag}</div>
-    <div class="p-base">Base <b>${base}</b>${adapt?` <span style="color:var(--danger)">(adapt +${adapt})</span>`:''} · threat <b>${threat}</b> · mut <b>${p.mutations||0}</b></div>
-    <div class="lane-label">Attack dice</div>
-    <div class="dice-row" style="margin:4px 0">
-      ${(p.attack||[]).map(d=>`<div class="die-wrap">${dieHTML('attack', Math.max(...d.faces))}<div class="die-sub">${d.faces.join('·')}</div></div>`).join('')}
-    </div>
-    <div class="lane-label">Modifier dice</div>
-    ${(p.modifiers||[]).map(d=>`<div>${modFacesStripHTML(d.faces)}</div>`).join('')}
+function topbarHTML(){
+  const pl = G.players[me];
+  return `<div class="topbar">
+    <button class="me-chip" onclick="switchChar()">${crewImg(me,'')} ${PLAYERS[me].name}</button>
+    <div class="stat-chip energy">⚡ ${pl.energy||0}</div>
+    <div class="stat-chip pts">${pl.pts||0} pts</div>
   </div>`;
 }
-
-function turnCoachHTML(isPar, phase, late){
-  const step = phase === 'roll' ? 'Step 2 of 2' : 'Step 1 of 2';
-  if (isPar){
-    if (phase === 'roll'){
-      return `<div class="turn-coach parasite">
-        <div class="step">${step} · Parasite</div>
-        <div class="title">Roll the infestation</div>
-        <div class="how">Tap a die to select it, then hit <b>Re-roll</b> (⚡${CFG.rerollCost}). When happy, <b>Lock in</b>.</div>
-      </div>`;
-    }
-    return `<div class="turn-coach parasite">
-      <div class="step">${step} · Parasite</div>
-      <div class="title">Grow, then roll</div>
-      <div class="how">Pick <b>CONTAIN</b> or <b>UNLEASH</b> (required). Spend leftover Energy on boosts — then roll.</div>
-    </div>`;
-  }
-  if (phase === 'roll'){
-    return `<div class="turn-coach">
-      <div class="step">${step} · Crew${late?' · Critical':''}</div>
-      <div class="title">Roll your dice</div>
-      <div class="how">Tap a die to select it, then hit <b>Re-roll</b> (⚡${CFG.rerollCost}). When happy, <b>Lock in</b>.</div>
-    </div>`;
-  }
-  return `<div class="turn-coach">
-    <div class="step">${step} · Crew${late?' · Critical':''}</div>
-    <div class="title">Upgrade your dice</div>
-    <div class="how">Tap a die → tap a face → <b>Forge</b> (+1). Or buy an extra die. Unspent Energy banks. Then roll.</div>
-  </div>`;
-}
+function switchChar(){ if (confirm('Switch crew on this phone?')){ me=null; localStorage.removeItem('stp_me'); render(); } }
 
 function scoreboardHTML(){
-  const ranked = [...PIDS].sort((a,b)=>(G.players[b].pts||0)-(G.players[a].pts||0));
-  const nextPar = G.schedule[G.round-1];
-  return `<div class="panel" style="padding:10px 12px">
-    <div class="lane-label" style="margin-top:0">Standings — open scores</div>
-    ${ranked.map((p,i)=>{
-      const lead = i===0 ? 'color:var(--energy)' : '';
-      const infected = p===nextPar ? ' <span class="small" style="color:var(--bio)">infected</span>' : '';
-      return `<div class="award-row">
-        <span class="who">${crewImg(p)} ${PLAYERS[p].name}${infected}</span>
-        <span style="font-family:'IBM Plex Mono',monospace;font-weight:800;${lead}">${G.players[p].pts||0}</span>
-      </div>`;
-    }).join('')}
-    <div class="small center" style="margin-top:6px">See who’s ahead — don’t gift them an easy parasite win. Save Energy for clutch rerolls.</div>
+  const ranked = PIDS.slice().sort((a,b)=> (G.players[b].pts||0)-(G.players[a].pts||0));
+  return `<div class="panel">
+    <div class="lane-label" style="margin-top:0">Standings</div>
+    ${ranked.map(p=>`<div class="award-row"><span class="who">${crewImg(p)} ${PLAYERS[p].name}${G.players[p].scarLv?` <span class="badge" style="background:#ff5a4e55;color:#ffb0a8">Scar L${G.players[p].scarLv}</span>`:''}</span>
+      <span>${G.players[p].pts||0}</span></div>`).join('')}
+    <div class="small center" style="margin-top:6px">Boss Meter <span class="boss-meter">${G.parasite.bossMeter||0}</span> · HP preview <b>${bossHP(G)}</b></div>
   </div>`;
 }
 
-function topbarHTML(){
-  const pl = G.players[me], c = PLAYERS[me];
-  return `<div class="topbar">
-    <button class="me-chip" onclick="switchChar()" title="switch player">
-      ${crewImg(me)} ${c.name}
-    </button>
-    <div style="display:flex;gap:7px">
-      <div class="stat-chip energy">⚡ ${pl.energy||0}</div>
-      <div class="stat-chip pts">⭐ ${pl.pts||0}</div>
+function roundStripHTML(){
+  let nodes = '';
+  for (let r=1;r<=TOTAL_ROUNDS;r++){
+    const kind = roundKind(r);
+    const now = r===G.round;
+    const done = r < G.round || (G.status==='over' && r<=TOTAL_ROUNDS);
+    let label = '';
+    let cls = '';
+    if (kind==='training'){ label = 'Train'; cls='train'; }
+    else if (kind==='boss'){ label = 'Boss'; cls='boss'; }
+    else {
+      const hid = hostIdForRound(G, r);
+      if (r === G.round || (G.rounds[r] && G.rounds[r].result)){
+        label = PLAYERS[hid].short.slice(0,3);
+      } else {
+        label = '???'; cls+=' fog';
+      }
+    }
+    const res = G.rounds[r] && G.rounds[r].result;
+    let mark = '';
+    if (res){
+      if (res.kind==='infection') mark = res.hostWins ? '💀' : '🛡️';
+      if (res.kind==='boss') mark = res.cleared ? '🏆' : '🛸';
+      if (res.kind==='training') mark = '✨';
+    }
+    nodes += `<div class="rnode ${now?'now':''} ${done&&!now?'done':''} ${cls}"><div class="rn">R${r}</div><div class="re">${label}</div>${mark?`<div class="rw">${mark}</div>`:''}</div>`;
+  }
+  return `<div class="strip-label">Mission — fog of war</div><div class="round-strip">${nodes}</div>`;
+}
+
+function parasitePanelHTML(){
+  const p = G.parasite;
+  const evo = evoStage(p.mutations||0);
+  return `<div class="panel">
+    <div class="parasite-stage">${parasiteArtHTML(evo.size, evo.stage)}
+      <div class="p-name">${evo.name}</div>
+      <div class="p-tagline">${evo.tag}</div>
+      <div class="p-base">Fusion <b>${Math.round((p.fusionPct||0)*100)}%</b> · Aura <b>+${p.auraFlat||0}</b> · Threat ~<b>${expectedParThreat(p)}</b></div>
+      <div class="evo-tags"><span class="evo-tag">Boss Meter ${p.bossMeter||0}</span><span class="evo-tag">HP ${bossHP(G)}</span></div>
     </div>
   </div>`;
 }
-function switchChar(){ if (confirm('Switch to a different crew member on this phone?')){ me=null; localStorage.removeItem('stp_me'); render(); } }
+
+function turnCoachHTML(r, isHost){
+  const kind = roundKind(r);
+  let title, how;
+  if (kind==='training'){
+    title = 'Training day';
+    how = 'No parasite. Forge up, roll high, take category bonuses.';
+  } else if (kind==='boss'){
+    title = 'THE REVEAL';
+    how = `Collective fight vs <b>${bossHP(G)} HP</b>. Hero points on the line. Fail and it escapes.`;
+  } else if (isHost){
+    title = 'You are the HOST';
+    how = 'Play your human dice <b>plus</b> the monster. Grow it soft (safe) or heavy (Scar + Boss Meter). Instinct die is live.';
+  } else {
+    const hid = hostIdForRound(G, r);
+    title = `${PLAYERS[hid].name} is infected`;
+    how = 'Hold the ship. Your totals combine against the host + parasite package.';
+  }
+  return `<div class="turn-coach ${isHost?'parasite':''}"><div class="step">Round ${r} · ${kind}</div>
+    <div class="title">${title}</div><div class="how">${how}</div></div>`;
+}
 
 function gameScreen(){
-  const r = G.round, parId = G.schedule[r-1], isPar = parId===me, late = r>=5;
-  const myAct = G.rounds[r] && G.rounds[r].actions && G.rounds[r].actions[me];
-  resetSessionForRound(r, isPar);
+  const r = G.round;
+  const kind = roundKind(r);
+  const hostId = hostIdForRound(G, r);
+  const isHost = kind==='infection' && hostId===me;
+  resetSessionForRound(r);
+  const actions = (G.rounds[r] && G.rounds[r].actions) || {};
+  const locked = actionLocked(actions[me]);
 
   let body;
-  if (actionLocked(myAct)) body = waitingHTML(r);
-  else if (session.phase === 'roll') body = isPar ? parasiteRollHTML(r) : humanRollHTML(r);
-  else body = isPar ? parasiteShopHTML(r) : humanShopHTML(r);
+  if (locked) body = waitingHTML(r);
+  else if (session.phase==='roll') body = rollPhaseHTML(r, isHost);
+  else body = shopHTML(r, isHost);
 
   return `${topbarHTML()}
     ${roundStripHTML()}
-    ${scoreboardHTML()}
-    ${turnCoachHTML(isPar, session.phase, late)}
-    ${isPar ? `<div class="hint" style="margin-top:-4px">You are infected — Round ${r}/${TOTAL_ROUNDS}${late?' · Critical rewards':''}</div>`
-      : `<div class="hint" style="margin-top:-4px">${PLAYERS[parId].name} is infected · Round ${r}/${TOTAL_ROUNDS}${late?' · Critical rewards':''}</div>`}
-    ${parasitePanelHTML(r)}
+    ${parasitePanelHTML()}
+    ${turnCoachHTML(r, isHost)}
     ${body}
-    ${historyHTML()}
-    ${bottomDockHTML()}
-    ${instructionsModalHTML()}`;
+    ${scoreboardHTML()}
+    ${bottomDockHTML()}`;
 }
 
-/* ---------- human shop ---------- */
-function humanShopHTML(r){
+/* ================= SHOP ================= */
+function shopHTML(r, isHost){
   const pl = G.players[me];
-  const cost = cartCost(false), budget = myBudget(false), left = budget - cost;
-  const preview = previewHumanDice(pl, cart);
-  const forged = forgedSetFromCart();
+  const preview = previewHumanDice(pl);
+  const modPrev = previewModDie(pl);
+  const left = energyLeft();
   if (!ui.selectedDie && pl.dice[0]) ui.selectedDie = pl.dice[0].id;
   const sel = ui.selectedDie ? findDie(preview, ui.selectedDie) || findDie(pl.dice, ui.selectedDie) : null;
+  const forged = forgedSetFromCart();
 
-  return `<div class="panel">
-    <h3 class="mt0">Forge your dice</h3>
-    <p class="small">Tap die → tap face → Forge (+1). Leftover Energy banks.</p>
-    <div class="dice-row">
-      ${preview.map(d=>{
-        const real = d.id!=='preview';
-        const cls = ui.selectedDie===d.id ? 'selected' : '';
-        return `<div class="die-wrap ${cls}" ${real?`onclick="selectDie('${d.id}')"`:''}>
-          ${dieHTML(d.color, Math.max(...d.faces))}
-          <div class="die-label ${d.color}">${COLOR_META[d.color].icon} ${COLOR_META[d.color].name}</div>
-          <div class="die-sub">${d.faces.join('·')}</div>
-        </div>`;
-      }).join('')}
-    </div>
-    ${sel ? `<div>
-      <div class="lane-label">Faces — tap to queue forge (+1)</div>
+  const diceRow = preview.map(d=>{
+    const cls = ui.selectedDie===d.id ? 'selected' : '';
+    return `<div class="die-wrap can-pick ${cls}" onclick="selectDie('${d.id}')">${dieHTML(d.color, d.faces[0])}
+      <div class="die-label ${d.color}">${COLOR_META[d.color].name}</div></div>`;
+  }).join('');
+
+  let forgeBlock = '';
+  if (sel){
+    forgeBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">Forge a face</div>
+      <div class="si-desc">Spend 1⚡ to bump a face <b>+2</b>.</div></div><div class="si-cost">1⚡ → +2</div></div>
       ${facesStripHTML(sel.faces, { dieId:sel.id, selectable:true, picked: ui.selectedFace, forgedSet: forged })}
-      <button class="buy-btn primary" style="width:100%;margin-top:8px" onclick="queueForge()"
-        ${!ui.selectedFace || left < CFG.forgeCost?'disabled':''}>
-        Forge selected face · ⚡${CFG.forgeCost}
-      </button>
-      ${(cart.forges||[]).length?`<button class="btn ghost" style="margin-top:8px;padding:10px" onclick="undoForge()">Undo last forge</button>`:''}
-    </div>` : `<div class="small center">Select a die to forge its faces</div>`}
+      <button class="buy-btn primary" onclick="queueForge()" ${!ui.selectedFace || left < CFG.forgeCost?'disabled':''}>Forge +2</button>
+      ${(cart.forges||[]).length?`<button class="buy-btn" onclick="undoForge()">Undo last forge (${cart.forges.length})</button>`:''}
+    </div>`;
+  }
 
-    <h3 style="margin-top:16px">Energy spends</h3>
-    <div class="shop-item">
-      <div class="si-top">
-        <div>
-          <div class="si-name">Extra die</div>
-          <div class="si-desc">Max 1 extra per category · ${COLORS.map(c=>`${COLOR_META[c].name} ${countColor(pl.dice,c)+(cart.addDie===c?1:0)}/${CFG.maxDicePerColor}`).join(' · ')}</div>
-        </div>
-        <div class="si-cost">⚡${CFG.addDieCost}</div>
-      </div>
-      ${cart.addDie
-        ? `<button class="buy-btn owned" onclick="clearAddDie()">Queued: ${COLOR_META[cart.addDie].name} — tap to cancel</button>`
-        : `<div class="cat-picks">${COLORS.map(c=>{
-            const n = countColor(pl.dice,c);
-            const ok = canAddColor(pl,c,null) && left>=CFG.addDieCost;
-            return `<button type="button" class="cat-pick ${c}" onclick="setAddDie('${c}')" ${ok?'':'disabled'}>
-              <span class="cp-name">${COLOR_META[c].name}</span>
-              <span class="cp-meta">${n}/${CFG.maxDicePerColor}</span>
-            </button>`;
-          }).join('')}</div>`}
-    </div>
-    <div class="shop-item">
-      <div class="si-top">
-        <div>
-          <div class="si-name">Free reroll forever</div>
-          <div class="si-desc">First reroll each round is free — lasting perk</div>
-        </div>
-        <div class="si-cost">⚡${CFG.freeRerollPerkCost}</div>
-      </div>
-      ${pl.perks.freeReroll
-        ? `<button class="buy-btn owned" disabled>✓ Owned</button>`
-        : `<button class="buy-btn ${cart.buyFreeReroll?'owned':''} primary" style="width:100%" onclick="toggleFreeReroll()" ${!cart.buyFreeReroll&&left<CFG.freeRerollPerkCost?'disabled':''}>
-            ${cart.buyFreeReroll?'Queued — tap to cancel':`Buy free reroll · ⚡${CFG.freeRerollPerkCost}`}
-          </button>`}
-    </div>
-    <div class="spent-preview">Upgrade spend ⚡${cost} · ⚡${left} left for rerolls (or next round)</div>
-  </div>
-  <div class="fixed-cta"><button class="btn" onclick="beginHumanRoll()">Done upgrading — Roll</button></div>`;
+  const modBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">Modifier die (2-2-2)</div>
+    <div class="si-desc">Upgrade a face for 2⚡. Max level 3.</div></div><div class="si-cost">2⚡</div></div>
+    <div class="face-strip">${modPrev.map((f,i)=>{
+      const queued = (cart.modUps||[]).filter(x=>x===i).length;
+      const pick = ui.selectedModFace===i;
+      return `<button class="face-chip ${modFaceClass(f)} ${pick?'picked':''}" onclick="pickModFace(${i})">${modFaceLabel(f)}${queued?`↑${queued}`:''}</button>`;
+    }).join('')}</div>
+    <button class="buy-btn primary" onclick="queueModUp()" ${ui.selectedModFace==null || left < CFG.modUpgradeCost?'disabled':''}>Upgrade face</button>
+  </div>`;
+
+  const extras = `<div class="shop-item"><div class="si-top"><div><div class="si-name">Extra die / Free reroll</div>
+    <div class="si-desc">Extra category die 3⚡. Free first reroll forever 4⚡.</div></div></div>
+    <div class="cat-picks">${COLORS.map(c=>{
+      const ok = canAddColor(pl, c, cart.addDie);
+      const picked = cart.addDie===c;
+      return `<button class="cat-pick ${c} ${picked?'picked':''}" ${!ok && !picked?'disabled':''} onclick="setAddDie('${c}')">
+        <span class="cp-name">${COLOR_META[c].name}</span><span class="cp-meta">${picked?'QUEUED':'3⚡'}</span></button>`;
+    }).join('')}</div>
+    ${cart.addDie?`<button class="buy-btn" onclick="clearAddDie()">Clear extra die</button>`:''}
+    <button class="buy-btn ${cart.buyFreeReroll||pl.perks.freeReroll?'owned':''}" onclick="toggleFreeReroll()"
+      ${pl.perks.freeReroll?'disabled':''}>${pl.perks.freeReroll?'Owned: free reroll':(cart.buyFreeReroll?'Queued: free reroll':'Buy free first reroll · 4⚡')}</button>
+  </div>`;
+
+  let growthBlock = '';
+  if (isHost){
+    const soft = softGrowthOptions(G.parasite);
+    const heavy = heavyGrowthOptions(G.parasite);
+    growthBlock = `<div class="panel" style="border-color:#8dff6a44">
+      <div class="lane-label" style="margin-top:0;color:var(--bio)">Parasite must grow</div>
+      <div class="small">Soft = safer ship. Heavy = power now + Scar die + Boss Meter.</div>
+      <div class="growth-grid">${soft.map(o=>{
+        const picked = cart.growth && cart.growth.key===o.key;
+        return `<button class="growth-opt soft ${picked?'picked':''}" onclick="pickGrowth('${o.key}','soft')">
+          <div class="go-title">${o.title}</div><div class="go-desc">${o.desc}</div></button>`;
+      }).join('')}</div>
+      <div class="growth-grid">${heavy.map(o=>{
+        const picked = cart.growth && cart.growth.key===o.key;
+        return `<button class="growth-opt heavy ${picked?'picked':''}" onclick="pickGrowth('${o.key}','heavy')">
+          <div class="go-title">${o.title}</div><div class="go-desc">${o.desc}</div></button>`;
+      }).join('')}</div>
+      ${pl.scarLv?`<div class="warn-box">You already carry Scar L${pl.scarLv}. Another heavy bumps to L2 (cap).</div>`:''}
+    </div>`;
+  }
+
+  const canRoll = !isHost || (cart.growth && cart.growth.key);
+  return `${growthBlock}
+    <div class="spent-preview">Energy left after shop: ⚡ ${left}</div>
+    <div class="dice-row">${diceRow}</div>
+    ${forgeBlock}${modBlock}${extras}
+    <div class="fixed-cta"><button class="btn" onclick="beginRoll()" ${!canRoll || left<0?'disabled':''}>${isHost&&!cart.growth?'Pick a growth first':'Roll dice'}</button></div>`;
 }
-function selectDie(id){
-  ui.selectedDie = id;
-  ui.selectedFace = null;
-  render();
-}
-function pickFace(dieId, faceIndex){
-  ui.selectedDie = dieId;
-  ui.selectedFace = { dieId, faceIndex };
-  render();
-}
+
+function selectDie(id){ ui.selectedDie=id; ui.selectedFace=null; render(); }
+function pickFace(dieId, faceIndex){ ui.selectedDie=dieId; ui.selectedFace={dieId,faceIndex}; render(); }
 function queueForge(){
-  if (!ui.selectedFace) return;
-  const next = { ...ui.selectedFace };
-  cart.forges = cart.forges || [];
-  // allow multiple forges on same face
-  cart.forges.push(next);
-  if (cartCost(false) > myBudget(false)){ cart.forges.pop(); return; }
-  // bump preview selection value mentally — re-render handles preview
+  if (!ui.selectedFace || energyLeft() < CFG.forgeCost) return;
+  cart.forges.push({ ...ui.selectedFace });
   render();
 }
-function undoForge(){
-  if (cart.forges && cart.forges.length) cart.forges.pop();
+function undoForge(){ cart.forges.pop(); render(); }
+function pickModFace(i){ ui.selectedModFace=i; render(); }
+function queueModUp(){
+  if (ui.selectedModFace==null || energyLeft() < CFG.modUpgradeCost) return;
+  const pl = G.players[me];
+  const preview = previewModDie(pl);
+  if (!preview[ui.selectedModFace] || preview[ui.selectedModFace].level>=2) return;
+  cart.modUps.push(ui.selectedModFace);
   render();
 }
 function setAddDie(c){
-  if (!canAddColor(G.players[me], c, null)) return;
-  cart.addDie = c;
-  if (cartCost(false) > myBudget(false)) cart.addDie = null;
+  if (cart.addDie===c){ cart.addDie=null; }
+  else if (canAddColor(G.players[me], c, null) && energyLeft() >= CFG.addDieCost){ cart.addDie=c; }
   render();
 }
-function clearAddDie(){ cart.addDie = null; render(); }
+function clearAddDie(){ cart.addDie=null; render(); }
 function toggleFreeReroll(){
+  if (G.players[me].perks.freeReroll) return;
   cart.buyFreeReroll = !cart.buyFreeReroll;
-  if (cartCost(false) > myBudget(false)) cart.buyFreeReroll = false;
   render();
 }
-function beginHumanRoll(){
-  const dice = previewHumanDice(G.players[me], cart);
-  dice.forEach(d=>{
-    if (d.id==='preview'){ d.id = uid(d.color[0]); d.tempNew = true; }
+function pickGrowth(key, lane){ cart.growth = { key, lane }; render(); }
+
+/* ================= ROLL ================= */
+function beginRoll(){
+  const r = G.round;
+  const kind = roundKind(r);
+  const isHost = kind==='infection' && hostIdForRound(G,r)===me;
+  if (isHost && !(cart.growth && cart.growth.key)) return;
+
+  const preview = previewHumanDice(G.players[me]);
+  const modPrev = previewModDie(G.players[me]);
+  // human rolls
+  const rolls = preview.map(d=>{
+    const rf = rollFace(d.faces);
+    return { dieId:d.id, color:d.color, faces:d.faces, index:rf.index, v:rf.value, first:rf.value, rerolled:false, tempNew:d.id==='preview' };
   });
-  const rolls = dice.map(d=>{
-    const rolled = rollFace(d.faces);
-    return { dieId:d.id, color:d.color, faces:deep(d.faces), index:rolled.index, v:rolled.value, first:rolled.value, rerolled:false, tempNew:!!d.tempNew };
-  });
-  session.phase = 'roll';
+  if (cart.addDie){
+    const last = rolls[rolls.length-1];
+    if (last && last.tempNew) last.dieId = uid(cart.addDie[0]);
+  }
+  // mod roll
+  const mi = rollIndex(modPrev.length);
+  let modRoll = { index:mi, kind:modPrev[mi].kind, level:modPrev[mi].level, value:modFaceValue(modPrev[mi]) };
+
+  // scar
+  let scarRoll = null;
+  let ptsDelta = 0;
+  const scarLv = G.players[me].scarLv||0;
+  if (scarLv > 0){
+    const faces = SCAR_FACES[scarLv];
+    const si = rollIndex(faces.length);
+    scarRoll = { index:si, id:faces[si].id, label:faces[si].label, level:scarLv };
+  }
+
   session.rolls = rolls;
-  session.paidRerolls = 0;
-  session.freeLeft = freeRerollThisRound(false) ? 1 : 0;
-  session.selectedRoll = null;
-  session.shake = true;
-  render();
-  setTimeout(()=>{ if (session) session.shake = false; render(); }, 700);
-}
-function humanRollHTML(r){
-  const cost = cartCost(false), budget = myBudget(false), left = budget - cost;
-  const rolls = session.rolls || [];
-  const total = rolls.reduce((s,d)=>s+d.v, 0);
-  const free = session.freeLeft||0;
-  const sel = session.selectedRoll;
-  const canReroll = canAffordReroll(false) && sel!=null && sel.type==='human';
-  const rerollLabel = free ? `Re-roll selected (free)` : `Re-roll selected ⚡${CFG.rerollCost}`;
-  return `<div class="panel">
-    <h3 class="mt0">Your roll</h3>
-    <p class="hint">Tap a die to select it, then press Re-roll.${free?` You have <b style="color:var(--energy)">1 free</b>.`:''}</p>
-    <div class="dice-row">
-      ${rolls.map((d,i)=>{
-        const picked = sel && sel.type==='human' && sel.index===i;
-        return `<div class="die-wrap can-pick ${picked?'selected':''}" onclick="pickHumanRoll(${i})">
-          ${dieHTML(d.color, session.shake?null:d.v, session.shake?'rolling':'')}
-          <div class="die-label ${d.color}">${COLOR_META[d.color].name}</div>
-          <div class="die-sub">${d.rerolled?`${d.first}→${d.v}`:''}</div>
-        </div>`;
-      }).join('')}
-    </div>
-    <button class="btn reroll" onclick="confirmRerollHuman()" ${canReroll?'':'disabled'}>${rerollLabel}</button>
-    <div class="center total-big crew">${total}</div>
-    <div class="spent-preview">⚡${left} left · paid rerolls ${session.paidRerolls||0}${free?` · free ${free}`:''}</div>
-  </div>
-  <div class="fixed-cta"><button class="btn" onclick="lockHumanRoll()">Lock in final roll</button></div>`;
-}
-function pickHumanRoll(i){
-  if (!session || session.phase!=='roll' || session.shake) return;
-  session.selectedRoll = { type:'human', index:i };
-  render();
-}
-function confirmRerollHuman(){
-  if (!session || !session.selectedRoll || session.selectedRoll.type!=='human') return;
-  rerollHumanDie(session.selectedRoll.index);
-}
-function rerollHumanDie(i){
-  if (!session || session.phase!=='roll') return;
-  if (!canAffordReroll(false)) return;
-  const d = session.rolls[i];
-  if (!d) return;
-  if (!spendRerollCharge(false)) return;
-  const again = rollFace(d.faces);
-  d.first = d.v;
-  d.v = again.value;
-  d.index = again.index;
-  d.rerolled = true;
-  session.shake = false;
-  session.selectedRoll = { type:'human', index:i };
-  render();
-}
-function lockHumanRoll(){
-  submitAction({
-    role:'human',
-    phase:'locked',
-    forges: cart.forges||[],
-    addDie: cart.addDie||null,
-    rerollBuys: session.paidRerolls||0,
-    buyFreeReroll: !!cart.buyFreeReroll,
-    rolls: session.rolls,
-    at: Date.now(),
-  });
-  session = { round:G.round, phase:'upgrade', rolls:null, aRolls:null, mRolls:null, paidRerolls:0, freeLeft:0, shake:false, selectedRoll:null };
-}
+  session.modRoll = modRoll;
+  session.scarRoll = scarRoll;
+  session.ptsDelta = 0;
+  applyScarToSession(); // may mutate rolls/mod/ptsDelta
 
-/* ---------- parasite shop ---------- */
-function parasiteShopHTML(r){
-  const cost = cartCost(true), budget = myBudget(true), left = budget - cost;
-  const p = G.parasite;
-  const g = cart.growth;
-  const must = !g;
-
-  const attackOpts = (p.attack||[]).map((d, di)=>{
-    // Offer bumping the highest face (+2) — quieter Contain growth
-    const fi = d.faces.reduce((best,v,i)=> v>=d.faces[best] ? i : best, 0);
-    const v = d.faces[fi];
-    return {
-      key: `atk-${d.id}-${fi}`,
-      growth: { kind:'attack', dieId:d.id, faceIndex:fi, amount:2, unleash:false },
-      title: `CONTAIN · Feed attack die ${di+1}`,
-      desc: `Bump highest face ${v} → ${v+2}. Reliable, quieter for the next infected.`,
-      disabled: false,
-      tag:'contain',
-    };
-  });
-
-  const modBlankOpts = (p.modifiers||[]).flatMap((d, di)=>{
-    const blank = d.faces.findIndex(f=>f.type==='blank');
-    if (blank < 0) return [];
-    return [
-      {
-        key: `blank5-${d.id}`,
-        growth: { kind:'modBlank', dieId:d.id, faceIndex:blank, newFace:{ type:'flat', n:5 }, unleash:false },
-        title: `CONTAIN · Mod ${di+1} blank → +5`,
-        desc: `Flat damage every time this face hits. Steady power.`,
-        tag:'contain',
-      },
-      {
-        key: `blank15-${d.id}`,
-        growth: { kind:'modBlank', dieId:d.id, faceIndex:blank, newFace:{ type:'pct', n:15 }, unleash:true },
-        title: `UNLEASH · Mod ${di+1} blank → +15%  (+⚡${CFG.unleashGrowthBonus})`,
-        desc: `Swingy. Hot attack rolls feast — and the next infected inherits it.`,
-        tag:'unleash',
-      },
-    ];
-  });
-
-  const expandOpts = (p.modifiers||[]).filter(d=>d.faces.length < 8).map((d, di)=>({
-    key: `exp-${d.id}`,
-    growth: { kind:'modExpand', dieId:d.id, newFace:{ type:'pct', n:25 }, unleash:true },
-    title: `UNLEASH · Expand mod ${di+1}  (+⚡${CFG.unleashGrowthBonus})`,
-    desc: `Add a blank and a +25% face. Ceiling goes up; so does future pain.`,
-    tag:'unleash',
-  }));
-
-  const specialOpts = [];
-  (p.attack||[]).forEach((d, di)=>{
-    specialOpts.push({
-      key: `surge-${d.id}`,
-      growth: { kind:'atkSurge', dieId:d.id, unleash:true },
-      title: `UNLEASH · Surge attack die ${di+1}  (+⚡${CFG.unleashGrowthBonus})`,
-      desc: `+1 to every face on this die (${d.faces.join('·')} → ${d.faces.map(v=>v+1).join('·')}). Same fantasy as crew forging — louder.`,
-      tag:'unleash',
+  // host parasite rolls
+  if (isHost){
+    let atkDice = deep(G.parasite.attack);
+    // preview growth locally for the roll
+    const fake = deep(G.parasite);
+    if (cart.growth.lane==='soft') applySoftGrowth(fake, cart.growth.key);
+    else applyHeavyGrowth(fake, cart.growth.key, { scarLv: G.players[me].scarLv||0 });
+    atkDice = fake.attack;
+    session.aRolls = atkDice.map(d=>{
+      const er = rollExplodingAttack(d.faces);
+      return { dieId:d.id, faces:d.faces, index:er.index, v:er.value, shown:er.shown, exploded:er.exploded, first:er.value, rerolled:false };
     });
-  });
-  if ((p.modifiers||[]).length < CFG.maxParMods){
-    specialOpts.push({
-      key: 'newmod',
-      growth: { kind:'newMod', unleash:true },
-      title: `UNLEASH · Spawn 2nd modifier die  (+⚡${CFG.unleashGrowthBonus})`,
-      desc: `A whole new mutation die (blanks + +5 / +15% / +25%). Huge tonight — and for every future infected.`,
-      tag:'unleash',
-    });
-  }
-  if ((p.attack||[]).length < CFG.maxParAttack){
-    specialOpts.push({
-      key: 'atkdie',
-      growth: { kind:'atkDie', unleash:true },
-      title: `UNLEASH · Grow an extra attack die  (+⚡${CFG.unleashGrowthBonus})`,
-      desc: `Permanent extra attack die starting 2–7. Loud. Hard to walk back for later infected.`,
-      tag:'unleash',
-    });
-  }
-
-  const allOpts = [...attackOpts, ...modBlankOpts, ...expandOpts, ...specialOpts];
-  window._growthOpts = allOpts;
-
-  return `<div class="panel">
-    <div class="center small" style="margin-bottom:8px">Parasite surge: <b style="color:var(--energy)">+${CFG.parasiteStipend} Energy</b>. Win pays <b style="color:var(--danger)">${CFG.parasiteWinPts(r)} pts</b>.</div>
-    <div class="warn-box">You <b>must</b> grow it. <b>CONTAIN</b> = safer ship. <b>UNLEASH</b> = win tonight (+⚡${CFG.unleashGrowthBonus}) but arms whoever is infected next.</div>
-
-    <h3 class="mt0">Forced growth</h3>
-    <div class="growth-grid">
-      ${allOpts.map((o, idx)=>{
-        const picked = g && JSON.stringify(g)===JSON.stringify(o.growth);
-        return `<button class="growth-opt ${picked?'picked':''} ${o.tag||''}" onclick="pickGrowthIdx(${idx})" ${o.disabled?'disabled':''}>
-          <div class="go-title">${esc(o.title)}</div>
-          <div class="go-desc">${esc(o.desc)}</div>
-        </button>`;
-      }).join('')}
-    </div>
-
-    <h3>Optional Energy spends</h3>
-    <div class="shop-item">
-      <div class="si-top">
-        <div>
-          <div class="si-name">Temp attack die</div>
-          <div class="si-desc">Extra d6 this round only (max ${CFG.tempAttackMax})</div>
-        </div>
-        <div class="si-cost">⚡${CFG.tempAttackCost} each</div>
-      </div>
-      <div class="stepper">
-        <button type="button" class="buy-btn" onclick="parTemp(-1)" ${cart.tempAttack<=0?'disabled':''}>−</button>
-        <span class="step-val">${cart.tempAttack}</span>
-        <button type="button" class="buy-btn" onclick="parTemp(1)" ${cart.tempAttack>=CFG.tempAttackMax||left<CFG.tempAttackCost?'disabled':''}>+</button>
-      </div>
-    </div>
-    <div class="shop-item">
-      <div class="si-top">
-        <div>
-          <div class="si-name">Push +25% onto a blank</div>
-          <div class="si-desc">Permanent risk — next infected inherits it</div>
-        </div>
-        <div class="si-cost">⚡${CFG.pushModCost}</div>
-      </div>
-      <button class="buy-btn ${cart.pushMod?'owned':'primary'}" style="width:100%" onclick="togglePushMod()"
-        ${!cart.pushMod && (left<CFG.pushModCost || !(p.modifiers||[]).some(d=>d.faces.some(f=>f.type==='blank')))?'disabled':''}>
-        ${cart.pushMod?'Queued — tap to cancel':`Queue push · ⚡${CFG.pushModCost}`}
-      </button>
-    </div>
-    <div class="spent-preview">Upgrade spend ⚡${cost} of ⚡${budget} · ⚡${left} left for rerolls (or next round)</div>
-  </div>
-  <div class="fixed-cta">
-    <button class="btn danger" onclick="beginParasiteRoll()" ${must?'disabled':''}>
-      ${must ? 'Choose forced growth first' : 'Done upgrading — Roll parasite'}
-    </button>
-  </div>`;
-}
-function pickGrowthIdx(idx){
-  const o = (window._growthOpts||[])[idx];
-  if (!o || o.disabled) return;
-  cart.growth = deep(o.growth);
-  render();
-}
-function parTemp(delta){
-  cart.tempAttack = Math.max(0, Math.min(CFG.tempAttackMax, cart.tempAttack+delta));
-  if (cartCost(true) > myBudget(true)) cart.tempAttack = Math.max(0, cart.tempAttack-1);
-  render();
-}
-function togglePushMod(){
-  if (cart.pushMod){ cart.pushMod = false; render(); return; }
-  const d = (G.parasite.modifiers||[]).find(x=>x.faces.some(f=>f.type==='blank'));
-  if (!d) return;
-  cart.pushMod = true;
-  if (cartCost(true) > myBudget(true)) cart.pushMod = false;
-  render();
-}
-function previewParasiteDice(){
-  const p = deep(G.parasite);
-  if (cart.growth) applyForcedGrowth(p, cart.growth);
-  if (cart.pushMod){
-    const d = (p.modifiers||[]).find(x=>x.faces.some(f=>f.type==='blank'));
-    if (d){
-      const bi = d.faces.findIndex(f=>f.type==='blank');
-      if (bi>=0) d.faces[bi] = { type:'pct', n:25 };
+    const pMod = fake.mod.faces;
+    const pi = rollIndex(pMod.length);
+    session.pModRoll = deep(pMod[pi]);
+    session.pModRoll.index = pi;
+    const inst = fake.instinct || INSTINCT_FACES.map(f=>f.id);
+    const ii = rollIndex(inst.length);
+    session.instinctRoll = inst[ii];
+    session.instinctExtra = 0;
+    if (session.instinctRoll==='explode'){
+      const er = rollExplodingAttack(hotFaces());
+      session.instinctExtra = er.value;
     }
+    session._previewPar = fake;
   }
-  const attack = deep(p.attack||[]);
-  for (let i=0;i<(cart.tempAttack||0);i++) attack.push({ id:'temp'+i, faces:stdFaces(), temp:true });
-  return { attack, modifiers: deep(p.modifiers||[]) };
-}
-function beginParasiteRoll(){
-  if (!cart.growth) return;
-  const { attack, modifiers } = previewParasiteDice();
-  session.aRolls = attack.map(d=>{
-    const rolled = rollFace(d.faces);
-    return { dieId:d.id, faces:deep(d.faces), index:rolled.index, v:rolled.value, first:rolled.value, rerolled:false, temp:!!d.temp };
-  });
-  session.mRolls = modifiers.map(d=>{
-    const rolled = rollModFace(d.faces);
-    return { dieId:d.id, faces:deep(d.faces), index:rolled.index, face:rolled.face, first:deep(rolled.face), rerolled:false };
-  });
-  session.phase = 'roll';
+
+  session.freeLeft = freeRerollThisRound() ? 1 : 0;
   session.paidRerolls = 0;
-  session.freeLeft = freeRerollThisRound(true) ? 1 : 0;
+  session.phase = 'roll';
   session.selectedRoll = null;
   session.shake = true;
   render();
-  setTimeout(()=>{ if (session) session.shake = false; render(); }, 700);
-}
-function parasiteRollHTML(r){
-  const cost = cartCost(true), budget = myBudget(true), left = budget - cost;
-  const aRolls = session.aRolls || [];
-  const mRolls = session.mRolls || [];
-  const attackSum = aRolls.reduce((s,d)=>s+d.v,0);
-  const { flatMods, pctMods, modBreakdown } = enrichModRolls(mRolls, attackSum);
-  const base = parasiteBaseNow(r, G.parasite);
-  const total = base + attackSum + flatMods + pctMods;
-  const free = session.freeLeft||0;
-  const sel = session.selectedRoll;
-  const canReroll = canAffordReroll(true) && sel && (sel.type==='atk' || sel.type==='mod');
-  const rerollLabel = free ? `Re-roll selected (free)` : `Re-roll selected ⚡${CFG.rerollCost}`;
-  return `<div class="panel">
-    <h3 class="mt0">Parasite roll</h3>
-    <p class="hint">Tap a die to select it, then press Re-roll.${free?` You have <b style="color:var(--energy)">1 free</b>.`:''}</p>
-    <div class="lane-label">Attack</div>
-    <div class="dice-row">
-      ${aRolls.map((d,i)=>{
-        const picked = sel && sel.type==='atk' && sel.index===i;
-        return `<div class="die-wrap can-pick ${picked?'selected':''}" onclick="pickParRoll('atk',${i})">
-          ${dieHTML('attack', session.shake?null:d.v, session.shake?'rolling':'')}
-          <div class="die-sub">${d.rerolled?`${d.first}→${d.v}`:''}${d.temp?' · temp':''}</div>
-        </div>`;
-      }).join('')}
-    </div>
-    <div class="lane-label">Modifiers</div>
-    <div class="dice-row">
-      ${mRolls.map((d,i)=>{
-        const picked = sel && sel.type==='mod' && sel.index===i;
-        return `<div class="die-wrap can-pick ${picked?'selected':''}" onclick="pickParRoll('mod',${i})">
-          ${dieHTML('mod', session.shake?'?':modFaceLabel(d.face), session.shake?'rolling':'')}
-          <div class="die-sub ${modFaceClass(d.face)}">${modBreakdown[i]?modBreakdown[i].label:modFaceLabel(d.face)}</div>
-        </div>`;
-      }).join('')}
-    </div>
-    <button class="btn reroll" onclick="confirmRerollPar()" ${canReroll?'':'disabled'}>${rerollLabel}</button>
-    <div class="small center" style="margin-top:8px">base ${base} + atk ${attackSum} + flat ${flatMods} + % ${pctMods}</div>
-    <div class="center total-big par">${total}</div>
-    <div class="spent-preview">⚡${left} left · paid rerolls ${session.paidRerolls||0}${free?` · free ${free}`:''}</div>
-  </div>
-  <div class="fixed-cta"><button class="btn danger" onclick="lockParasiteRoll()">Lock in final roll</button></div>`;
-}
-function pickParRoll(type, i){
-  if (!session || session.phase!=='roll' || session.shake) return;
-  session.selectedRoll = { type, index:i };
-  render();
-}
-function confirmRerollPar(){
-  if (!session || !session.selectedRoll) return;
-  if (session.selectedRoll.type==='atk') rerollParAtk(session.selectedRoll.index);
-  else if (session.selectedRoll.type==='mod') rerollParMod(session.selectedRoll.index);
-}
-function rerollParAtk(i){
-  if (!session || session.phase!=='roll') return;
-  if (!canAffordReroll(true)) return;
-  const d = session.aRolls[i]; if (!d) return;
-  if (!spendRerollCharge(true)) return;
-  const again = rollFace(d.faces);
-  d.first = d.v; d.v = again.value; d.index = again.index; d.rerolled = true;
-  session.selectedRoll = { type:'atk', index:i };
-  render();
-}
-function rerollParMod(i){
-  if (!session || session.phase!=='roll') return;
-  if (!canAffordReroll(true)) return;
-  const d = session.mRolls[i]; if (!d) return;
-  if (!spendRerollCharge(true)) return;
-  const again = rollModFace(d.faces);
-  d.first = deep(d.face); d.face = again.face; d.index = again.index; d.rerolled = true;
-  session.selectedRoll = { type:'mod', index:i };
-  render();
-}
-function lockParasiteRoll(){
-  if (!cart.growth) return;
-  const push = cart.pushMod ? {
-    dieId: (G.parasite.modifiers.find(d=>d.faces.some(f=>f.type==='blank'))||{}).id,
-    newFace: { type:'pct', n:25 },
-  } : null;
-  const attackSum = (session.aRolls||[]).reduce((s,d)=>s+d.v,0);
-  const { modBreakdown } = enrichModRolls(session.mRolls, attackSum);
-  submitAction({
-    role:'parasite',
-    phase:'locked',
-    growth: cart.growth,
-    rerollBuys: session.paidRerolls||0,
-    tempAttack: cart.tempAttack||0,
-    pushMod: push,
-    aRolls: session.aRolls,
-    mRolls: modBreakdown,
-    at: Date.now(),
-  });
-  session = { round:G.round, phase:'upgrade', rolls:null, aRolls:null, mRolls:null, paidRerolls:0, freeLeft:0, shake:false, selectedRoll:null };
+  setTimeout(()=>{ if(session) session.shake=false; render(); }, 550);
 }
 
-/* ---------- waiting ---------- */
-function waitingHTML(r){
-  const acts = (G.rounds[r]&&G.rounds[r].actions)||{};
-  return `<div class="panel">
-    <h3 class="mt0 center">Final roll locked in</h3>
-    <p class="small center">Battle erupts when everyone locks their roll.</p>
-    ${PIDS.map(p=>{
-      const a = acts[p];
-      let st = 'plotting…', cls = 'thinking';
-      if (actionLocked(a)){ st = 'READY'; cls = 'in'; }
-      return `<div class="wait-row">
-        ${crewImg(p)} <b>${PLAYERS[p].name}</b>
-        ${G.schedule[r-1]===p?'<span class="small" style="color:var(--bio)">infected</span>':''}
-        <span class="st ${cls}">${st}</span>
-      </div>`;
-    }).join('')}
-  </div>`;
+function applyScarToSession(){
+  const scar = session.scarRoll;
+  if (!scar) return;
+  const lv = scar.level;
+  const rolls = session.rolls;
+  if (scar.id==='drain'){
+    // handled as pending energy reduction via pts? use energy flag
+    session.scarEnergyLoss = lv===1 ? 2 : 4;
+  } else if (scar.id==='bleed'){
+    const mult = lv===1 ? 0.9 : 0.8;
+    rolls.forEach(d=>{ d.v = Math.max(1, Math.round(d.v * mult)); });
+  } else if (scar.id==='static'){
+    session.modRoll = null;
+    if (lv===2) session.scarEnergyLoss = (session.scarEnergyLoss||0) + 1;
+  } else if (scar.id==='fumble'){
+    const n = lv===1 ? 1 : 2;
+    for (let k=0;k<n;k++){
+      if (!rolls.length) break;
+      let hi=0; for (let i=1;i<rolls.length;i++) if (rolls[i].v>rolls[hi].v) hi=i;
+      const rf = rollFace(rolls[hi].faces);
+      rolls[hi].v = rf.value; rolls[hi].index = rf.index; rolls[hi].rerolled = true;
+    }
+  } else if (scar.id==='penalty'){
+    session.ptsDelta = -(lv===1 ? 5 : 10);
+  } else if (scar.id==='shatter'){
+    if (rolls.length){
+      let hi=0; for (let i=1;i<rolls.length;i++) if (rolls[i].v>rolls[hi].v) hi=i;
+      rolls.splice(hi,1);
+    }
+    if (lv===2) session.ptsDelta = (session.ptsDelta||0) - 5;
+  }
 }
 
-/* ---------- history ---------- */
-function historyHTML(){
-  const done = Object.keys(G.rounds).map(Number).filter(r=>G.rounds[r].result).sort((a,b)=>b-a);
-  if (!done.length) return '';
-  return `<div class="panel">
-    <h3 class="mt0">Battle log</h3>
-    ${done.map(r=>{
-      const res = G.rounds[r].result;
-      return `<div class="log-entry">
-        <b>R${r}</b> ${res.humansWin?'Crew won':'Parasite ('+PLAYERS[res.parId].name+') won'}
-        — ${res.humanTotal} vs ${res.parTotal}
-        ${res.mvp?` · MVP ${PLAYERS[res.mvp].name}`:''}
-        <button class="buy-btn" style="float:right;padding:4px 10px;font-size:11px" onclick="playReplay(${r},true)">▶︎</button>
-      </div>`;
-    }).join('')}
-  </div>`;
-}
+function rollPhaseHTML(r, isHost){
+  const shake = session.shake ? 'rolling' : '';
+  const rolls = session.rolls||[];
+  const humanSum = rolls.reduce((s,d)=>s+(d.v||0),0);
+  let modLine = session.modRoll
+    ? `<div class="mod-flip"><span class="${modFaceClass({kind:session.modRoll.kind})}">Mod: ${modFaceLabel({kind:session.modRoll.kind, level:session.modRoll.level})}</span></div>`
+    : `<div class="mod-flip"><span class="blank">Mod: blocked</span></div>`;
 
-/* ---------- battle replay ---------- */
-function playReplay(r, manual){
-  const res = G.rounds[r] && G.rounds[r].result;
-  if (!res){ return; }
-  animating = true;
-  const humans = PIDS.filter(p=>p!==res.parId);
-  const evo = evoStage((res.parasiteAfter&&res.parasiteAfter.mutations)||0);
-  const app = $('#app');
-  app.innerHTML = `
-    <div class="center" style="padding-top:12px">
-      <h2 style="margin-bottom:2px;font-size:18px">Round ${r} — BATTLE ${res.late?'<span style="color:var(--energy)">CRITICAL</span>':''}</h2>
-      <div class="small">${PLAYERS[res.parId].name} is infected — ${evo.name}</div>
-    </div>
-    ${humans.map(h=>`
-      <div class="panel" style="padding:10px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
-          ${crewImg(h)} <b>${PLAYERS[h].name}</b>
-          <span id="ht-${h}" style="margin-left:auto;font-weight:900;font-size:20px;color:var(--blue);font-family:'IBM Plex Mono',monospace"></span>
-        </div>
-        <div class="dice-row" style="margin:6px 0" id="hd-${h}">
-          ${(res.rolls[h]||[]).map((d,i)=>`<div class="die-wrap">${dieHTML(d.color,null,'rolling')}<div class="die-sub" id="note-${h}-${i}"></div></div>`).join('')}
-        </div>
-      </div>`).join('')}
-    <div class="panel center" style="border-color:#9aff6b44">
-      ${brainParasiteSVG(Math.round(evo.size*0.85), evo.stage)}
-      <div class="p-name">${evo.name}</div>
-      <div class="p-tagline">${evo.tag}</div>
-      <div class="lane-label">Attack</div>
-      <div class="dice-row" style="margin:6px 0" id="pd-atk">
-        ${(res.aRolls||[]).map(()=>`<div class="die-wrap">${dieHTML('attack',null,'rolling')}</div>`).join('')}
-      </div>
-      <div id="atkSum" class="small"></div>
-      <div class="lane-label">Modifiers</div>
-      <div class="dice-row" style="margin:6px 0" id="pd-mod">
-        ${(res.mRolls||[]).map(()=>`<div class="die-wrap">${dieHTML('mod','?','rolling')}</div>`).join('')}
-      </div>
-      <div id="modFlips" class="mod-flip"></div>
-      <div id="pt" style="font-weight:900;font-size:24px;color:var(--danger);font-family:'IBM Plex Mono',monospace;margin-top:8px"></div>
-    </div>
-    <div id="verdict"></div>
-    <div class="fixed-cta"><button class="btn ghost" id="skipBtn" onclick="finishReplay(${r})">skip ⏭</button></div>`;
-  window.scrollTo(0,0);
+  let scarLine = '';
+  if (session.scarRoll){
+    scarLine = `<div class="warn-box">Scar L${session.scarRoll.level}: <b>${session.scarRoll.label}</b> — tap scar die to reroll</div>`;
+  }
 
-  const settleJobs = [];
-  humans.forEach((h,hi)=>(res.rolls[h]||[]).forEach((d,ci)=>{
-    const el = app.querySelectorAll(`#hd-${h} .die`)[ci];
-    settleJobs.push({ el, delay: 500 + (hi*4+ci)*220, final:d.v, info:d, noteId:`note-${h}-${ci}`, human:true });
-  }));
-  (res.aRolls||[]).forEach((d,i)=>{
-    const el = app.querySelectorAll('#pd-atk .die')[i];
-    settleJobs.push({ el, delay: 500 + 14*220 + i*280, final:d.v, info:d, parasiteAtk:true });
-  });
-  const modStart = 500 + 14*220 + (res.aRolls||[]).length*280 + 400;
-  (res.mRolls||[]).forEach((d,i)=>{
-    const el = app.querySelectorAll('#pd-mod .die')[i];
-    settleJobs.push({ el, delay: modStart + i*500, final: modFaceLabel(d.face), info:d, parasiteMod:true, modIndex:i });
-  });
-
-  const cycler = setInterval(()=>{
-    settleJobs.forEach(j=>{
-      if (!j.el || !j.el.classList.contains('rolling')) return;
-      if (j.parasiteMod) j.el.innerHTML = `<span class="num">${['—','+2','+10%','+5'][Math.floor(Math.random()*4)]}</span>`;
-      else j.el.innerHTML = pipHTML(1+Math.floor(Math.random()*6));
-    });
-  }, 90);
-  window._replayTimers = [cycler];
-
-  settleJobs.forEach(j=>{
-    window._replayTimers.push(setTimeout(()=>{
-      if (!j.el) return;
-      j.el.classList.remove('rolling');
-      if (j.parasiteMod){
-        j.el.innerHTML = `<span class="num">${esc(j.final)}</span>`;
-        const box = $('#modFlips');
-        if (box){
-          const cls = modFaceClass(j.info.face);
-          box.innerHTML += `<div class="${cls}">${esc(j.info.label||j.final)}${j.info.rerolled?' ♻️':''}</div>`;
-        }
-      } else {
-        j.el.innerHTML = typeof j.final==='number' ? pipHTML(j.final) : `<span class="num">${esc(j.final)}</span>`;
-      }
-      if (j.info && j.info.rerolled) j.el.classList.add('reroll-flash');
-      if (j.noteId && j.info && j.info.rerolled){
-        const ne = document.getElementById(j.noteId);
-        if (ne) ne.textContent = `♻️${j.info.first}→${j.info.v}`;
-      }
-    }, j.delay));
-  });
-
-  const afterAtk = 500 + 14*220 + (res.aRolls||[]).length*280 + 200;
-  window._replayTimers.push(setTimeout(()=>{
-    const el = $('#atkSum');
-    if (el) el.innerHTML = `Attack sum <b style="color:var(--text)">${res.attackSum}</b> · base <b>${res.base}</b>`;
-  }, afterAtk));
-
-  const totalDelay = modStart + (res.mRolls||[]).length*500 + 500;
-  window._replayTimers.push(setTimeout(()=>{
-    humans.forEach(h=> countUp($('#ht-'+h), (res.rolls[h]||[]).reduce((s,d)=>s+d.v,0)));
-    countUp($('#pt'), res.parTotal, '');
-  }, totalDelay));
-  window._replayTimers.push(setTimeout(()=> showVerdict(r, res), totalDelay + 800));
-}
-function countUp(el, target, prefix=''){
-  if (!el) return;
-  const t0 = performance.now(), dur = 700;
-  const tick = now=>{
-    const k = Math.min(1,(now-t0)/dur);
-    el.textContent = prefix + Math.round(target*(1-Math.pow(1-k,3)));
-    if (k<1) requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
-}
-function showVerdict(r, res){
-  const v = $('#verdict'); if (!v) return;
-  const badges = p => (res.awards[p].tags||[]).map(t=>{
-    if (t==='mvp') return '<span class="badge mvp">MVP</span>';
-    if (t==='underdog') return '<span class="badge" style="background:#3a2a1055;color:var(--energy)">underdog ⚡</span>';
-    const c = t.replace('cat-','');
-    return `<span class="badge cat-${c}">${COLOR_META[c].icon} ${COLOR_META[c].name}</span>`;
+  const dice = rolls.map((d,i)=>{
+    const sel = session.selectedRoll && session.selectedRoll.type==='h' && session.selectedRoll.i===i;
+    return `<div class="die-wrap can-pick ${sel?'selected':''}" onclick="pickRoll('h',${i})">${dieHTML(d.color, d.v, shake)}
+      <div class="die-label ${d.color}">${COLOR_META[d.color].name}</div>
+      <div class="die-sub">${d.rerolled?'rerolled':''}</div></div>`;
   }).join('');
-  const mutNote = (()=>{
-    const m = res.winMutation;
-    if (!m) return '';
-    if (m.kind==='blankToPct') return 'Infection spread: a blank mutated into +10%.';
-    if (m.kind==='atkSurge') return 'The parasite’s attack faces surged upward.';
-    if (m.kind==='blankToFlat') return 'A blank mutated into +1 base damage.';
-    if (m.kind==='atkBump') return 'An attack face mutated upward.';
-    return 'The parasite mutated.';
-  })();
-  const mut = mutNote ? `<div class="small center" style="color:var(--bio);margin-top:6px">${mutNote}</div>` : '';
-  const adaptNote = res.adaptGain
-    ? `<div class="small center" style="color:var(--danger);margin-top:6px">Crew stomped by ${res.humanTotal - res.parTotal}. Parasite base adapts <b>+${res.adaptGain}</b> (now +${res.adaptBaseAfter} total).</div>`
-    : '';
-  v.innerHTML = `
-    <div class="vs-bar">
-      <div class="vs-side h"><div class="lbl">Crew</div><div class="val">${res.humanTotal}</div></div>
-      <div class="vs-x">VS</div>
-      <div class="vs-side p"><div class="lbl">Parasite</div><div class="val">${res.parTotal}</div></div>
-    </div>
-    <div class="small center">base ${res.base} + attack ${res.attackSum} + flat ${res.flatMods||0} + % ${res.pctMods||0}</div>
-    <div class="result-banner ${res.humansWin?'h':'p'}">
-      ${res.humansWin ? 'THE CREW HOLDS THE SHIP' : 'THE PARASITE FEASTS'}
-    </div>
-    ${mut}${adaptNote}
-    <div class="panel">
-      ${PIDS.map(p=>{
-        const a = res.awards[p];
-        const after = (G.players[p] && G.players[p].pts) || 0;
-        return `<div class="award-row">
-          <span class="who">${crewImg(p)} ${PLAYERS[p].name}${p===res.parId?' <span class="small" style="color:var(--bio)">infected</span>':''}${badges(p)}</span>
-          <span>+${a.pts} pts → <b>${after}</b> · ⚡+${a.energy}</span>
-        </div>`;
-      }).join('')}
-      <div class="small center" style="margin-top:8px">Scores are open — plan who you can’t afford to feed.</div>
+
+  let parBlock = '';
+  if (isHost){
+    const aDice = (session.aRolls||[]).map((d,i)=>{
+      const sel = session.selectedRoll && session.selectedRoll.type==='a' && session.selectedRoll.i===i;
+      return `<div class="die-wrap can-pick ${sel?'selected':''}" onclick="pickRoll('a',${i})">${dieHTML('attack', d.v, shake)}
+        <div class="die-label" style="color:#ffd2b0">Atk${d.exploded?'💥':''}</div></div>`;
+    }).join('');
+    const instSel = session.selectedRoll && session.selectedRoll.type==='i';
+    const pModSel = session.selectedRoll && session.selectedRoll.type==='m';
+    parBlock = `<div class="panel" style="border-color:#8dff6a44">
+      <div class="lane-label" style="margin-top:0;color:var(--bio)">Parasite package</div>
+      <div class="dice-row">${aDice}
+        <div class="die-wrap can-pick ${pModSel?'selected':''}" onclick="pickRoll('m',0)">${dieHTML('mod', pModLabel(session.pModRoll), shake)}
+          <div class="die-label" style="color:var(--bio)">Mod</div></div>
+        <div class="die-wrap can-pick ${instSel?'selected':''}" onclick="pickRoll('i',0)">${dieHTML('instinct', instinctLabel(session.instinctRoll), shake)}
+          <div class="die-label" style="color:var(--energy)">Instinct</div>
+          <div class="die-sub">${session.instinctRoll==='explode'?'+'+session.instinctExtra:''}</div></div>
+      </div>
+      <div class="small center">Attack dice explode on max. Instinct: Gnash / Fever / Twin / Echo / Boom.</div>
     </div>`;
-  const btn = $('#skipBtn');
-  if (btn){ btn.textContent = 'Continue ➜'; btn.className = 'btn'; }
-  if (v.scrollIntoView) v.scrollIntoView({behavior:'smooth'});
+  }
+
+  let scarDie = '';
+  if (session.scarRoll){
+    const sel = session.selectedRoll && session.selectedRoll.type==='s';
+    scarDie = `<div class="die-wrap can-pick ${sel?'selected':''}" onclick="pickRoll('s',0)">${dieHTML('scar', session.scarRoll.label, shake)}
+      <div class="die-label" style="color:#ff8a9a">Scar</div></div>`;
+  }
+
+  const canRR = canAffordReroll();
+  return `<div class="panel">
+      <div class="lane-label" style="margin-top:0">Your human roll</div>
+      <div class="dice-row">${dice}${scarDie}</div>
+      ${modLine}${scarLine}
+      <div class="total-big crew center">${humanSum}</div>
+      <div class="hint">Tap a die, then reroll (⚡${CFG.rerollCost}${session.freeLeft?' · free left':''})</div>
+      <button class="btn reroll" onclick="confirmReroll()" ${!session.selectedRoll || !canRR?'disabled':''}>Reroll selected</button>
+    </div>
+    ${parBlock}
+    <div class="fixed-cta"><button class="btn" onclick="lockIn()">Lock in</button></div>`;
 }
-function finishReplay(r){
-  (window._replayTimers||[]).forEach(t=>{clearTimeout(t);clearInterval(t);});
-  markSeen(Math.max(lastSeen(), r));
+
+function pickRoll(type, i){
+  if (!session || session.phase!=='roll' || session.shake) return;
+  session.selectedRoll = { type, i };
+  render();
+}
+function confirmReroll(){
+  if (!session || !session.selectedRoll || !canAffordReroll()) return;
+  const { type, i } = session.selectedRoll;
+  if (!spendRerollCharge()) return;
+  if (type==='h'){
+    const d = session.rolls[i];
+    const rf = rollFace(d.faces);
+    d.index=rf.index; d.v=rf.value; d.rerolled=true;
+  } else if (type==='a'){
+    const d = session.aRolls[i];
+    const er = rollExplodingAttack(d.faces);
+    Object.assign(d, { index:er.index, v:er.value, shown:er.shown, exploded:er.exploded, rerolled:true });
+  } else if (type==='m'){
+    const faces = (session._previewPar || G.parasite).mod.faces;
+    const pi = rollIndex(faces.length);
+    session.pModRoll = deep(faces[pi]);
+    session.pModRoll.index = pi;
+  } else if (type==='i'){
+    const inst = (session._previewPar || G.parasite).instinct || INSTINCT_FACES.map(f=>f.id);
+    session.instinctRoll = inst[rollIndex(inst.length)];
+    session.instinctExtra = 0;
+    if (session.instinctRoll==='explode'){
+      session.instinctExtra = rollExplodingAttack(hotFaces()).value;
+    }
+  } else if (type==='s'){
+    // reroll scar — re-apply from fresh human rolls? simplify: new scar face, re-roll human from first values
+    const lv = G.players[me].scarLv||1;
+    const faces = SCAR_FACES[lv];
+    const si = rollIndex(faces.length);
+    // restore from first where possible
+    session.rolls.forEach(d=>{ if (d.first!=null) d.v = d.first; });
+    // rebuild rolls if shatter removed — too messy; just apply new scar on current
+    session.scarRoll = { index:si, id:faces[si].id, label:faces[si].label, level:lv };
+    session.ptsDelta = 0;
+    session.scarEnergyLoss = 0;
+    // reset mod from cart preview
+    const modPrev = previewModDie(G.players[me]);
+    if (!session.modRoll){
+      const mi = rollIndex(modPrev.length);
+      session.modRoll = { index:mi, kind:modPrev[mi].kind, level:modPrev[mi].level, value:modFaceValue(modPrev[mi]) };
+    }
+    applyScarToSession();
+  }
+  session.selectedRoll = null;
+  session.shake = true;
+  render();
+  setTimeout(()=>{ if(session) session.shake=false; render(); }, 450);
+}
+
+function lockIn(){
+  const r = G.round;
+  const kind = roundKind(r);
+  const isHost = kind==='infection' && hostIdForRound(G,r)===me;
+  const action = {
+    phase:'locked',
+    role: isHost ? 'host' : 'human',
+    at: Date.now(),
+    forges: cart.forges||[],
+    modUps: cart.modUps||[],
+    addDie: cart.addDie||null,
+    buyFreeReroll: !!cart.buyFreeReroll,
+    rerollBuys: session.paidRerolls||0,
+    rolls: session.rolls,
+    modRoll: session.modRoll,
+    scarRoll: session.scarRoll,
+    ptsDelta: session.ptsDelta||0,
+    scarEnergyLoss: session.scarEnergyLoss||0,
+  };
+  if (isHost){
+    action.growth = cart.growth;
+    action.aRolls = session.aRolls;
+    action.pModRoll = session.pModRoll;
+    action.instinctRoll = session.instinctRoll;
+    action.instinctExtra = session.instinctExtra||0;
+  }
+  // apply scar energy loss into pending by negative pending — stash on action
+  submitAction(action);
+  session = { round:r, phase:'upgrade', rolls:null, paidRerolls:0, freeLeft:0, shake:false, selectedRoll:null };
+  cart = freshCart();
+  render();
+}
+
+function waitingHTML(r){
+  const actions = (G.rounds[r] && G.rounds[r].actions) || {};
+  const hostId = hostIdForRound(G, r);
+  return `<div class="panel">
+    <h3 class="center">Waiting on the crew…</h3>
+    ${PIDS.map(p=>{
+      const ok = actionLocked(actions[p]);
+      const tag = hostId===p ? ' · HOST' : '';
+      return `<div class="wait-row">${crewImg(p)} <b>${PLAYERS[p].name}</b>${tag}
+        <span class="st ${ok?'in':'thinking'}">${ok?'LOCKED':'…'}</span></div>`;
+    }).join('')}
+  </div>`;
+}
+
+/* ================= VERDICT ================= */
+function verdictHTML(r){
+  const res = G.rounds[r].result;
+  if (!res) return '';
+  let banner = '';
+  let body = '';
+  if (res.kind==='training'){
+    banner = `<div class="result-banner h">TRAINING COMPLETE</div>`;
+    body = Object.keys(res.totals||{}).map(p=>`<div class="award-row"><span class="who">${crewImg(p)} ${PLAYERS[p].name}</span><span>${Math.round(res.totals[p])}</span></div>`).join('');
+  } else if (res.kind==='infection'){
+    banner = `<div class="result-banner ${res.hostWins?'p':'h'}">${res.hostWins ? 'THE HOST FEASTS' : 'THE CREW HOLDS'}</div>`;
+    body = `<div class="vs-bar">
+      <div class="vs-side h"><div class="lbl">Crew (3)</div><div class="val">${Math.round(res.crewTotal)}</div></div>
+      <div class="vs-x">vs</div>
+      <div class="vs-side p"><div class="lbl">${PLAYERS[res.hostId].name}+bug</div><div class="val">${Math.round(res.hostTotal)}</div></div>
+    </div>
+    <div class="small center">Human ${Math.round(res.hostHuman)} + Parasite ${Math.round(res.parPart.total)}
+      (atk ${res.parPart.atk} · fusion ${Math.round(res.parPart.fusionPct*100)}% · instinct ${res.instinctRoll||'—'} · aura +${res.parPart.aura})</div>
+    ${res.growth?`<div class="small center" style="margin-top:6px">Growth: <b>${res.growth.key}</b> (${res.growth.lane}) · Boss Meter ${res.bossMeter}</div>`:''}`;
+  } else if (res.kind==='boss'){
+    banner = `<div class="result-banner ${res.cleared?'h':'p'}">${res.cleared ? 'THE CREW SLAYS THE BEAST' : 'THE PARASITE ESCAPES'}</div>`;
+    body = `<div class="vs-bar">
+      <div class="vs-side h"><div class="lbl">Crew</div><div class="val">${Math.round(res.crewTotal)}</div></div>
+      <div class="vs-x">vs</div>
+      <div class="vs-side p"><div class="lbl">Boss HP</div><div class="val">${res.hp}</div></div>
+    </div>
+    <div class="small center">${res.cleared ? `Hero: <b>${PLAYERS[res.hero].name}</b>` : 'It slips into the vents. Hollow victory on points.'}</div>`;
+  }
+  const awards = res.awards || {};
+  const awardRows = PIDS.map(p=>{
+    const a = awards[p] || {pts:0,energy:0,tags:[]};
+    const badges = (a.tags||[]).map(t=>{
+      if (t==='mvp') return '<span class="badge mvp">MVP</span>';
+      if (t.startsWith('cat-')) return `<span class="badge ${t}">${t.slice(4)}</span>`;
+      if (t==='kill') return '<span class="badge mvp">KILL</span>';
+      return '';
+    }).join('');
+    return `<div class="award-row"><span class="who">${crewImg(p)} ${PLAYERS[p].name}${badges}</span>
+      <span>+${a.pts}pts · +${a.energy}⚡</span></div>`;
+  }).join('');
+
+  return `<div class="panel">${banner}${body}
+    <div class="lane-label">Awards</div>${awardRows}
+    <button class="btn" style="margin-top:12px" onclick="dismissVerdict(${r})">Continue</button>
+  </div>`;
+}
+function dismissVerdict(r){
+  markSeen(r);
   animating = false;
   render();
 }
 
-/* ---------- final reveal ---------- */
 function finalScreen(){
+  const escaped = !!G.escaped;
   return `<div style="padding-top:5vh">
-    <div class="center"><span style="font-size:60px">🏆</span></div>
-    <h1 class="center brand-hero" style="font-size:22px">FINAL SCORES</h1>
-    <p class="center small">8 rounds. 2 possessions each. Only one legend.</p>
+    <div class="center">${escaped ? parasiteArtHTML(120,4) : '<div style="font-size:48px;font-family:Orbitron">HERO</div>'}</div>
+    <h1 class="center brand-hero" style="font-size:22px">${escaped ? 'ESCAPED' : 'FINAL SCORES'}</h1>
+    <p class="center small">${escaped ? 'The parasite got away. Rank the survivors anyway.' : '10 rounds. Two possessions each. One hero.'}</p>
     <div id="revealZone" style="margin-top:18px"></div>
     <div id="newGameZone" class="hidden" style="margin-top:20px">
       <button class="btn" onclick="startNewGame()">Play again</button>
@@ -1799,15 +1747,15 @@ function runFinalReveal(){
   const zone = $('#revealZone');
   if (!zone || zone.dataset.ran) return;
   zone.dataset.ran = '1';
-  const medals = ['','🥉','🥈','🥇'];
+  const medals = ['','4th','3rd','2nd'];
   ranked.forEach((e,i)=>{
     setTimeout(()=>{
       const isWin = i===ranked.length-1;
       const row = document.createElement('div');
       row.className = 'reveal-row'+(isWin?' winner':'');
-      row.innerHTML = `<span class="place">${medals[i]||'4th'}</span>
+      row.innerHTML = `<span class="place">${isWin?'1st':medals[i]||''}</span>
         ${crewImg(e.p)}
-        <b>${PLAYERS[e.p].name}</b>${isWin?' <span class="badge mvp">CHAMPION</span>':''}
+        <b>${PLAYERS[e.p].name}</b>${isWin?' <span class="badge mvp">HERO</span>':''}
         <span class="pts-final">0</span>`;
       zone.prepend(row);
       requestAnimationFrame(()=>row.classList.add('show'));
@@ -1816,8 +1764,18 @@ function runFinalReveal(){
     }, 900*i + 400);
   });
 }
+function countUp(el, target){
+  const t0 = performance.now();
+  const dur = 900;
+  function frame(t){
+    const k = Math.min(1, (t-t0)/dur);
+    el.textContent = Math.round(target * (0.5-Math.cos(Math.PI*k)/2));
+    if (k<1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
 function confettiBurst(){
-  const glyphs = ['🎉','⭐','🛸','🎲','💥','🦠'];
+  const glyphs = ['*','+','✦','·'];
   for (let i=0;i<40;i++){
     const s = document.createElement('span');
     s.className = 'confetti';
@@ -1840,10 +1798,7 @@ function confettiBurst(){
     s.style.animationDelay = Math.random()*3+'s';
     sf.appendChild(s);
   }
-  window._showPts = true;
   if (configOK()) initFirebase();
   render();
 })();
-</script>
-</body>
-</html>
+</script></body></html>
