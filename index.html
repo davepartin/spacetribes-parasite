@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta name="stp-build" content="v4.1">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -993,49 +995,198 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
+const APP_BUILD = 'v4.1';
+let connectTimer = null;
+let restPollTimer = null;
+let usingRest = false;
+let fbReady = false;
+
 function configOK(){ return firebaseConfig.apiKey && !firebaseConfig.apiKey.includes('PASTE'); }
-function initFirebase(){
-  firebase.initializeApp(firebaseConfig);
-  db = firebase.database();
-  gameRef = db.ref('games/current');
-  gameRef.on('value', snap=>{
-    const v = snap.val();
+function dbRoot(){ return String(firebaseConfig.databaseURL||'').replace(/\/$/,''); }
+
+function normalizeGame(v){
+  if (!v || typeof v !== 'object') return v;
+  const g = v;
+  if (!g.rounds) g.rounds = {};
+  if (!g.players) g.players = {};
+  if (!g.parasite) g.parasite = starterParasite();
+  PIDS.forEach(pid=>{
+    const pl = g.players[pid];
+    if (!pl) return;
+    if (!pl.dice) pl.dice = starterDice();
+    if (!pl.modDie) pl.modDie = starterModDie();
+    if (!pl.perks) pl.perks = { freeReroll:false };
+    if (pl.scarLv == null) pl.scarLv = 0;
+    if (pl.energy == null) pl.energy = CFG.roundStipend;
+    if (pl.pts == null) pl.pts = 0;
+  });
+  if (g.parasite && g.parasite.bossMeter == null) g.parasite.bossMeter = 0;
+  return g;
+}
+
+function applyRemoteGame(v){
+  try{
     if (!v){ startNewGame(); return; }
     if ((v.schema||1) < SCHEMA){
-      G = { ...v, status:'need_reset' };
+      G = normalizeGame({ ...v, status:'need_reset' });
       render();
       return;
     }
-    G = v;
+    G = normalizeGame(v);
+    fbReady = true;
+    if (connectTimer){ clearTimeout(connectTimer); connectTimer=null; }
     maybeResolve();
     render();
-  });
+  }catch(err){
+    console.error(err);
+    showConnectError(err && err.message ? err.message : String(err));
+  }
 }
+
+function showConnectError(msg){
+  const app = $('#app');
+  if (!app) return;
+  app.innerHTML = `<div class="panel center">
+    <h2>Can't reach the ship</h2>
+    <p class="small">${esc(msg||'Connection stalled.')}</p>
+    <p class="small">Build ${APP_BUILD}. Check signal, then retry.</p>
+    <button class="btn" onclick="retryConnect()">Retry connection</button>
+    <button class="btn ghost" style="margin-top:8px" onclick="startNewGame()">Force new game</button>
+  </div>${bottomDockHTML()}`;
+}
+
+function restGetGame(){
+  return fetch(dbRoot()+'/games/current.json', { cache:'no-store' })
+    .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+}
+function restPut(path, data){
+  return fetch(dbRoot()+'/'+path+'.json', {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(data), cache:'no-store'
+  }).then(r=>{ if(!r.ok) throw new Error('Write failed HTTP '+r.status); return r.json(); });
+}
+
+function startRestPolling(){
+  if (restPollTimer) return;
+  usingRest = true;
+  const tick = ()=> restGetGame().then(applyRemoteGame).catch(err=> console.warn('rest poll', err));
+  tick();
+  restPollTimer = setInterval(tick, 2000);
+}
+
+function initFirebase(){
+  connectTimer = setTimeout(()=>{
+    if (fbReady || G) return;
+    // Mobile WebSocket stall → REST fallback
+    console.warn('Firebase SDK slow; switching to REST');
+    startRestPolling();
+  }, 2500);
+
+  try{
+    if (!window.firebase){
+      showConnectError('Firebase failed to load. Hard-refresh the page.');
+      startRestPolling();
+      return;
+    }
+    if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    gameRef = db.ref('games/current');
+    gameRef.on('value', snap=> applyRemoteGame(snap.val()), err=>{
+      console.error(err);
+      showConnectError(err.message||'Database permission/network error');
+      startRestPolling();
+    });
+    // connected probe
+    db.ref('.info/connected').on('value', s=>{
+      if (s.val() === true) fbReady = true;
+    });
+  }catch(err){
+    console.error(err);
+    showConnectError(err.message||String(err));
+    startRestPolling();
+  }
+}
+
+function retryConnect(){
+  G = null; fbReady = false;
+  if (restPollTimer){ clearInterval(restPollTimer); restPollTimer=null; }
+  usingRest = false;
+  render();
+  initFirebase();
+}
+
 function maybeResolve(retry){
   if (!G || G.status!=='active' || animating) return;
   const r = G.round;
-  const actions = (G.rounds && G.rounds[r] && G.rounds[r].actions) || {};
+  if (!G.rounds) G.rounds = {};
+  if (!G.rounds) G.rounds = {};
+  const actions = (G.rounds[r] && G.rounds[r].actions) || {};
   if (PIDS.some(p=>!actionLocked(actions[p]))) return;
   if (G.rounds[r] && G.rounds[r].result) return;
+
+  if (usingRest || !gameRef){
+    // REST read-modify-write
+    restGetGame().then(cur=>{
+      cur = normalizeGame(cur || G);
+      if (!cur || cur.status!=='active') return;
+      if ((cur.schema||1) < SCHEMA) return;
+      const rr = cur.round;
+      const acts = (cur.rounds[rr] && cur.rounds[rr].actions) || {};
+      if (PIDS.some(p=>!actionLocked(acts[p]))) return;
+      if (cur.rounds[rr] && cur.rounds[rr].result) return;
+      const next = resolveRound(cur);
+      return restPut('games/current', next).then(()=>applyRemoteGame(next));
+    }).catch(err=> console.warn('resolve rest', err));
+    return;
+  }
+
   gameRef.transaction(g=>{
     if (!g || g.status!=='active') return;
     if ((g.schema||1) < SCHEMA) return g;
+    g = normalizeGame(g);
     return resolveRound(g);
   }).then(res=>{
     if (!res.committed && !retry) setTimeout(()=>maybeResolve(true), 400);
+  }).catch(err=>{
+    console.warn('transaction failed, REST fallback', err);
+    usingRest = true;
+    maybeResolve(true);
   });
 }
 function submitAction(action){
   if (!me || !G) return;
   const r = G.round;
-  gameRef.child('rounds/'+r+'/actions/'+me).set(action);
+  if (!G.rounds) G.rounds = {};
+  if (usingRest || !gameRef){
+    // optimistic local + REST put
+    if (!G.rounds[r]) G.rounds[r] = { actions:{} };
+    if (!G.rounds[r].actions) G.rounds[r].actions = {};
+    G.rounds[r].actions[me] = action;
+    render();
+    restPut('games/current/rounds/'+r+'/actions/'+me, action)
+      .then(()=> restGetGame().then(applyRemoteGame))
+      .catch(err=> showConnectError(err.message||'Could not save your turn'));
+    return;
+  }
+  gameRef.child('rounds/'+r+'/actions/'+me).set(action).catch(err=>{
+    console.warn(err);
+    usingRest = true;
+    submitAction(action);
+  });
 }
 function startNewGame(){
-  const data = newGameData();
-  if (gameRef) gameRef.set(data);
-  else G = data;
+  const data = normalizeGame(newGameData());
   session = null; cart = null;
-  localStorage.removeItem('stp_seen_'+(G && G.createdAt));
+  try{ localStorage.removeItem('stp_seen_'+(G && G.createdAt)); }catch(e){}
+  G = data;
+  render();
+  const save = ()=> {
+    if (gameRef && !usingRest){
+      return gameRef.set(data).catch(()=> restPut('games/current', data));
+    }
+    return restPut('games/current', data);
+  };
+  save().then(()=> applyRemoteGame(data)).catch(err=> showConnectError(err.message||'Could not create game'));
 }
 function confirmResetGame(){
   if (confirm('Start a fresh Schema v4 game? This wipes the current run.')) startNewGame();
@@ -1145,8 +1296,9 @@ function previewModDie(pl){
 /* ================= RENDER SHELL ================= */
 function render(){
   const app = $('#app');
+  try{
   if (!configOK()){ app.innerHTML = setupScreen(); return; }
-  if (!G){ app.innerHTML = `<div class="panel center"><p>Connecting…</p></div>`; return; }
+  if (!G){ app.innerHTML = `<div class="panel center"><h2 class="brand-hero" style="font-size:18px">SPACE TRIBES</h2><p>Connecting…</p><p class="small">Build ${APP_BUILD}. If this hangs, wait 3s for backup link.</p><button class="btn ghost" onclick="retryConnect()">Retry now</button></div>`; return; }
   if (G.status==='need_reset'){
     app.innerHTML = `<div class="panel center">
       <h2>Schema v4</h2>
@@ -1174,6 +1326,10 @@ function render(){
     return;
   }
   app.innerHTML = gameScreen() + instructionsModalHTML();
+  }catch(err){
+    console.error(err);
+    showConnectError('Render error: '+(err && err.message ? err.message : String(err)));
+  }
 }
 
 function setupScreen(){
