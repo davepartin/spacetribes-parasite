@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.3.4">
+<meta name="stp-build" content="v4.3.5">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -1385,7 +1385,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.3.4';
+const APP_BUILD = 'v4.3.5';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1871,9 +1871,16 @@ function confirmRosterAndStart(){
       botFlags.push(true);
     }
   }
+  // Solo-friendly: if every seat is blank, seat 1 is you and the rest are computers
   if (!botFlags.some(x => !x)){
-    alert('Type at least one real name for yourself. Leave other seats blank for computers.');
-    return;
+    names[0] = 'You';
+    botFlags[0] = false;
+    botN = 0;
+    for (let i=1;i<n;i++){
+      botN++;
+      names[i] = 'Comp '+botN;
+      botFlags[i] = true;
+    }
   }
   const humanNames = names.filter((_,i)=>!botFlags[i]).map(x=>x.toLowerCase());
   if (new Set(humanNames).size !== humanNames.length){
@@ -1882,7 +1889,7 @@ function confirmRosterAndStart(){
   }
   const bots = botFlags.filter(Boolean).length;
   const msg = bots
-    ? 'Start Schema v'+SCHEMA+' with '+(n-bots)+' human(s) + '+bots+' computer(s)? This wipes the current run.'
+    ? 'Start with you + '+bots+' computer(s)? This wipes the current run.'
     : 'Start a fresh Schema v'+SCHEMA+' game with '+n+' players? This wipes the current run.';
   if (!confirm(msg)) return;
   startNewGame(ALL_PIDS.slice(0, n), names, botFlags);
@@ -1902,13 +1909,13 @@ function rosterPickModalHTML(){
     rows.push(`<div class="roster-name-row">
       ${crewImg(pid,'')}
       <span class="seat-label">P${i+1}</span>
-      <input id="roster-name-${i}" class="claim-name" maxlength="16" placeholder="Name, or blank = computer" value="${val}" autocomplete="nickname" />
+      <input id="roster-name-${i}" class="claim-name" maxlength="16" placeholder="${i===0?'Your name (or leave blank)':'Blank = computer'}" value="${val}" autocomplete="nickname" />
     </div>`);
   }
   return `<div class="modal-back" onclick="if(event.target===this)cancelRosterPick()">
     <div class="modal-sheet" role="dialog" aria-label="Table size">
       <h2>Who's playing?</h2>
-      <p class="small">Pick <b>3–6</b>. Type <b>your</b> name. <b>Leave a seat blank</b> and it becomes a computer player (great for solo tests). Host seats stay random (max 2 each).</p>
+      <p class="small">Pick <b>3–6</b>. Type your name in any seat (or leave <b>all blank</b>: P1 = you, others = computers). Blank seats are Comp players. Host seats stay random (max 2 each).</p>
       <div class="roster-count">${countBtns}</div>
       <div class="roster-names">${rows.join('')}</div>
       <div class="roster-meta"><b>${n}</b> players · Parasite tuned for ${t.n}p (aura +${t.startAura}, share ${Math.round(t.startFusion*100)}%, boss HP ${t.hpBase}+${t.hpPerMeter}/meter)</div>
