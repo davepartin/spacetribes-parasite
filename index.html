@@ -39,7 +39,9 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .btn:disabled,.btn.disabled{background:#243444;color:#6a7a88;box-shadow:none;pointer-events:none;}
 .btn.danger{background:linear-gradient(135deg,#e04840,#a83228);color:#fff;}
 .btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--dim);box-shadow:none;font-weight:600;}
-.btn.reroll{background:linear-gradient(135deg,#2a6a9a,#f5c042);margin-top:10px;}
+.btn.reroll{background:linear-gradient(135deg,#1a6a9a,#2a9ad4);color:#fff;margin-top:10px;
+  font-weight:800;box-shadow:0 3px 12px #1a6a9a55;}
+.btn.reroll:disabled,.btn.reroll.disabled{background:#243444;color:#8aa0ae;box-shadow:none;}
 .small{font-size:13px;color:var(--dim);line-height:1.4;}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;}
 .starfield{position:fixed;inset:0;pointer-events:none;z-index:0;}
@@ -1467,7 +1469,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.3.16';
+const APP_BUILD = 'v4.3.17';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
