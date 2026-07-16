@@ -64,8 +64,20 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .char-card .cname{font-size:18px;font-weight:800;margin-top:4px;font-family:'Orbitron',sans-serif;}
 .char-card .ctitle{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;}
 
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;position:sticky;top:0;
-  background:linear-gradient(#081018f5,#081018e8);backdrop-filter:blur(8px);z-index:20;padding:6px 0;}
+.chrome-sticky{position:sticky;top:0;z-index:22;background:linear-gradient(#081018fb,#081018f0);
+  backdrop-filter:blur(10px);padding:6px 0 8px;margin:0 0 10px;border-bottom:1px solid #2a405066;}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:0;padding:0;}
+.standings-bar{border:1px solid var(--line);border-radius:12px;padding:8px 8px 6px;margin:6px 0 0;
+  background:var(--panel);box-shadow:0 4px 14px #0005;}
+.standings-bar .sb-label{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-bottom:5px;}
+.standings-bar .sb-row{display:flex;gap:4px;justify-content:space-between;}
+.standings-bar .sb-chip{flex:1;min-width:0;text-align:center;background:var(--panel2);border:1px solid var(--line);
+  border-radius:10px;padding:5px 2px 4px;font-family:'IBM Plex Mono',monospace;}
+.standings-bar .sb-chip.me{border-color:var(--energy);box-shadow:0 0 0 1px #f5c04233;}
+.standings-bar .sb-chip.lead{border-color:#f5c04266;}
+.standings-bar .sb-name{font-size:10px;font-weight:700;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.standings-bar .sb-pts{font-size:14px;font-weight:800;color:var(--energy);line-height:1.1;margin-top:1px;}
+.standings-bar .sb-meta{font-size:9px;color:var(--dim);margin-top:3px;font-family:'IBM Plex Sans',sans-serif;}
 .me-chip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
   border-radius:99px;padding:6px 12px 6px 8px;font-weight:700;font-size:14px;color:inherit;}
 .me-chip .em{font-size:18px;}
@@ -1098,7 +1110,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.1.6';
+const APP_BUILD = 'v4.1.7';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1415,17 +1427,17 @@ function render(){
     // show final if R10 resolved
     const res = G.rounds[10] && G.rounds[10].result;
     if (res && lastSeen() < 10){
-      app.innerHTML = topbarHTML() + verdictHTML(10) + bottomDockHTML() + instructionsModalHTML();
+      app.innerHTML = chromeHTML() + verdictHTML(10) + bottomDockHTML() + instructionsModalHTML();
       return;
     }
-    app.innerHTML = finalScreen() + bottomDockHTML();
+    app.innerHTML = chromeHTML() + finalScreen() + bottomDockHTML();
     setTimeout(runFinalReveal, 50);
     return;
   }
   // auto-show last result if unseen
   const prev = G.round - 1;
   if (prev >= 1 && G.rounds[prev] && G.rounds[prev].result && lastSeen() < prev && !animating){
-    app.innerHTML = topbarHTML() + verdictHTML(prev) + bottomDockHTML() + instructionsModalHTML();
+    app.innerHTML = chromeHTML() + verdictHTML(prev) + bottomDockHTML() + instructionsModalHTML();
     return;
   }
   app.innerHTML = gameScreen() + instructionsModalHTML();
@@ -1464,18 +1476,37 @@ function topbarHTML(){
     <div class="stat-chip energy">⚡ ${showLeft}${showLeft!==(pl.energy||0)?` <span class="small" style="color:var(--dim)">/${pl.energy||0}</span>`:''}</div>
     <div class="stat-chip pts">${pl.pts||0} pts</div>
   </div>
-  <div class="small center" style="margin:-4px 0 8px;color:var(--dim)">Mod die: ${esc(modStatusLine(pl))}${baseHint?` · <b style="color:var(--energy)">${baseHint}</b>`:''}</div>`;
+  <div class="small center" style="margin:2px 0 6px;color:var(--dim)">Mod die: ${esc(modStatusLine(pl))}${baseHint?` · <b style="color:var(--energy)">${baseHint}</b>`:''}</div>`;
 }
 function switchChar(){ if (confirm('Switch crew on this phone?')){ me=null; localStorage.removeItem('stp_me'); render(); } }
 
-function scoreboardHTML(){
+/** Compact always-on standings — sticky under the top bar on every screen. */
+function standingsBarHTML(){
+  if (!G || !G.players) return '';
   const ranked = PIDS.slice().sort((a,b)=> (G.players[b].pts||0)-(G.players[a].pts||0));
-  return `<div class="panel">
-    <div class="lane-label" style="margin-top:0">Standings</div>
-    ${ranked.map(p=>`<div class="award-row"><span class="who">${crewImg(p)} ${PLAYERS[p].name}${G.players[p].scarLv?` <span class="badge" style="background:#ff5a4e55;color:#ffb0a8">Scar L${G.players[p].scarLv}</span>`:''}</span>
-      <span>${G.players[p].pts||0}</span></div>`).join('')}
-    <div class="small center" style="margin-top:6px">Boss Meter <span class="boss-meter">${G.parasite.bossMeter||0}</span> · HP preview <b>${bossHP(G)}</b></div>
+  const leadPts = G.players[ranked[0]] ? (G.players[ranked[0]].pts||0) : 0;
+  const chips = ranked.map((p,i)=>{
+    const pts = G.players[p].pts||0;
+    const scar = G.players[p].scarLv ? `L${G.players[p].scarLv}` : '';
+    const cls = (p===me?'me':'') + (pts===leadPts && leadPts>0?' lead':'');
+    return `<div class="sb-chip ${cls}">
+      <div class="sb-name">${i+1}. ${PLAYERS[p].short}</div>
+      <div class="sb-pts">${pts}</div>
+      ${scar?`<div class="sb-meta" style="color:#ff8a9a">Scar ${scar}</div>`:''}
+    </div>`;
+  }).join('');
+  const boss = G.parasite ? `Boss ${G.parasite.bossMeter||0} · HP ${bossHP(G)}` : '';
+  return `<div class="standings-bar">
+    <div class="sb-label">Standings ${boss?`· ${boss}`:''}</div>
+    <div class="sb-row">${chips}</div>
   </div>`;
+}
+function chromeHTML(){
+  return topbarHTML() + standingsBarHTML();
+}
+function scoreboardHTML(){
+  // Kept for any deep links; main standings live in the sticky bar now.
+  return '';
 }
 
 function roundStripHTML(){
@@ -1556,12 +1587,11 @@ function gameScreen(){
   else if (session.phase==='roll') body = rollPhaseHTML(r, isHost);
   else body = shopHTML(r, isHost);
 
-  return `${topbarHTML()}
+  return `${chromeHTML()}
     ${roundStripHTML()}
     ${parasitePanelHTML()}
     ${turnCoachHTML(r, isHost)}
     ${body}
-    ${scoreboardHTML()}
     ${bottomDockHTML()}`;
 }
 
