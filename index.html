@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.3.11">
+<meta name="stp-build" content="v4.3.12">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -151,9 +151,20 @@ button{font-family:inherit;border:none;cursor:pointer;}
   box-shadow:inset 0 2px 0 #fff1, inset 0 -6px 0 #0006, 0 6px 14px #0008;}
 .die.mod{background:linear-gradient(160deg,#1a2e1c,#0e1a10);color:var(--bio);border:1px solid #8dff6a44;
   box-shadow:inset 0 2px 0 #fff1, inset 0 -6px 0 #0006, 0 6px 14px #0008;}
+/* Human mod die — same size as crew dice, color by face kind */
+.die.hmod{background:linear-gradient(160deg,#f0c040,#c49220);color:#1a1208;border:1px solid #8a6a10;
+  box-shadow:inset 0 2px 0 #ffffff55, inset 0 -5px 0 #00000035, 0 6px 14px #f5c04255;}
+.die.hmod.energy{background:linear-gradient(160deg,#5eb0ff,#2a6fbf);color:#fff;border-color:#154a86;
+  box-shadow:inset 0 2px 0 #ffffff40, inset 0 -5px 0 #00000040, 0 6px 14px #4da3ff44;}
+.die.hmod.pct{background:linear-gradient(160deg,#4adf9a,#1a8f68);color:#fff;border-color:#0f5c42;
+  box-shadow:inset 0 2px 0 #ffffff40, inset 0 -5px 0 #00000040, 0 6px 14px #2db88a44;}
+.die.hmod.base{background:linear-gradient(160deg,#f0c040,#c49220);color:#1a1208;border-color:#8a6a10;}
+.die.hmod.off{background:linear-gradient(160deg,#3a4450,#1a2228);color:#8aa0ae;border-color:#2a4050;
+  box-shadow:inset 0 2px 0 #ffffff10, inset 0 -5px 0 #0006, 0 6px 14px #0006;}
 .die .num{font-size:28px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;}
 .die.red .num,.die.blue .num,.die.green .num{color:#fff;}
 .die.attack .num,.die.mod .num{font-size:22px;}
+.die.hmod .num{font-size:17px;line-height:1.1;padding:4px;text-align:center;color:inherit;}
 .die .pips{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:84%;height:84%;gap:0;}
 .die .pips i{border-radius:50%;background:#1c2430;place-self:center;width:62%;height:62%;box-shadow:inset 0 1px 2px #0005;}
 .die.red .pips i,.die.blue .pips i,.die.green .pips i{background:#fff;box-shadow:0 1px 1px #0005;}
@@ -185,17 +196,24 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .reroll-flash{animation:flashy .45s;}
 @keyframes flashy{0%{box-shadow:0 0 0 4px var(--energy)}100%{}}
 
-.face-strip{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin:8px 0;}
+.face-strip{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:8px 0;}
 .face-chip{width:36px;height:36px;border-radius:8px;border:1.5px solid #0003;background:var(--die);
   color:var(--die-ink);font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:15px;
   display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;
   box-shadow:inset 0 -3px 0 #0002, 0 2px 6px #0004;}
 .face-chip.hot{background:linear-gradient(160deg,#fff8e0,#f5c042);border-color:#c49020;}
 .face-chip.blank{background:var(--panel2);color:var(--dim);border-color:var(--line);box-shadow:none;}
-.face-chip.pct{background:#142818;color:var(--bio);border-color:#8dff6a55;}
 .face-chip.flat{background:#2a2010;color:var(--energy);border-color:#f5c04255;}
 .face-chip.picked{outline:2px solid var(--energy);outline-offset:2px;}
 .face-chip.forged{box-shadow:0 0 0 2px var(--energy), inset 0 -3px 0 #0002;}
+/* Mod-die shop faces — mini dice */
+.face-chip.energy-face,.face-chip.pct,.face-chip.base-face{
+  width:48px;height:48px;border-radius:12px;font-size:12px;line-height:1.05;padding:3px;
+  text-align:center;white-space:pre-line;
+  box-shadow:inset 0 2px 0 #ffffff40, inset 0 -4px 0 #00000040, 0 3px 10px #0006;}
+.face-chip.energy-face{background:linear-gradient(160deg,#5eb0ff,#2a6fbf);color:#fff;border:1px solid #154a86;}
+.face-chip.pct{background:linear-gradient(160deg,#4adf9a,#1a8f68);color:#fff;border:1px solid #0f5c42;}
+.face-chip.base-face{background:linear-gradient(160deg,#f0c040,#c49220);color:#1a1208;border:1px solid #8a6a10;}
 
 .shop-item{display:flex;flex-direction:column;align-items:stretch;gap:10px;background:var(--panel2);
   border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;}
@@ -324,6 +342,14 @@ code{background:#00000055;padding:2px 5px;border-radius:5px;font-size:12px;word-
 .roll-math .roll-bits{flex:1;min-width:0;}
 .roll-math .roll-total{font-family:'IBM Plex Mono',monospace;font-weight:800;color:var(--blue);white-space:nowrap;font-size:15px;}
 .roll-math .roll-total b{font-size:22px;margin-left:4px;}
+.roll-final{margin:10px 0 4px;padding:12px 10px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);}
+.roll-eq{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
+  font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;color:var(--dim);}
+.roll-eq .rf b{color:var(--text);font-size:18px;}
+.roll-eq .rf.total{color:var(--blue);}
+.roll-eq .rf.total b{color:var(--blue);font-size:28px;font-weight:800;}
+.roll-eq .op{color:var(--dim);font-size:16px;}
+.die-label.hmod{color:var(--energy);}
 .hint{font-size:13px;color:var(--dim);text-align:center;margin:6px 0;line-height:1.4;}
 
 .die.scar{background:linear-gradient(160deg,#2a1018,#12080c);color:#ff8a9a;border:1px solid #ff5a4e55;}
@@ -332,8 +358,7 @@ code{background:#00000055;padding:2px 5px;border-radius:5px;font-size:12px;word-
 .die.instinct .face-num{color:#f5c042;background:#1a1408;}
 .face-chip.scar{background:#2a1018;color:#ff8a9a;border-color:#ff5a4e55;}
 .face-chip.instinct{background:#2a2410;color:#f5c042;border-color:#f5c04255;}
-.face-chip.energy-face{background:#1a2838;color:#7ec8ff;border-color:#4da3ff55;}
-.face-chip.base-face{background:#2a2010;color:#f5c042;border-color:#f5c04255;}
+/* energy-face / base-face shop styles live with .face-chip block above */
 .boss-meter{font-family:'IBM Plex Mono',monospace;color:var(--danger);font-weight:800;}
 .rnode.fog .re{color:var(--dim);}
 .rnode.train{border-color:#4da3ff55;}
@@ -1416,7 +1441,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.3.11';
+const APP_BUILD = 'v4.3.12';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2631,27 +2656,25 @@ function rollPhaseHTML(r, isHost){
   const rolls = session.rolls||[];
   const live = liveHumanBreakdown();
   const humanSum = live.total;
-  const modKind = session.modRoll && session.modRoll.kind;
-  let modLine = session.modRoll
-    ? `<div class="mod-flip"><span class="${modFaceClass({kind:modKind})}">Mod: ${esc(live.modLabel)}</span></div>`
-    : `<div class="mod-flip"><span class="blank">Mod: ${esc(live.modLabel)}</span></div>`;
-  const parts = [`Dice <b>${live.attack}</b>`];
-  if (live.modAdd) parts.push(`Mod <b>+${live.modAdd}</b>`);
-  else if (live.pendingEnergy) parts.push(`<span style="color:var(--energy)">${esc(live.modLabel)}</span>`);
-  else if (live.modLabel) parts.push(`<span style="color:var(--dim)">${esc(live.modLabel)}</span>`);
-  if (live.scarLabel) parts.push(`Scar <b style="color:#ff8a9a">${esc(live.scarLabel)}</b>`);
-  if (live.ptsDelta) parts.push(`<span style="color:#ff8a9a">${live.ptsDelta} pts</span>`);
-  if (live.energyLoss) parts.push(`<span style="color:#ff8a9a">−${live.energyLoss}⚡</span>`);
-  // Keep total with the roll math (not in the fixed bottom bar) so Reroll stays readable
-  const mathLine = `<div class="roll-math">
-      <span class="roll-bits">${parts.join(' · ')}</span>
-      <span class="roll-total">Total <b>${humanSum}</b></span>
-    </div>`;
+  const modRoll = session.modRoll;
+  const modFaceTxt = modRoll
+    ? modFaceLabel({ kind: modRoll.kind, level: modRoll.level|0 })
+    : '—';
+  const modKindCls = modRoll && modRoll.kind ? modRoll.kind : 'off';
+  let modPart = '0';
+  if (live.modAdd) modPart = '+'+live.modAdd;
+  else if (live.pendingEnergy) modPart = '+'+live.pendingEnergy+'⚡';
+  else if (modRoll && modRoll.kind==='base') modPart = '+0';
+  else if (!modRoll) modPart = 'off';
 
   let scarLine = '';
   if (session.scarRoll){
     scarLine = `<div class="warn-box">Scar: <b>${session.scarRoll.label}</b> — tap scar die to reroll</div>`;
   }
+  let extraBits = '';
+  if (live.scarLabel) extraBits += `<div class="small center" style="margin-top:4px;color:#ff8a9a">Scar ${esc(live.scarLabel)}</div>`;
+  if (live.ptsDelta) extraBits += `<div class="small center" style="color:#ff8a9a">${live.ptsDelta} pts</div>`;
+  if (live.energyLoss) extraBits += `<div class="small center" style="color:#ff8a9a">−${live.energyLoss}⚡</div>`;
 
   const dice = rolls.map((d,i)=>{
     const sel = session.selectedRoll && session.selectedRoll.type==='h' && session.selectedRoll.i===i;
@@ -2665,6 +2688,13 @@ function rollPhaseHTML(r, isHost){
       <div class="die-label ${d.color}">${COLOR_META[d.color].name}${bonus?' +':''}</div>
       <div class="die-sub">${bits.join(' · ')}</div></div>`;
   }).join('');
+
+  const modSel = session.selectedRoll && session.selectedRoll.type==='hm';
+  const modDie = `<div class="die-wrap can-pick ${modSel?'selected':''}" onclick="pickRoll('hm',0)">
+      ${dieHTML('hmod', modFaceTxt, `${shake} ${modKindCls}`)}
+      <div class="die-label hmod">${tip('mod','Mod')}</div>
+      <div class="die-sub">${esc(live.modLabel)}</div>
+    </div>`;
 
   let parBlock = '';
   if (isHost){
@@ -2695,13 +2725,24 @@ function rollPhaseHTML(r, isHost){
       <div class="die-label" style="color:#ff8a9a">Scar</div></div>`;
   }
 
+  const finalBlock = `<div class="roll-final">
+      <div class="roll-eq">
+        <span class="rf">Dice <b>${live.attack}</b></span>
+        <span class="op">+</span>
+        <span class="rf">Mod <b>${esc(String(modPart))}</b></span>
+        <span class="op">=</span>
+        <span class="rf total">Total <b>${humanSum}</b></span>
+      </div>
+      ${extraBits}
+    </div>`;
+
   const canRR = canAffordReroll();
   return `<div class="panel">
-      <div class="lane-label" style="margin-top:0">Your human roll</div>
-      <div class="dice-row">${dice}${scarDie}</div>
-      ${modLine}${scarLine}
-      ${mathLine}
-      <div class="hint">Tap a die, then reroll (${session.freeLeft?`<b>${session.freeLeft} free</b> · then `:''}⚡${CFG.rerollCost})</div>
+      <div class="lane-label" style="margin-top:0">Your roll</div>
+      <div class="dice-row">${dice}${modDie}${scarDie}</div>
+      ${scarLine}
+      ${finalBlock}
+      <div class="hint">Tap any die (including mod), then reroll (${session.freeLeft?`<b>${session.freeLeft} free</b> · then `:''}⚡${CFG.rerollCost})</div>
       <button class="btn reroll" onclick="confirmReroll()" ${!session.selectedRoll || !canRR?'disabled':''}>Reroll selected</button>
     </div>
     ${parBlock}
@@ -2726,6 +2767,13 @@ function confirmReroll(){
     const rf = rollFace(d.faces);
     d.index=rf.index; d.v=rf.value; d.first=rf.value; d.rerolled=true;
     d.scarZeroed=false; d.scarNote='';
+    reapplyScarFromBase();
+  } else if (type==='hm'){
+    const faces = previewModDie(G.players[me]);
+    const mi = rollIndex(faces.length);
+    const modRoll = { index:mi, kind:faces[mi].kind, level:faces[mi].level, value:modFaceValue(faces[mi]) };
+    session.baseModRoll = deep(modRoll);
+    session.modRoll = deep(modRoll);
     reapplyScarFromBase();
   } else if (type==='a'){
     const d = session.aRolls[i];

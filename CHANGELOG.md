@@ -1,10 +1,15 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.11** · Schema **v6**
+Current build: **v4.3.12** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.12 — Big mod die on the roll board
+- Shop mod faces look like mini dice (⚡ / % / Base colors)
+- After **Roll dice**, the mod die appears as a **full-size die** next to your crew dice
+- Clean **Dice + Mod = Total** before Lock in; mod die is rerollable
 
 ## v4.3.11 — Base is mod-roll only
 - Mod-die **Base** faces are **+3 / +4 / +5** again
