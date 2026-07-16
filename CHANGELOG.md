@@ -1,10 +1,13 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.17** · Schema **v6**
+Current build: **v4.3.18** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.18 — Parasite “+ bonus re-roll”
+- Parasite Attack dice that hit max show **+ bonus re-roll** (not “exploded”)
 
 ## v4.3.17 — Readable Reroll button
 - **Reroll selected** uses white text on a blue gradient (was low-contrast grey on gold)
