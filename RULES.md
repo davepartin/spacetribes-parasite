@@ -1,19 +1,27 @@
-# Space Tribes: Parasite — Crew Manual (v4.2)
+# Space Tribes: Parasite — Crew Manual (v4.3)
 
-Ten rounds. Four crew. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
+**3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.2** — Plain effect labels on dice, tap-to-explain words, round Log, sticky standings, live Energy countdown, 1 free reroll every round.
+**v4.3** — Variable table size (3–6). Parasite + boss HP scale with player count. Host seats are random (max 2 each, never 3). 3-player tables get two skirmish rounds so the math fits.
 
 ## Mission map
 
 | Rounds | What |
 |---|---|
-| **1 — Training** | All four crew. No parasite. Forge, roll, category scores. |
-| **2–5** | First infection block — each player hosts **once** (random order). |
-| **6–9** | Second infection block — each player hosts **once** again. |
+| **1 — Training** | All crew. No parasite. Forge, roll, category scores. |
+| **2–9** | Infection rounds (a random host) and, on 3-player tables, up to **2 skirmish** rounds (no host — score like training). |
 | **10 — The Reveal** | Full boss. Collective total vs HP. Hero points. Fail → escape. |
 
 **Fog of war:** you see who is infected **this round only**. Future hosts stay hidden.
+
+**Host seats:** random each new game. Nobody hosts three times. Not everyone hosts twice (depends on table size).
+
+| Players | Host pattern (typical) |
+|---|---|
+| 3 | Six host seats (2 each) + 2 skirmish rounds |
+| 4 | Eight host seats (2 each) |
+| 5 | Three players host twice, two once |
+| 6 | Two players host twice, four once |
 
 ## Energy ⚡
 
@@ -49,55 +57,43 @@ Your blue total = **dice + mod** (after Scar effects, if any).
 When infected you still play your human upgrade → roll, **and** you must grow the parasite (soft or heavy), then roll the parasite package.
 
 **Host total** = human total + parasite portion  
-**Crew total** = the other three humans combined  
+**Crew total** = the other humans combined  
 Ties go to the **crew**.
 
-### Parasite package
+### Parasite package (scales with table size)
 
-- **Attack dice** starting **3–8** — on **max**, explode (roll again and add once)
+Baseline is **4 players**. Bigger tables get a stronger bug; smaller tables a leaner one.
+
+| Players | Start share | Start aura | Attack dice | Boss HP base | +HP / meter |
+|---|---|---|---|---|---|
+| 3 | 55% | +2 | 2 | 75 | +2 |
+| 4 | 60% | +3 | 2 | 100 | +3 |
+| 5 | 65% | +4 | 2 (+1 face bump) | 125 | +4 |
+| 6 | 70% | +5 | 3 | 150 | +5 |
+
+Also on the package:
+
+- **Attack dice** — on **max**, explode (roll again and add once)
 - **Mod die** — flat or % of parasite attack
-- **Human share** — add a % of your human attack (starts ~60%; soft raises it; heavy can make **100% this round**)
-- **Aura** — permanent flat bonus
-- **Specialty die** faces show the effect:
-  - **+8**
-  - **+25% atk**
-  - **+lowest** (add lowest attack die again)
-  - **+your high** (add your highest human die)
-  - **—**
-  - **+extra die**
+- **Human share** — add a % of your human attack (soft raises it; heavy can make **100% this round**)
+- **Aura** — permanent flat bonus (gain also scales)
+- **Specialty die** faces: **+8**, **+25% atk**, **+lowest**, **+your high**, **—**, **+extra die**
 
 ### Soft vs heavy growth
 
 - **Soft** — safer, Round-10 boss +1, no Scar  
 - **Heavy** — stronger tonight, **Scar die**, Round-10 boss +3  
 
-Each player is host **twice** → Scar caps at **L2**.
+Scar caps at **L2**.
 
 ## Scar die
 
-Heavy growth gives a separate d6. All faces bad. Labels are the effect:
+Heavy growth gives a separate d6. All faces bad. Labels are the effect. You can reroll it.
 
-| L1 | L2 |
-|---|---|
-| −2⚡ | −4⚡ |
-| −10% | −20% |
-| no mod | no mod −1⚡ |
-| reroll↑ | reroll↑↑ |
-| −5 pts | −10 pts |
-| −highest | −high −5pts |
+## Round 10 boss
 
-Rerolling Scar **resets** your dice first, then applies the new face (no stacking pain). −highest subtracts the value (die stays) so rerolls can restore it.
+HP = **table base + (per-meter × Boss Meter)**. Clear it for hero bonuses. Fail → escape (consolation ranks).
 
-## Round 10 — Boss
+## Starting a game
 
-**HP = 100 + 3 × Boss Meter**
-
-- Cleared → hero bonuses + kill blow  
-- Failed → parasite **escapes**
-
-## UI helpers
-
-- Sticky **Standings** at the top of every screen  
-- Tap **dotted gold words** for short explanations  
-- **Log** button — revisit finished rounds with dice, mod, and totals  
-- Between-round review shows everyone’s dice and math  
+Tap **New game**, toggle **3–6** crew (Dave, Brian, Joel, Chris, plus Sam & Riley for bigger tables), then start. Each phone picks its seat from that roster.
