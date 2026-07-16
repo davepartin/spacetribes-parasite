@@ -343,7 +343,8 @@ const CFG = {
   forgeBump: 2,
   addDieCost: 3,
   rerollCost: 1,
-  freeRerollPerkCost: 4,
+  freeRerollPerkCost: 0, // removed — everyone gets 1 free reroll each round
+  freeRerollsPerRound: 1,
   modUpgradeCost: 2,
   faceCap: 0,
   maxDicePerColor: 2,
@@ -805,10 +806,7 @@ function resolveRound(g){
       pl.dice.push({ id: fromRoll ? fromRoll.dieId : uid(a.addDie[0]), color: a.addDie, faces: stdFaces() });
     }
     spent += Math.max(0, a.rerollBuys||0) * CFG.rerollCost;
-    if (a.buyFreeReroll && !pl.perks.freeReroll){
-      spent += CFG.freeRerollPerkCost;
-      pl.perks.freeReroll = true;
-    }
+    // free-reroll perk purchase removed — everyone gets CFG.freeRerollsPerRound each round
     pl.energy = Math.max(0, (pl.energy||0) - spent);
   });
 
@@ -1048,7 +1046,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.1.2';
+const APP_BUILD = 'v4.1.3';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1262,7 +1260,8 @@ function instructionsModalHTML(){
       <ul>
         <li><b>+5⚡</b> every round. Unspent banks.</li>
         <li>Win (crew or host): <b>+2⚡</b>. Category: <b>+1⚡</b>. Loss: nothing extra.</li>
-        <li>Forge a face <b>+2</b> for 1⚡ · extra die 3⚡ · free first reroll perk 4⚡ · mod upgrade 2⚡.</li>
+        <li>Forge a face <b>+2</b> for 1⚡ · extra die 3⚡ · mod upgrade 2⚡.</li>
+        <li>Everyone gets <b>1 free reroll</b> each round; more cost 1⚡.</li>
       </ul>
       <h3>Mod die (2-2-2)</h3>
       <ul>
@@ -1297,7 +1296,6 @@ function cartCost(){
   c += (cart.forges||[]).length * CFG.forgeCost;
   c += (cart.modUps||[]).length * CFG.modUpgradeCost;
   if (cart.addDie) c += CFG.addDieCost;
-  if (cart.buyFreeReroll) c += CFG.freeRerollPerkCost;
   return c;
 }
 function myBudget(){ return (G.players[me].energy||0); }
@@ -1308,7 +1306,7 @@ function forgedSetFromCart(){
   return s;
 }
 function freeRerollThisRound(){
-  return !!(G.players[me].perks && G.players[me].perks.freeReroll) || (cart && cart.buyFreeReroll);
+  return CFG.freeRerollsPerRound || 1;
 }
 function canAffordReroll(){
   if (session.freeLeft > 0) return true;
@@ -1551,8 +1549,8 @@ function shopHTML(r, isHost){
     <button class="buy-btn primary" onclick="queueModUp()" ${ui.selectedModFace==null || left < CFG.modUpgradeCost?'disabled':''}>Upgrade face</button>
   </div>`;
 
-  const extras = `<div class="shop-item"><div class="si-top"><div><div class="si-name">Extra die / Free reroll</div>
-    <div class="si-desc">Extra category die 3⚡. Free first reroll forever 4⚡.</div></div></div>
+  const extras = `<div class="shop-item"><div class="si-top"><div><div class="si-name">Extra die</div>
+    <div class="si-desc">Add one more die in a category (3⚡). Everyone already gets <b>1 free reroll</b> each round.</div></div><div class="si-cost">3⚡</div></div>
     <div class="cat-picks">${COLORS.map(c=>{
       const ok = canAddColor(pl, c, cart.addDie);
       const picked = cart.addDie===c;
@@ -1560,8 +1558,6 @@ function shopHTML(r, isHost){
         <span class="cp-name">${COLOR_META[c].name}</span><span class="cp-meta">${picked?'QUEUED':'3⚡'}</span></button>`;
     }).join('')}</div>
     ${cart.addDie?`<button class="buy-btn" onclick="clearAddDie()">Clear extra die</button>`:''}
-    <button class="buy-btn ${cart.buyFreeReroll||pl.perks.freeReroll?'owned':''}" onclick="toggleFreeReroll()"
-      ${pl.perks.freeReroll?'disabled':''}>${pl.perks.freeReroll?'Owned: free reroll':(cart.buyFreeReroll?'Queued: free reroll':'Buy free first reroll · 4⚡')}</button>
   </div>`;
 
   let growthBlock = '';
@@ -1616,11 +1612,6 @@ function setAddDie(c){
   render();
 }
 function clearAddDie(){ cart.addDie=null; render(); }
-function toggleFreeReroll(){
-  if (G.players[me].perks.freeReroll) return;
-  cart.buyFreeReroll = !cart.buyFreeReroll;
-  render();
-}
 function pickGrowth(key, lane){ cart.growth = { key, lane }; render(); }
 
 /* ================= ROLL ================= */
@@ -1692,7 +1683,7 @@ function beginRoll(){
     session._previewPar = fake;
   }
 
-  session.freeLeft = freeRerollThisRound() ? 1 : 0;
+  session.freeLeft = freeRerollThisRound();
   session.paidRerolls = 0;
   session.phase = 'roll';
   session.selectedRoll = null;
@@ -1813,7 +1804,7 @@ function rollPhaseHTML(r, isHost){
       <div class="dice-row">${dice}${scarDie}</div>
       ${modLine}${mathLine}${scarLine}
       <div class="total-big crew center">${humanSum}</div>
-      <div class="hint">Tap a die, then reroll (⚡${CFG.rerollCost}${session.freeLeft?' · free left':''})</div>
+      <div class="hint">Tap a die, then reroll (${session.freeLeft?`<b>${session.freeLeft} free</b> · then `:''}⚡${CFG.rerollCost})</div>
       <button class="btn reroll" onclick="confirmReroll()" ${!session.selectedRoll || !canRR?'disabled':''}>Reroll selected</button>
     </div>
     ${parBlock}

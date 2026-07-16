@@ -29,8 +29,8 @@ Ten rounds. Four crew. A parasite that rides inside you, then breaks free. Open 
 | **Forge a face** | 1 | That face **+2** |
 | **Mod upgrade** | 2 | Bump one mod face one level (max L3) |
 | **Extra die** | 3 | +1 die in a category (max 2 per color) |
-| **Free first reroll forever** | 4 | Lasting perk |
-| **Reroll** | 1 | Any die (human, mod, scar, parasite, Instinct) |
+| **Free reroll** | 0 | **1 free reroll every round** (built-in) |
+| **Extra reroll** | 1 | Any die after your free one (human, mod, scar, parasite, Instinct) |
 
 ## Human modifier die (2-2-2)
 
