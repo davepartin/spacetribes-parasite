@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.3.2">
+<meta name="stp-build" content="v4.3.3">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -51,26 +51,21 @@ button{font-family:inherit;border:none;cursor:pointer;}
   text-align:center;color:inherit;}
 .char-card:active{transform:scale(.96);}
 .char-card .avatar{font-size:44px;display:block;}
-.char-card .avatar-img,.avatar-img{width:72px;height:72px;border-radius:50%;object-fit:cover;display:block;margin:0 auto;
-  border:2px solid var(--line);box-shadow:0 4px 14px #0008;}
-.char-card .avatar-img{width:84px;height:84px;}
-.me-chip .avatar-img{width:28px;height:28px;margin:0;border-width:1.5px;}
-.rnode .avatar-img{width:24px;height:24px;margin:0 auto;border-width:1px;}
-.wait-row .avatar-img,.reveal-row .avatar-img{width:28px;height:28px;margin:0;display:inline-block;vertical-align:middle;}
-.award-row .avatar-img{width:20px;height:20px;display:inline-block;vertical-align:middle;margin:0 4px 0 0;border-width:1px;}
+.seat-mark{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex:0 0 auto;line-height:0;vertical-align:middle;}
+.seat-mark svg{width:100%;height:100%;display:block;filter:drop-shadow(0 2px 4px #0008);}
+.char-card .seat-mark,.roster-name-row .seat-mark{width:44px;height:44px;}
+.me-chip .seat-mark{width:26px;height:26px;}
+.standings-bar .seat-mark{width:16px;height:16px;}
+.wait-row .seat-mark,.reveal-row .seat-mark{width:26px;height:26px;}
+.award-row .seat-mark{width:18px;height:18px;margin-right:2px;}
+.rnode .seat-mark{display:inline-flex;width:18px;height:18px;margin:0 auto;}
+.who-chip{display:inline-flex;align-items:center;gap:6px;min-width:0;vertical-align:middle;}
+.standings-bar .sb-name{display:flex;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:700;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .parasite-art{display:inline-block;filter:drop-shadow(0 0 18px #8dff6a55);animation:pulse 2.8s infinite;line-height:0;}
 .parasite-art img{display:block;border-radius:18px;width:100%;height:auto;max-width:160px;margin:0 auto;
   box-shadow:0 0 0 2px #8dff6a33, 0 8px 24px #0009;}
 .char-card .cname{font-size:18px;font-weight:800;margin-top:4px;font-family:'Orbitron',sans-serif;}
 .char-card .ctitle{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;}
-.avatar-fallback{display:inline-flex;align-items:center;justify-content:center;width:72px;height:72px;border-radius:50%;
-  background:radial-gradient(circle at 30% 25%,#fff3,transparent 55%),var(--c,#4db8ff);color:#0a1018;font-family:'Orbitron',sans-serif;
-  font-weight:800;font-size:28px;border:2px solid var(--line);box-shadow:0 4px 14px #0008;}
-.char-card .avatar-fallback{width:84px;height:84px;font-size:32px;margin:0 auto;}
-.me-chip .avatar-fallback{width:28px;height:28px;font-size:12px;border-width:1.5px;}
-.rnode .avatar-fallback{width:24px;height:24px;font-size:10px;margin:0 auto;border-width:1px;}
-.wait-row .avatar-fallback,.reveal-row .avatar-fallback{width:28px;height:28px;font-size:12px;margin:0;display:inline-flex;vertical-align:middle;}
-.award-row .avatar-fallback{width:20px;height:20px;font-size:10px;display:inline-flex;vertical-align:middle;margin:0 4px 0 0;border-width:1px;}
 .roster-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0;}
 .roster-card{background:var(--panel2);border:2px solid var(--line);border-radius:12px;padding:12px 8px;text-align:center;color:inherit;}
 .roster-card.on{border-color:var(--energy);box-shadow:0 0 0 1px #f5c04255;}
@@ -101,7 +96,6 @@ button{font-family:inherit;border:none;cursor:pointer;}
   border-radius:10px;padding:5px 2px 4px;font-family:'IBM Plex Mono',monospace;}
 .standings-bar .sb-chip.me{border-color:var(--energy);box-shadow:0 0 0 1px #f5c04233;}
 .standings-bar .sb-chip.lead{border-color:#f5c04266;}
-.standings-bar .sb-name{font-size:10px;font-weight:700;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .standings-bar .sb-pts{font-size:14px;font-weight:800;color:var(--energy);line-height:1.1;margin-top:1px;}
 .standings-bar .sb-meta{font-size:9px;color:var(--dim);margin-top:3px;font-family:'IBM Plex Sans',sans-serif;}
 .me-chip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
@@ -112,15 +106,14 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .stat-chip.energy{color:var(--energy);border-color:#f5c04255;}
 .stat-chip.pts{color:var(--energy);}
 .round-strip{display:flex;gap:4px;margin:0 0 10px;overflow-x:auto;padding-bottom:2px;}
-.rnode{flex:0 0 auto;width:52px;border-radius:9px;border:1.5px solid var(--line);background:var(--panel);
+.rnode{display:flex;flex-direction:column;align-items:center;flex:0 0 auto;width:58px;border-radius:9px;border:1.5px solid var(--line);background:var(--panel);
   text-align:center;padding:4px 2px 5px;position:relative;}
 .rnode .rn{font-size:9px;color:var(--dim);font-weight:700;}
-.rnode .re{font-size:11px;line-height:1.2;font-weight:800;margin-top:2px;font-family:'IBM Plex Sans',sans-serif;}
+.rnode .re{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:10px;line-height:1.15;font-weight:800;margin-top:2px;font-family:'IBM Plex Sans',sans-serif;}
 .rnode.now{border-color:var(--energy);box-shadow:0 0 10px #f5c04233;}
 .rnode.done{opacity:.4;}
 .rnode.late{background:#1a1810;}
 .rnode .rw{position:absolute;top:-5px;right:-3px;font-size:10px;}
-.rnode .avatar-img{display:none;}
 .strip-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:0 0 4px;}
 
 .turn-coach{border-radius:12px;padding:12px;margin-bottom:10px;border:1.5px solid var(--line);
@@ -356,26 +349,26 @@ const firebaseConfig = {
   appId: "1:259546833788:web:22ae17ff32c2c60269baf9"
 };
 
-/** Seat cosmetics only — display names are typed in by players. */
+/** Seat cosmetics — color + shape icons (names are typed by players). */
 const SEAT_META = {
-  p1: { color:'#f0b429', img:'assets/crew-dave.png',  title:'Seat 1' },
-  p2: { color:'#4db8ff', img:'assets/crew-brian.png', title:'Seat 2' },
-  p3: { color:'#3ecf8e', img:'assets/crew-joel.png',  title:'Seat 3' },
-  p4: { color:'#9aff6b', img:'assets/crew-chris.png', title:'Seat 4' },
-  p5: { color:'#ff7eb6', img:null,                    title:'Seat 5' },
-  p6: { color:'#a78bfa', img:null,                    title:'Seat 6' },
+  p1: { color:'#f0b429', shape:'circle',   title:'Seat 1' },
+  p2: { color:'#4db8ff', shape:'triangle', title:'Seat 2' },
+  p3: { color:'#3ecf8e', shape:'square',   title:'Seat 3' },
+  p4: { color:'#ff8a3d', shape:'diamond',  title:'Seat 4' },
+  p5: { color:'#ff7eb6', shape:'star',     title:'Seat 5' },
+  p6: { color:'#a78bfa', shape:'hex',      title:'Seat 6' },
 };
 /** Legacy fixed names (older games) */
 const LEGACY_NAMES = {
   dave:'Dave', brian:'Brian', joel:'Joel', chris:'Chris', sam:'Sam', riley:'Riley',
 };
 const LEGACY_META = {
-  dave:  { color:'#f0b429', img:'assets/crew-dave.png',  title:'Captain' },
-  brian: { color:'#4db8ff', img:'assets/crew-brian.png', title:'Gunner' },
-  joel:  { color:'#3ecf8e', img:'assets/crew-joel.png',  title:'Engineer' },
-  chris: { color:'#9aff6b', img:'assets/crew-chris.png', title:'Scout' },
-  sam:   { color:'#ff7eb6', img:null,                    title:'Medic' },
-  riley: { color:'#a78bfa', img:null,                    title:'Pilot' },
+  dave:  { color:'#f0b429', shape:'circle',   title:'Captain' },
+  brian: { color:'#4db8ff', shape:'triangle', title:'Gunner' },
+  joel:  { color:'#3ecf8e', shape:'square',   title:'Engineer' },
+  chris: { color:'#ff8a3d', shape:'diamond',  title:'Scout' },
+  sam:   { color:'#ff7eb6', shape:'star',     title:'Medic' },
+  riley: { color:'#a78bfa', shape:'hex',      title:'Pilot' },
 };
 const ALL_PIDS = ['p1','p2','p3','p4','p5','p6'];
 const MIN_PLAYERS = 3;
@@ -383,7 +376,7 @@ const MAX_PLAYERS = 6;
 const DEFAULT_ROSTER = ['p1','p2','p3','p4'];
 const INFECTION_SLOTS = 8; // rounds 2–9
 function seatMeta(id){
-  return SEAT_META[id] || LEGACY_META[id] || { color:'#4db8ff', img:null, title:'Seat' };
+  return SEAT_META[id] || LEGACY_META[id] || { color:'#4db8ff', shape:'circle', title:'Seat' };
 }
 function knownSeat(id){ return !!(SEAT_META[id] || LEGACY_META[id]); }
 function rosterOf(g){
@@ -407,17 +400,46 @@ function playerName(pid, g){
 }
 function playerShort(pid, g){
   const n = playerName(pid, g);
-  return n.length <= 6 ? n : (n.slice(0,5) + '…');
+  return n.length <= 8 ? n : (n.slice(0,7) + '…');
 }
 function playerInitial(pid, g){
   const n = playerName(pid, g);
   return (n && n[0] ? n[0] : '?').toUpperCase();
 }
+function shapeSVG(shape, color){
+  const c = color || '#4db8ff';
+  const stroke = '#0a1018';
+  // Distinct filled shapes — readable even at 16px
+  if (shape === 'triangle'){
+    return `<svg viewBox="0 0 40 40" aria-hidden="true"><polygon points="20,4 36,34 4,34" fill="${c}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
+  }
+  if (shape === 'square'){
+    return `<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="6" y="6" width="28" height="28" rx="3" fill="${c}" stroke="${stroke}" stroke-width="2.5"/></svg>`;
+  }
+  if (shape === 'diamond'){
+    return `<svg viewBox="0 0 40 40" aria-hidden="true"><polygon points="20,3 37,20 20,37 3,20" fill="${c}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
+  }
+  if (shape === 'star'){
+    return `<svg viewBox="0 0 40 40" aria-hidden="true"><polygon points="20,3 24.5,14.5 36.5,15 27,23 30.5,35 20,28.5 9.5,35 13,23 3.5,15 15.5,14.5" fill="${c}" stroke="${stroke}" stroke-width="2" stroke-linejoin="round"/></svg>`;
+  }
+  if (shape === 'hex'){
+    return `<svg viewBox="0 0 40 40" aria-hidden="true"><polygon points="20,3 35,11.5 35,28.5 20,37 5,28.5 5,11.5" fill="${c}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
+  }
+  // circle default
+  return `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="15" fill="${c}" stroke="${stroke}" stroke-width="2.5"/></svg>`;
+}
 function crewImg(id, cls=''){
   const c = seatMeta(id);
   const label = playerName(id);
-  if (c.img) return `<img class="avatar-img ${cls}" src="${c.img}" alt="${escName(label)}" width="72" height="72">`;
-  return `<span class="avatar-fallback ${cls}" style="--c:${c.color}" aria-label="${escName(label)}">${escName(playerInitial(id))}</span>`;
+  return `<span class="seat-mark ${cls}" style="color:${c.color}" title="${escName(label)}" aria-label="${escName(label)}">${shapeSVG(c.shape, c.color)}</span>`;
+}
+/** Symbol + name — use anywhere a player identity is shown. */
+function whoHTML(pid, opts){
+  opts = opts || {};
+  const name = opts.short ? playerShort(pid) : playerName(pid);
+  const bold = opts.bold !== false;
+  const nm = bold ? `<b>${esc(name)}</b>` : esc(name);
+  return `<span class="who-chip">${crewImg(pid)}${nm}</span>`;
 }
 function escName(s){ return String(s).replace(/[&<>"]/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
 function parasiteArtHTML(size, stage){
@@ -434,7 +456,7 @@ const PLAYERS = new Proxy({}, {
     if (!knownSeat(id)) return undefined;
     const m = seatMeta(id);
     const name = playerName(id);
-    return { name, short: playerShort(id), img: m.img, color: m.color, title: m.title, initial: playerInitial(id) };
+    return { name, short: playerShort(id), shape: m.shape, color: m.color, title: m.title, initial: playerInitial(id) };
   },
   has(_t, id){ return knownSeat(id); },
 });
@@ -1360,7 +1382,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.3.2';
+const APP_BUILD = 'v4.3.3';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1948,7 +1970,7 @@ function topbarHTML(){
   const baseFaces = (pl.modDie||[]).filter(f=>f.kind==='base').map(f=>modFaceValue(f));
   const baseHint = baseFaces.length ? `Base ${baseFaces.map(v=>'+'+v).join('/')}` : '';
   return `<div class="topbar">
-    <button class="me-chip" onclick="switchChar()">${crewImg(me,'')} ${esc(playerName(me))}</button>
+    <button class="me-chip" onclick="switchChar()">${whoHTML(me)}</button>
     <div class="stat-chip energy">${tip('energy','⚡')} ${showLeft}${showLeft!==(pl.energy||0)?` <span class="small" style="color:var(--dim)">/${pl.energy||0}</span>`:''}</div>
     <div class="stat-chip pts">${pl.pts||0} pts</div>
   </div>
@@ -1966,7 +1988,7 @@ function standingsBarHTML(){
     const scar = G.players[p].scarLv ? `L${G.players[p].scarLv}` : '';
     const cls = (p===me?'me':'') + (pts===leadPts && leadPts>0?' lead':'');
     return `<div class="sb-chip ${cls}">
-      <div class="sb-name">${i+1}. ${esc(playerShort(p))}</div>
+      <div class="sb-name">${crewImg(p)}<span>${esc(playerShort(p))}</span></div>
       <div class="sb-pts">${pts}</div>
       ${scar?`<div class="sb-meta" style="color:#ff8a9a">Scar ${scar}</div>`:''}
     </div>`;
@@ -1999,7 +2021,7 @@ function roundStripHTML(){
     else {
       const hid = hostIdForRound(G, r);
       if (r === G.round || (G.rounds[r] && G.rounds[r].result)){
-        label = playerShort(hid).slice(0,3);
+        label = `${crewImg(hid)}<span>${esc(playerShort(hid).slice(0,6))}</span>`;
       } else {
         label = '???'; cls+=' fog';
       }
@@ -2047,7 +2069,7 @@ function turnCoachHTML(r, isHost){
     how = `Play your human dice <b>plus</b> the monster vs the other <b>${n-1}</b>. Soft = safer. Heavy = power now + ${tip('scar','Scar')} + fatter ${tip('boss','Round 10')}. ${tip('instinct','Specialty die')} is live.`;
   } else {
     const hid = hostIdForRound(G, r);
-    title = `${esc(playerName(hid))} is infected`;
+    title = `${whoHTML(hid)} is infected`;
     how = `Hold the ship. Your <b>${n-1}</b> crew totals combine against the host + parasite (balanced for this table).`;
   }
   return `<div class="turn-coach ${isHost?'parasite':''}"><div class="step">Round ${r} · ${kind}</div>
@@ -2500,7 +2522,7 @@ function waitingHTML(r){
     ${rosterOf(G).map(p=>{
       const ok = actionLocked(actions[p]);
       const tag = hostId===p ? ' · HOST' : '';
-      return `<div class="wait-row">${crewImg(p)} <b>${esc(playerName(p))}</b>${tag}
+      return `<div class="wait-row">${whoHTML(p)}${tag}
         <span class="st ${ok?'in':'thinking'}">${ok?'LOCKED':'…'}</span></div>`;
     }).join('')}
   </div>`;
@@ -2531,7 +2553,7 @@ function playerReviewCardHTML(pid, res){
   }
   return `<div class="panel" style="padding:10px;margin-bottom:8px">
     <div class="award-row" style="border:none;padding:0 0 6px">
-      <span class="who">${crewImg(pid)} <b>${esc(playerName(pid))}</b>${isHost?' <span class="badge" style="background:#8dff6a33;color:var(--bio)">HOST</span>':''}</span>
+      <span class="who">${whoHTML(pid)}${isHost?' <span class="badge" style="background:#8dff6a33;color:var(--bio)">HOST</span>':''}</span>
       <span class="total-big crew" style="font-size:22px;margin:0">${Math.round(total)}</span>
     </div>
     ${diceRowMiniHTML(rolls)}
@@ -2555,7 +2577,7 @@ function verdictHTML(r){
     body = `<div class="vs-bar">
       <div class="vs-side h"><div class="lbl">Crew (${crewN})</div><div class="val">${Math.round(res.crewTotal)}</div></div>
       <div class="vs-x">vs</div>
-      <div class="vs-side p"><div class="lbl">${esc(playerName(res.hostId))}+bug</div><div class="val">${Math.round(res.hostTotal)}</div></div>
+      <div class="vs-side p"><div class="lbl">${whoHTML(res.hostId,{short:true})}+bug</div><div class="val">${Math.round(res.hostTotal)}</div></div>
     </div>
     ${res.growth?`<div class="small center" style="margin:6px 0">Growth: <b>${esc(growthTitle(res.growth.key))}</b> · Boss Meter ${res.bossMeter}</div>`:''}`;
   } else if (res.kind==='boss'){
@@ -2565,7 +2587,7 @@ function verdictHTML(r){
       <div class="vs-x">vs</div>
       <div class="vs-side p"><div class="lbl">Boss HP</div><div class="val">${res.hp}</div></div>
     </div>
-    <div class="small center">${res.cleared ? `Hero: <b>${esc(playerName(res.hero))}</b>` : 'It slips into the vents. Hollow victory on points.'}</div>`;
+    <div class="small center">${res.cleared ? `Hero: ${whoHTML(res.hero)}` : 'It slips into the vents. Hollow victory on points.'}</div>`;
   }
 
   // Order: host first if infection, else by total desc
@@ -2591,7 +2613,7 @@ function verdictHTML(r){
       return '';
     }).join('');
     const pend = (res.breakdown && res.breakdown[p] && res.breakdown[p].pendingEnergy) ? ` · mod +${res.breakdown[p].pendingEnergy}⚡` : '';
-    return `<div class="award-row"><span class="who">${crewImg(p)} ${esc(playerName(p))}${badges}</span>
+    return `<div class="award-row"><span class="who">${whoHTML(p,{bold:false})}${badges}</span>
       <span>+${a.pts}pts · +${a.energy}⚡${pend}</span></div>`;
   }).join('');
 
@@ -2632,8 +2654,7 @@ function runFinalReveal(){
       const row = document.createElement('div');
       row.className = 'reveal-row'+(isWin?' winner':'');
       row.innerHTML = `<span class="place">${ordinalPlace(place)}</span>
-        ${crewImg(e.p)}
-        <b>${esc(playerName(e.p))}</b>${isWin?' <span class="badge mvp">HERO</span>':''}
+        ${whoHTML(e.p)}${isWin?' <span class="badge mvp">HERO</span>':''}
         <span class="pts-final">0</span>`;
       zone.prepend(row);
       requestAnimationFrame(()=>row.classList.add('show'));

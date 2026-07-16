@@ -1,10 +1,14 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.2** · Schema **v6**
+Current build: **v4.3.3** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.3 — Color + shape seat icons
+- Each seat is a distinct **color + shape** (circle, triangle, square, diamond, star, hex)
+- Typed **name always sits next to the symbol** (standings, top bar, review, awards, wait list)
 
 ## v4.3.1 — Typed names
 - Type each player’s name at **New game**
