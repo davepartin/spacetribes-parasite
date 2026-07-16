@@ -431,7 +431,7 @@ const INSTINCT_FACES = [
 
 
 const TIPS = {
-  mod: { title:'Human mod die', body:'Always rolls with you. Faces: Energy (next round), % of your attack, or Base flat bonus. Upgrade a face for 2 Energy (max level 3).' },
+  mod: { title:'Human mod die', body:'Always rolls with you. Faces: +2⚡ next (→3/4), +20% attack (→30/40), or Base +3 (→5/7). Upgrade a face for 2 Energy (max level 3).' },
   scar: { title:'Scar die', body:'You get this after a heavy parasite growth. All 6 faces hurt. Labels show the real effect. You can reroll it.' },
   fusion: { title:'Human share', body:'On host turns, part of your human attack is added into the parasite total. Soft growth raises this percent; heavy can make it 100% for one round.' },
   aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn.' },
@@ -553,7 +553,20 @@ function pModLabel(f){
 }
 function instinctLabel(id){
   const f = INSTINCT_FACES.find(x=>x.id===id);
-  return f ? f.label : id;
+  return f ? f.label : (id && id.id ? instinctLabel(id.id) : String(id||'—'));
+}
+function growthTitle(key){
+  const map = {
+    surge: '+1 all faces (1 atk die)',
+    push_mod: 'Upgrade parasite mod',
+    fusion: `Human share +${Math.round(CFG.fusionStep*100)}%`,
+    aura: `Permanent +${CFG.auraGain} aura`,
+    new_die: '+1 attack die',
+    ribcage: '+2 all attack faces',
+    full_fusion: '100% human share tonight',
+    instinct_up: 'Blank → +25% atk',
+  };
+  return map[key] || key;
 }
 
 /** Unbiased integer in [0, maxExclusive). Uses crypto when available (fair across all faces). */
@@ -1147,7 +1160,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.2.0';
+const APP_BUILD = 'v4.2.2';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1405,7 +1418,7 @@ function instructionsModalHTML(){
       </ul>
       <h3>Human mod die</h3>
       <ul>
-        <li>2× Energy · 2× % · 2× Base. Always rolls. Upgrade faces for 2.</li>
+        <li>2× Energy (+2/3/4⚡) · 2× % (+20/30/40) · 2× Base (+3/5/7). Always rolls. Upgrade for 2.</li>
         <li>Your big blue total = dice + mod (after scar, if any).</li>
       </ul>
       <h3>Host turns (R2–9)</h3>
@@ -1696,8 +1709,8 @@ function shopHTML(r, isHost){
     </div>`;
   }
 
-  const modBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('mod','Modifier die')} (2⚡ / 2% / 2 Base)</div>
-    <div class="si-desc">Upgrade a face for 2⚡. Max level 3.</div></div><div class="si-cost">2⚡</div></div>
+  const modBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('mod','Modifier die')} (2⚡ / 20% / Base+3)</div>
+    <div class="si-desc">Upgrade a face for 2⚡. Max level 3 (⚡→4, %→40, Base→7).</div></div><div class="si-cost">2⚡</div></div>
     <div class="face-strip">${modPrev.map((f,i)=>{
       const queued = (cart.modUps||[]).filter(x=>x===i).length;
       const pick = ui.selectedModFace===i;
@@ -1977,7 +1990,7 @@ function rollPhaseHTML(r, isHost){
         <div class="die-wrap can-pick ${pModSel?'selected':''}" onclick="pickRoll('m',0)">${dieHTML('mod', pModLabel(session.pModRoll), shake)}
           <div class="die-label" style="color:var(--bio)">MOD</div></div>
         <div class="die-wrap can-pick ${instSel?'selected':''}" onclick="pickRoll('i',0)">${dieHTML('instinct', instinctLabel(session.instinctRoll), shake)}
-          <div class="die-label" style="color:var(--energy)">${tip('instinct','SPECIAL')}</div>
+          <div class="die-label" style="color:var(--energy)">${tip('instinct','SPECIALTY')}</div>
           <div class="die-sub">${session.instinctRoll==='explode'?'+'+session.instinctExtra:''}</div></div>
       </div>
       <div class="small center">${tip('explode','Attack explode')} on max. ${tip('instinct','Specialty')}: +8 / +25% atk / +lowest / +your high / +extra die.</div>
@@ -2119,8 +2132,8 @@ function playerReviewCardHTML(pid, res){
     const pMod = (br && br.pModRoll) || res.pModRoll;
     const inst = (br && br.instinctRoll) || res.instinctRoll;
     hostExtra = `<div class="lane-label" style="color:var(--bio)">Parasite</div>
-      <div class="dice-row" style="margin:4px 0">${aDice}${pMod?dieHTML('mod', pModLabel(pMod)):''}${inst!=null?dieHTML('instinct', typeof inst==='string'?inst:(inst.id||'?')):''}</div>
-      <div class="small">Atk ${p.atk} + mod ${p.flat||p.pctAdd||0} + fusion ${p.fusion} (${Math.round((p.fusionPct||0)*100)}%) + instinct ${p.instinctAdd} + aura ${p.aura} = <b>${Math.round(p.total)}</b></div>
+      <div class="dice-row" style="margin:4px 0">${aDice}${pMod?dieHTML('mod', pModLabel(pMod)):''}${inst!=null?dieHTML('instinct', instinctLabel(inst)):''}</div>
+      <div class="small">Atk ${p.atk} + mod ${(p.flat||0)+(p.pctAdd||0)} + human share ${p.fusion} (${Math.round((p.fusionPct||0)*100)}%) + specialty ${p.instinctAdd} + aura ${p.aura} = <b>${Math.round(p.total)}</b></div>
       <div class="small">Human ${Math.round(res.hostHuman)} + Parasite ${Math.round(p.total)} = <b style="color:var(--danger)">${Math.round(res.hostTotal)}</b></div>`;
   }
   return `<div class="panel" style="padding:10px;margin-bottom:8px">
@@ -2148,7 +2161,7 @@ function verdictHTML(r){
       <div class="vs-x">vs</div>
       <div class="vs-side p"><div class="lbl">${PLAYERS[res.hostId].name}+bug</div><div class="val">${Math.round(res.hostTotal)}</div></div>
     </div>
-    ${res.growth?`<div class="small center" style="margin:6px 0">Growth: <b>${res.growth.key}</b> · Boss Meter ${res.bossMeter}</div>`:''}`;
+    ${res.growth?`<div class="small center" style="margin:6px 0">Growth: <b>${esc(growthTitle(res.growth.key))}</b> · Boss Meter ${res.bossMeter}</div>`:''}`;
   } else if (res.kind==='boss'){
     banner = `<div class="result-banner ${res.cleared?'h':'p'}">${res.cleared ? 'THE CREW SLAYS THE BEAST' : 'THE PARASITE ESCAPES'}</div>`;
     body = `<div class="vs-bar">
