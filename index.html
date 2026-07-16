@@ -1696,7 +1696,7 @@ function shopHTML(r, isHost){
     </div>`;
   }
 
-  const modBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">Modifier die (2-2-2)</div>
+  const modBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('mod','Modifier die')} (2⚡ / 2% / 2 Base)</div>
     <div class="si-desc">Upgrade a face for 2⚡. Max level 3.</div></div><div class="si-cost">2⚡</div></div>
     <div class="face-strip">${modPrev.map((f,i)=>{
       const queued = (cart.modUps||[]).filter(x=>x===i).length;
