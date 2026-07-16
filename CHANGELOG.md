@@ -1,10 +1,16 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.4.0** · Schema **v6**
+Current build: **v4.4.1** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.4.1 — Host roll clarity
+- Parasite package shows live **Atk + Mod + Share + Spec + Aura = Par** total
+- Lock in shows **human + parasite = host total**
+- Sticky header shows **Par ⚡** on host roll turns
+- Human dice also list their face numbers
 
 ## v4.4.0 — Parasite energy + separate rerolls + heavy die growth
 - Parasite gets **⚡7** each host turn for its own rerolls

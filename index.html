@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.4.0">
+<meta name="stp-build" content="v4.4.1">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -120,6 +120,7 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .stat-chip.energy{color:var(--energy);border-color:#f5c04255;}
 .stat-chip.base{color:var(--good);border-color:#3ecf8e55;}
 .stat-chip.base.dim{color:var(--dim);border-color:var(--line);}
+.stat-chip.par-en{color:var(--bio);border-color:#8dff6a55;}
 .stat-chip.pts{color:var(--energy);}
 .round-strip{display:flex;gap:4px;margin:0 0 10px;overflow-x:auto;padding-bottom:2px;}
 .rnode{display:flex;flex-direction:column;align-items:center;flex:0 0 auto;width:58px;border-radius:9px;border:1.5px solid var(--line);background:var(--panel);
@@ -359,7 +360,11 @@ code{background:#00000055;padding:2px 5px;border-radius:5px;font-size:12px;word-
 .roll-eq .rf b{color:var(--text);font-size:18px;}
 .roll-eq .rf.total{color:var(--blue);}
 .roll-eq .rf.total b{color:var(--blue);font-size:30px;font-weight:800;}
+.roll-eq.par .rf.total{color:var(--bio);}
+.roll-eq.par .rf.total b{color:var(--bio);}
 .roll-eq .op{color:var(--dim);font-size:16px;}
+.roll-eq .rf.tiny{font-size:12px;}
+.roll-eq .rf.tiny b{font-size:14px;}
 .die-label.hmod{color:var(--energy);}
 .dice-plus{display:flex;align-items:center;justify-content:center;align-self:center;
   width:22px;height:22px;margin:0 2px 22px;border-radius:50%;
@@ -1161,6 +1166,22 @@ function liveHumanBreakdown(){
     energyLoss: session.scarEnergyLoss||0,
   };
 }
+/** Live parasite package math on host roll screen (before lock-in). */
+function liveParasiteBreakdown(humanAttack, humanRolls){
+  const par = session._previewPar || G.parasite;
+  const rolls = humanRolls || session.rolls || [];
+  const highest = rolls.reduce((m,d)=> Math.max(m, d.scarZeroed ? 0 : (d.v||0)), 0);
+  const fusionOverride = (cart && cart.growth && cart.growth.key==='full_fusion') ? 1.0 : null;
+  const part = computeParasitePortion(
+    par, session.aRolls, session.pModRoll, session.instinctRoll,
+    humanAttack||0, highest, fusionOverride
+  );
+  if (session.instinctRoll==='explode' && session.instinctExtra){
+    part.instinctAdd = session.instinctExtra|0;
+    part.total = part.atk + part.flat + part.pctAdd + part.fusion + part.instinctAdd + part.aura;
+  }
+  return part;
+}
 
 function modStatusLine(pl){
   const m = (pl && pl.modDie) || [];
@@ -1493,7 +1514,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.4.0';
+const APP_BUILD = 'v4.4.1';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2334,10 +2355,15 @@ function topbarHTML(){
   const showLeft = (session && session.phase) ? left : (pl.energy||0);
   const baseLab = myBaseAttackLabel(pl);
   const baseN = myBaseAttackValue(pl);
+  const hostRoll = !!(session && session.phase==='roll' && session.aRolls);
+  const parChip = hostRoll
+    ? `<div class="stat-chip par-en" title="Parasite energy for host-turn rerolls">Par ⚡${parEnergyLeft()}</div>`
+    : '';
   return `<div class="topbar">
     <button class="me-chip" onclick="switchChar()">${whoHTML(me)}</button>
     <div class="stat-chip energy">${tip('energy','⚡')} ${showLeft}${showLeft!==(pl.energy||0)?`<span style="color:var(--dim);font-size:10px">/${pl.energy||0}</span>`:''}</div>
     <div class="stat-chip base${baseN?'':' dim'}" title="Rises when you upgrade Base faces on your mod die">${tip('mod', baseLab)}</div>
+    ${parChip}
     <div class="stat-chip pts">${pl.pts||0} pts</div>
   </div>`;
 }
@@ -2784,9 +2810,11 @@ function rollPhaseHTML(r, isHost){
     if (d.scarNote) bits.push(d.scarNote);
     else if (d.rerolled) bits.push('rerolled');
     if (bonus) bits.push('bonus');
+    const faceLine = (d.faces||[]).join('·');
     return `<div class="die-wrap can-pick ${sel?'selected':''}" onclick="pickRoll('h',${i})">${dieHTML(d.color, shown, shake, {bonus})}
       <div class="die-label ${d.color}">${COLOR_META[d.color].name}${bonus?' +':''}</div>
-      <div class="die-sub">${bits.join(' · ')}</div></div>`;
+      <div class="die-sub">${bits.join(' · ')}</div>
+      <div class="die-faces">${esc(faceLine)}</div></div>`;
   }).join('');
 
   const modSel = session.selectedRoll && session.selectedRoll.type==='hm';
@@ -2797,6 +2825,8 @@ function rollPhaseHTML(r, isHost){
     </div>`;
 
   let parBlock = '';
+  let hostCombined = humanSum;
+  let parTotal = 0;
   if (isHost){
     const aDice = (session.aRolls||[]).map((d,i)=>{
       const sel = session.selectedRoll && session.selectedRoll.type==='a' && session.selectedRoll.i===i;
@@ -2816,6 +2846,25 @@ function rollPhaseHTML(r, isHost){
     const parEn = parEnergyLeft();
     const canParRR = canAffordParReroll();
     const parSel = session.selectedRoll && isParasiteRollType(session.selectedRoll.type);
+    const par = liveParasiteBreakdown(live.attack, session.rolls||[]);
+    hostCombined = Math.round(humanSum + (par.total||0));
+    const modBit = (par.flat||0) + (par.pctAdd||0);
+    const parFinal = `<div class="roll-final" style="border-color:#8dff6a44">
+        <div class="roll-eq par">
+          <span class="rf">Atk <b>${par.atk||0}</b></span>
+          <span class="op">+</span>
+          <span class="rf">Mod <b>${modBit}</b></span>
+          <span class="op">+</span>
+          <span class="rf tiny">Share <b>${par.fusion||0}</b></span>
+          <span class="op">+</span>
+          <span class="rf tiny">Spec <b>${par.instinctAdd||0}</b></span>
+          <span class="op">+</span>
+          <span class="rf tiny">Aura <b>${par.aura||0}</b></span>
+          <span class="op">=</span>
+          <span class="rf total">Par <b>${Math.round(par.total||0)}</b></span>
+        </div>
+        <div class="small center" style="margin-top:6px">Host total = human <b>${humanSum}</b> + parasite <b>${Math.round(par.total||0)}</b> = <b style="color:var(--bio)">${hostCombined}</b></div>
+      </div>`;
     parBlock = `<div class="panel" style="border-color:#8dff6a44">
       <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('host','Parasite package')}</div>
       <div class="par-energy">Parasite ⚡ ${parEn} / ${CFG.hostParStipend||7}</div>
@@ -2827,14 +2876,15 @@ function rollPhaseHTML(r, isHost){
           <div class="die-label" style="color:var(--energy)">${tip('instinct','Specialty')}</div>
           <div class="die-sub">${instId==='explode'&&session.instinctExtra?('+'+session.instinctExtra):''}</div></div>
       </div>
+      ${parFinal}
       <div class="hint">Tap a parasite die, then reroll with parasite energy (⚡${CFG.parRerollCost||1} each)</div>
       <button class="btn par-reroll" onclick="confirmParReroll()" ${!parSel || !canParRR?'disabled':''}>Reroll parasite die · ⚡${CFG.parRerollCost||1}</button>
       <div class="explain-box">
         <div class="ex-title">What these dice do</div>
-        <p><b>Attack</b> — the parasite’s hit power (faces listed under each die). Hit the max face for a ${tip('explode','+ bonus re-roll')}: roll again and keep adding. Heavy growth adds Attack dice over the game.</p>
-        <p><b>Mod</b> — a boost on top of Attack (flat number or %). This roll: <span class="now">${esc(pModTxt)}</span>.</p>
-        <p><b>Specialty</b> — a wild card each host turn. This roll: <span class="now">${esc(instFull)}</span>.${instExtra}</p>
-        <p>Parasite starts each host turn with <b>⚡ ${CFG.hostParStipend||7}</b> for its own rerolls — separate from your human energy.</p>
+        <p><b>Attack</b> — hit power (faces under each die). Max face = ${tip('explode','+ bonus re-roll')}. Heavy growth adds Attack dice.</p>
+        <p><b>Mod</b> — flat or % boost. This roll: <span class="now">${esc(pModTxt)}</span>.</p>
+        <p><b>Specialty</b> — wild card. This roll: <span class="now">${esc(instFull)}</span>.${instExtra}</p>
+        <p>Share / aura also fold in. Parasite rerolls use <b>⚡ ${CFG.hostParStipend||7}</b> separate from your energy.</p>
       </div>
     </div>`;
   }
@@ -2858,6 +2908,9 @@ function rollPhaseHTML(r, isHost){
     </div>`;
 
   const canRR = canAffordReroll();
+  const lockLabel = isHost
+    ? `Lock in · ${humanSum} + Par ${hostCombined - humanSum} = ${hostCombined}`
+    : `Lock in · ${humanSum}`;
   return `<div class="panel">
       <div class="lane-label" style="margin-top:0">Your roll</div>
       <div class="dice-row">${dice}<span class="dice-plus" aria-hidden="true">+</span>${modDie}${scarDie}</div>
@@ -2869,7 +2922,7 @@ function rollPhaseHTML(r, isHost){
     ${parBlock}
     <div class="cta-spacer"></div>
     <div class="fixed-cta">
-      <button class="btn" onclick="lockIn()">Lock in · ${humanSum}</button>
+      <button class="btn" onclick="lockIn()">${lockLabel}</button>
     </div>`;
 }
 
