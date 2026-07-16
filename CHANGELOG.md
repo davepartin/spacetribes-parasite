@@ -1,10 +1,16 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.4.1** · Schema **v6**
+Current build: **v4.4.2** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.4.2 — Host polish pass
+- Review screen parasite dice match the roll screen (labels, faces, specialty)
+- **Par ⚡7** shows in the sticky header during host shop (before roll)
+- Shorter **Lock in · total** on phones; coach copy mentions +1 Attack die + ⚡7
+- Tighter parasite dice row on narrow screens
 
 ## v4.4.1 — Host roll clarity
 - Parasite package shows live **Atk + Mod + Share + Spec + Aura = Par** total

@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.4.1">
+<meta name="stp-build" content="v4.4.2">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -49,6 +49,13 @@ button{font-family:inherit;border:none;cursor:pointer;}
   color:var(--bio);margin:8px 0 4px;}
 .die-faces{font-size:10px;color:var(--dim);font-family:'IBM Plex Mono',monospace;margin-top:2px;
   letter-spacing:.02em;line-height:1.2;}
+@media (max-width:400px){
+  .dice-row.par-row .die{width:56px;height:56px;border-radius:12px;}
+  .dice-row.par-row .die .face-num{width:26px;height:26px;font-size:17px;}
+  .dice-row.par-row .die .num{font-size:15px;}
+  .dice-row.par-row .die.instinct .num{font-size:11px;}
+  .dice-row.par-row{gap:6px;}
+}
 .small{font-size:13px;color:var(--dim);line-height:1.4;}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;}
 .starfield{position:fixed;inset:0;pointer-events:none;z-index:0;}
@@ -144,6 +151,7 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .role-banner{display:none;}
 
 .dice-row{display:flex;justify-content:center;align-items:flex-start;gap:10px;margin:10px 0;flex-wrap:wrap;}
+.dice-row.par-row{gap:8px;}
 .die-wrap{text-align:center;}
 .die-wrap.selected .die{box-shadow:0 0 0 3px var(--energy), 0 6px 16px #0008;}
 .die-wrap.can-pick{cursor:pointer;}
@@ -1514,7 +1522,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.4.1';
+const APP_BUILD = 'v4.4.2';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2349,16 +2357,24 @@ function myBaseAttackValue(pl){
 function myBaseAttackLabel(pl){
   return 'Base +' + myBaseAttackValue(pl);
 }
+function iAmHostThisRound(){
+  if (!G || !me) return false;
+  return roundKind(G.round, G)==='infection' && hostIdForRound(G, G.round)===me;
+}
 function topbarHTML(){
   const pl = (G.players && G.players[me]) || { energy:0, pts:0, modDie:[] };
   const left = (typeof energyLeft === 'function' && session && cart) ? energyLeft() : (pl.energy||0);
   const showLeft = (session && session.phase) ? left : (pl.energy||0);
   const baseLab = myBaseAttackLabel(pl);
   const baseN = myBaseAttackValue(pl);
+  const hostNow = iAmHostThisRound();
   const hostRoll = !!(session && session.phase==='roll' && session.aRolls);
-  const parChip = hostRoll
-    ? `<div class="stat-chip par-en" title="Parasite energy for host-turn rerolls">Par ⚡${parEnergyLeft()}</div>`
-    : '';
+  let parChip = '';
+  if (hostRoll){
+    parChip = `<div class="stat-chip par-en" title="Parasite energy left for rerolls">Par ⚡${parEnergyLeft()}</div>`;
+  } else if (hostNow && session && session.phase==='upgrade'){
+    parChip = `<div class="stat-chip par-en" title="Parasite gets this energy when you roll">Par ⚡${CFG.hostParStipend||7}</div>`;
+  }
   return `<div class="topbar">
     <button class="me-chip" onclick="switchChar()">${whoHTML(me)}</button>
     <div class="stat-chip energy">${tip('energy','⚡')} ${showLeft}${showLeft!==(pl.energy||0)?`<span style="color:var(--dim);font-size:10px">/${pl.energy||0}</span>`:''}</div>
@@ -2464,7 +2480,7 @@ function turnCoachHTML(r, isHost){
     how = `Collective fight vs <b>${bossHP(G)} HP</b> (scaled for ${n} players). Hero points on the line. Fail and it escapes.`;
   } else if (isHost){
     title = 'You are the HOST';
-    how = `Play your human dice <b>plus</b> the monster vs the other <b>${n-1}</b>. Soft = safer. Heavy = power now + ${tip('scar','Scar')} + fatter ${tip('boss','Round 10')}. ${tip('instinct','Specialty die')} is live.`;
+    how = `Human dice + parasite vs the other <b>${n-1}</b>. Soft = safer. Heavy = <b>+1 Attack die</b> (if room) + ${tip('scar','Scar')} + fatter ${tip('boss','Round 10')}. Parasite gets <b>⚡${CFG.hostParStipend||7}</b> for its own rerolls.`;
   } else {
     const hid = hostIdForRound(G, r);
     title = `${whoHTML(hid)} is infected`;
@@ -2869,7 +2885,7 @@ function rollPhaseHTML(r, isHost){
     parBlock = `<div class="panel" style="border-color:#8dff6a44">
       <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('host','Parasite package')}</div>
       <div class="par-energy">Parasite ⚡ ${parEn} / ${CFG.hostParStipend||7}</div>
-      <div class="dice-row">${aDice}
+      <div class="dice-row par-row">${aDice}
         <div class="die-wrap can-pick ${pModSel?'selected':''}" onclick="pickRoll('m',0)">${dieHTML('mod', pModTxt, shake)}
           <div class="die-label" style="color:var(--bio)">Mod</div>
           <div class="die-sub">boost</div></div>
@@ -2879,7 +2895,7 @@ function rollPhaseHTML(r, isHost){
       </div>
       ${parFinal}
       <div class="hint">Tap a parasite die, then reroll with parasite energy (⚡${CFG.parRerollCost||1} each)</div>
-      <button class="btn par-reroll" onclick="confirmParReroll()" ${!parSel || !canParRR?'disabled':''}>Reroll parasite die · ⚡${CFG.parRerollCost||1}</button>
+      <button class="btn par-reroll" onclick="confirmParReroll()" ${!parSel || !canParRR?'disabled':''}>Reroll parasite · ⚡${CFG.parRerollCost||1}</button>
       <div class="explain-box">
         <div class="ex-title">What these dice do</div>
         <p><b>Attack</b> — hit power (faces under each die). Max face = ${tip('explode','+ bonus re-roll')}. Heavy growth adds Attack dice.</p>
@@ -2909,9 +2925,7 @@ function rollPhaseHTML(r, isHost){
     </div>`;
 
   const canRR = canAffordReroll();
-  const lockLabel = isHost
-    ? `Lock in · ${humanSum} + Par ${parTotal} = ${hostCombined}`
-    : `Lock in · ${humanSum}`;
+  const lockLabel = isHost ? `Lock in · ${hostCombined}` : `Lock in · ${humanSum}`;
   return `<div class="panel">
       <div class="lane-label" style="margin-top:0">Your roll</div>
       <div class="dice-row">${dice}<span class="dice-plus" aria-hidden="true">+</span>${modDie}${scarDie}</div>
@@ -3052,13 +3066,24 @@ function playerReviewCardHTML(pid, res){
   let hostExtra = '';
   if (isHost && res.parPart){
     const p = res.parPart;
-    const aDice = ((br && br.aRolls) || res.aRolls || []).map(d=>dieHTML('attack', d.v)).join('');
+    const aRolls = (br && br.aRolls) || res.aRolls || [];
+    const aDice = aRolls.map(d=>{
+      const faceLine = (d.faces||[]).join('·');
+      return `<div class="die-wrap">${dieHTML('attack', d.v)}
+        <div class="die-label" style="color:#ffb090">Attack</div>
+        <div class="die-sub">${d.exploded?'+ bonus re-roll':''}</div>
+        ${faceLine?`<div class="die-faces">${esc(faceLine)}</div>`:''}</div>`;
+    }).join('');
     const pMod = (br && br.pModRoll) || res.pModRoll;
     const inst = (br && br.instinctRoll) || res.instinctRoll;
+    const instId = inst && inst.id ? inst.id : inst;
     hostExtra = `<div class="lane-label" style="color:var(--bio)">Parasite</div>
-      <div class="dice-row" style="margin:4px 0">${aDice}${pMod?dieHTML('mod', pModLabel(pMod)):''}${inst!=null?dieHTML('instinct', instinctLabel(inst)):''}</div>
-      <div class="small">Atk ${p.atk} + mod ${(p.flat||0)+(p.pctAdd||0)} + human share ${p.fusion} (${Math.round((p.fusionPct||0)*100)}%) + specialty ${p.instinctAdd} + aura ${p.aura} = <b>${Math.round(p.total)}</b></div>
-      <div class="small">Human ${Math.round(res.hostHuman)} + Parasite ${Math.round(p.total)} = <b style="color:var(--danger)">${Math.round(res.hostTotal)}</b></div>`;
+      <div class="dice-row par-row" style="margin:4px 0">${aDice}
+        ${pMod?`<div class="die-wrap">${dieHTML('mod', pModLabel(pMod))}<div class="die-label" style="color:var(--bio)">Mod</div></div>`:''}
+        ${inst!=null?`<div class="die-wrap">${dieHTML('instinct', instinctShortLabel(instId))}<div class="die-label" style="color:var(--energy)">Specialty</div></div>`:''}
+      </div>
+      <div class="small">${inst!=null?`Specialty: ${esc(instinctDesc(instId))}. `:''}Atk ${p.atk} + mod ${(p.flat||0)+(p.pctAdd||0)} + share ${p.fusion} + specialty ${p.instinctAdd} + aura ${p.aura} = <b style="color:var(--bio)">${Math.round(p.total)}</b></div>
+      <div class="small">Human ${Math.round(res.hostHuman)} + Parasite ${Math.round(p.total)} = <b style="color:var(--bio)">${Math.round(res.hostTotal)}</b></div>`;
   }
   return `<div class="panel" style="padding:10px;margin-bottom:8px">
     <div class="award-row" style="border:none;padding:0 0 6px">
