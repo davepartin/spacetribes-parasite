@@ -425,7 +425,7 @@ const deep = o => JSON.parse(JSON.stringify(o));
 const uid = (p) => p + '_' + Math.random().toString(36).slice(2,7);
 function stdFaces(){ return [1,2,3,4,5,6]; }
 function hotFaces(){ return [3,4,5,6,7,8]; } // middle-balance starter
-function shuffle(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function shuffle(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=randInt(i+1);[a[i],a[j]]=[a[j],a[i]];} return a; }
 
 function starterDice(){
   return [
@@ -507,11 +507,34 @@ function instinctLabel(id){
   return f ? f.label : id;
 }
 
-function rollFace(faces){
-  const i = Math.floor(Math.random()*faces.length);
-  return { index:i, value:faces[i] };
+/** Unbiased integer in [0, maxExclusive). Uses crypto when available (fair across all faces). */
+function randInt(maxExclusive){
+  const n = maxExclusive|0;
+  if (n <= 0) return 0;
+  const cryptoObj = (typeof crypto !== 'undefined' && crypto.getRandomValues) ? crypto : null;
+  if (cryptoObj){
+    // Rejection sampling — avoids Math.random modulo bias
+    const maxUint = 0x100000000;
+    const limit = maxUint - (maxUint % n);
+    const buf = new Uint32Array(1);
+    let x;
+    do {
+      cryptoObj.getRandomValues(buf);
+      x = buf[0];
+    } while (x >= limit);
+    return x % n;
+  }
+  return Math.floor(Math.random() * n);
 }
-function rollIndex(n){ return Math.floor(Math.random()*n); }
+
+/** Pick one of the die's face slots uniformly (all 6 sides equal chance). */
+function rollFace(faces){
+  const list = faces || [];
+  if (!list.length) return { index:0, value:0 };
+  const i = randInt(list.length);
+  return { index:i, value:list[i] };
+}
+function rollIndex(n){ return randInt(n); }
 
 /** Exploding attack die — on max face, roll once more and add (classic dice fun). */
 function rollExplodingAttack(faces){
@@ -1046,7 +1069,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.1.4';
+const APP_BUILD = 'v4.1.5';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
