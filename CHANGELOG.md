@@ -1,10 +1,15 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.4** · Schema **v6**
+Current build: **v4.3.5** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.5 — Solo start with all seats blank
+- **Who’s playing?** no longer blocks when every name field is empty
+- All blank → **P1 = You** (human), other seats = computers
+- Clearer placeholders / confirm copy for phone solo tests
 
 ## v4.3.4 — Computer opponents (solo test)
 - Leave a seat **blank** at New game → it becomes a **Comp** that auto-shops, rolls, and locks
