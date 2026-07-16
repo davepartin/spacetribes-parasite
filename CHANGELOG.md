@@ -1,15 +1,18 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.10** · Schema **v6**
+Current build: **v4.3.11** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
 
+## v4.3.11 — Base is mod-roll only
+- Mod-die **Base** faces are **+3 / +4 / +5** again
+- Sticky header no longer shows a standing Base chip (You · Energy · Points only)
+- Humans get Base **only when the mod die rolls it**
+
 ## v4.3.10 — Base starts at +0
-- Mod-die **Base** faces start at **+0** (no free flat bonus)
-- Upgrade path: **0 → 3 → 7** so Base feels earned
-- Header / shop / help copy updated
+- Superseded by 4.3.11 (Base faces restored; header clarified)
 
 ## v4.3.9 — Bonus dice look different
 - Bought extra dice keep the solid color but get a **light diagonal hatch** and a small **+**

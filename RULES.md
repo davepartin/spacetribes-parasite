@@ -48,7 +48,7 @@ Always rolls with you. Upgrade a face for **2⚡**. Max **level 3**.
 
 - **2× Energy** — +2 / +3 / +4⚡ next round  
 - **2× %** — +20% / +30% / +40% of your attack  
-- **2× Base** — +0 / +3 / +7 that round (starts at **0** — earn upgrades)  
+- **2× Base** — +3 / +4 / +5 that round (**only if** the mod die lands on Base — not a standing human stat)  
 
 Your blue total = **dice + mod** (after Scar effects, if any).
 
