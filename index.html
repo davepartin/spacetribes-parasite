@@ -381,20 +381,20 @@ const MOD_LEVELS = {
 
 const SCAR_FACES = {
   1: [
-    { id:'drain',   label:'−2⚡',   desc:'Lose 2 Energy' },
-    { id:'bleed',   label:'−10%',  desc:'−10% attack' },
-    { id:'static',  label:'Static', desc:'Mod die ignored' },
-    { id:'fumble',  label:'Fumble', desc:'Reroll highest die' },
-    { id:'penalty', label:'−5pts', desc:'Lose 5 points' },
-    { id:'shatter', label:'Shatter', desc:'Lose strongest die' },
+    { id:'drain',   label:'−2⚡',     desc:'Lose 2 Energy' },
+    { id:'bleed',   label:'−10%',    desc:'−10% attack' },
+    { id:'static',  label:'no mod',  desc:'Mod die ignored' },
+    { id:'fumble',  label:'reroll↑', desc:'Reroll highest die' },
+    { id:'penalty', label:'−5 pts',  desc:'Lose 5 points' },
+    { id:'shatter', label:'−highest',desc:'Subtract strongest die value (die stays)' },
   ],
   2: [
-    { id:'drain',   label:'−4⚡',   desc:'Lose 4 Energy' },
-    { id:'bleed',   label:'−20%',  desc:'−20% attack' },
-    { id:'static',  label:'Static+', desc:'Mod ignored & −1⚡' },
-    { id:'fumble',  label:'Fumble2', desc:'Reroll two highest' },
-    { id:'penalty', label:'−10pts', desc:'Lose 10 points' },
-    { id:'shatter', label:'Shatter+', desc:'Lose strongest die & −5pts' },
+    { id:'drain',   label:'−4⚡',      desc:'Lose 4 Energy' },
+    { id:'bleed',   label:'−20%',     desc:'−20% attack' },
+    { id:'static',  label:'no mod−1⚡',desc:'Mod ignored & −1⚡' },
+    { id:'fumble',  label:'reroll↑↑', desc:'Reroll two highest' },
+    { id:'penalty', label:'−10 pts',  desc:'Lose 10 points' },
+    { id:'shatter', label:'−high−5',  desc:'Subtract strongest die & −5 pts' },
   ],
 };
 
@@ -995,7 +995,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.1';
+const APP_BUILD = 'v4.1.1';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1596,11 +1596,15 @@ function beginRoll(){
     scarRoll = { index:si, id:faces[si].id, label:faces[si].label, level:scarLv };
   }
 
-  session.rolls = rolls;
-  session.modRoll = modRoll;
+  // Keep a clean pre-scar snapshot so scar rerolls never stack pain
+  session.baseRolls = deep(rolls);
+  session.baseModRoll = deep(modRoll);
+  session.rolls = deep(rolls);
+  session.modRoll = deep(modRoll);
   session.scarRoll = scarRoll;
   session.ptsDelta = 0;
-  applyScarToSession(); // may mutate rolls/mod/ptsDelta
+  session.scarEnergyLoss = 0;
+  reapplyScarFromBase();
 
   // host parasite rolls
   if (isHost){
@@ -1638,17 +1642,27 @@ function beginRoll(){
   setTimeout(()=>{ if(session) session.shake=false; render(); }, 550);
 }
 
+/** Restore clean dice/mod, then apply current scar once (safe to call on every scar reroll). */
+function reapplyScarFromBase(){
+  if (!session) return;
+  session.rolls = deep(session.baseRolls || session.rolls || []);
+  session.modRoll = session.baseModRoll ? deep(session.baseModRoll) : session.modRoll;
+  session.ptsDelta = 0;
+  session.scarEnergyLoss = 0;
+  (session.rolls||[]).forEach(d=>{ d.scarZeroed = false; d.scarNote = ''; });
+  applyScarToSession();
+}
+
 function applyScarToSession(){
   const scar = session.scarRoll;
   if (!scar) return;
   const lv = scar.level;
-  const rolls = session.rolls;
+  const rolls = session.rolls || [];
   if (scar.id==='drain'){
-    // handled as pending energy reduction via pts? use energy flag
     session.scarEnergyLoss = lv===1 ? 2 : 4;
   } else if (scar.id==='bleed'){
     const mult = lv===1 ? 0.9 : 0.8;
-    rolls.forEach(d=>{ d.v = Math.max(1, Math.round(d.v * mult)); });
+    rolls.forEach(d=>{ d.v = Math.max(0, Math.round(d.v * mult)); });
   } else if (scar.id==='static'){
     session.modRoll = null;
     if (lv===2) session.scarEnergyLoss = (session.scarEnergyLoss||0) + 1;
@@ -1656,16 +1670,26 @@ function applyScarToSession(){
     const n = lv===1 ? 1 : 2;
     for (let k=0;k<n;k++){
       if (!rolls.length) break;
-      let hi=0; for (let i=1;i<rolls.length;i++) if (rolls[i].v>rolls[hi].v) hi=i;
+      let hi=0; for (let i=1;i<rolls.length;i++) if ((rolls[i].v||0)>(rolls[hi].v||0)) hi=i;
       const rf = rollFace(rolls[hi].faces);
       rolls[hi].v = rf.value; rolls[hi].index = rf.index; rolls[hi].rerolled = true;
+      // keep base in sync for the fumbled die so later scar rerolls don't revive the old high
+      if (session.baseRolls && session.baseRolls[hi]){
+        session.baseRolls[hi].v = rf.value;
+        session.baseRolls[hi].index = rf.index;
+        session.baseRolls[hi].first = session.baseRolls[hi].first != null ? session.baseRolls[hi].first : rf.value;
+      }
     }
   } else if (scar.id==='penalty'){
     session.ptsDelta = -(lv===1 ? 5 : 10);
   } else if (scar.id==='shatter'){
+    // Subtract strongest die value — keep the die so scar rerolls can restore cleanly
     if (rolls.length){
-      let hi=0; for (let i=1;i<rolls.length;i++) if (rolls[i].v>rolls[hi].v) hi=i;
-      rolls.splice(hi,1);
+      let hi=0; for (let i=1;i<rolls.length;i++) if ((rolls[i].v||0)>(rolls[hi].v||0)) hi=i;
+      const lost = rolls[hi].v||0;
+      rolls[hi].scarNote = '−'+lost;
+      rolls[hi].scarZeroed = true;
+      rolls[hi].v = 0;
     }
     if (lv===2) session.ptsDelta = (session.ptsDelta||0) - 5;
   }
@@ -1686,9 +1710,11 @@ function rollPhaseHTML(r, isHost){
 
   const dice = rolls.map((d,i)=>{
     const sel = session.selectedRoll && session.selectedRoll.type==='h' && session.selectedRoll.i===i;
-    return `<div class="die-wrap can-pick ${sel?'selected':''}" onclick="pickRoll('h',${i})">${dieHTML(d.color, d.v, shake)}
+    const shown = d.scarZeroed ? 0 : d.v;
+    const sub = d.scarNote ? d.scarNote : (d.rerolled?'rerolled':'');
+    return `<div class="die-wrap can-pick ${sel?'selected':''}" onclick="pickRoll('h',${i})">${dieHTML(d.color, shown, shake)}
       <div class="die-label ${d.color}">${COLOR_META[d.color].name}</div>
-      <div class="die-sub">${d.rerolled?'rerolled':''}</div></div>`;
+      <div class="die-sub">${sub}</div></div>`;
   }).join('');
 
   let parBlock = '';
@@ -1743,9 +1769,13 @@ function confirmReroll(){
   const { type, i } = session.selectedRoll;
   if (!spendRerollCharge()) return;
   if (type==='h'){
-    const d = session.rolls[i];
+    // Reroll against the clean base die, then re-apply scar once
+    if (!session.baseRolls || !session.baseRolls[i]) return;
+    const d = session.baseRolls[i];
     const rf = rollFace(d.faces);
-    d.index=rf.index; d.v=rf.value; d.rerolled=true;
+    d.index=rf.index; d.v=rf.value; d.first=rf.value; d.rerolled=true;
+    d.scarZeroed=false; d.scarNote='';
+    reapplyScarFromBase();
   } else if (type==='a'){
     const d = session.aRolls[i];
     const er = rollExplodingAttack(d.faces);
@@ -1763,23 +1793,11 @@ function confirmReroll(){
       session.instinctExtra = rollExplodingAttack(hotFaces()).value;
     }
   } else if (type==='s'){
-    // reroll scar — re-apply from fresh human rolls? simplify: new scar face, re-roll human from first values
     const lv = G.players[me].scarLv||1;
     const faces = SCAR_FACES[lv];
     const si = rollIndex(faces.length);
-    // restore from first where possible
-    session.rolls.forEach(d=>{ if (d.first!=null) d.v = d.first; });
-    // rebuild rolls if shatter removed — too messy; just apply new scar on current
     session.scarRoll = { index:si, id:faces[si].id, label:faces[si].label, level:lv };
-    session.ptsDelta = 0;
-    session.scarEnergyLoss = 0;
-    // reset mod from cart preview
-    const modPrev = previewModDie(G.players[me]);
-    if (!session.modRoll){
-      const mi = rollIndex(modPrev.length);
-      session.modRoll = { index:mi, kind:modPrev[mi].kind, level:modPrev[mi].level, value:modFaceValue(modPrev[mi]) };
-    }
-    applyScarToSession();
+    reapplyScarFromBase();
   }
   session.selectedRoll = null;
   session.shake = true;
