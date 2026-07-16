@@ -1,10 +1,14 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.14** · Schema **v6**
+Current build: **v4.3.15** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.15 — Clearer parasite package
+- Parasite Attack / Mod / Specialty dice use solid, readable colors
+- Explanation box under the package: what each die does + this roll’s Specialty
 
 ## v4.3.14 — Base chip back (starts +0)
 - Sticky header shows **Base** again (You · Energy · Base · Points)
