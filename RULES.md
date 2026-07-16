@@ -2,7 +2,7 @@
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.3** — Variable table size (3–6). Parasite + boss HP scale with player count. Host seats are random (max 2 each, never 3). 3-player tables get two skirmish rounds so the math fits.
+**v4.3.1** — Variable table size (3–6). **Type in each player's name** (no fixed Dave/Brian seats). Parasite + boss HP scale with player count. Host seats are random (max 2 each, never 3). 3-player tables get two skirmish rounds so the math fits.
 
 ## Mission map
 
@@ -96,4 +96,9 @@ HP = **table base + (per-meter × Boss Meter)**. Clear it for hero bonuses. Fail
 
 ## Starting a game
 
-Tap **New game**, toggle **3–6** crew (Dave, Brian, Joel, Chris, plus Sam & Riley for bigger tables), then start. Each phone picks its seat from that roster.
+1. Tap **New game**
+2. Pick **3–6** players
+3. **Type each player's name** (what the game will show everywhere)
+4. Start — each phone opens the seat list, taps **Join** on their name
+
+Your phone remembers which seat you claimed.

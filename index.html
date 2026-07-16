@@ -77,6 +77,18 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .roster-card .rname{font-weight:800;font-family:'Orbitron',sans-serif;margin-top:4px;}
 .roster-meta{text-align:center;margin:8px 0;color:var(--dim);font-size:13px;}
 .roster-meta b{color:var(--energy);}
+.roster-count{display:flex;gap:8px;justify-content:center;margin:12px 0;}
+.roster-count button{min-width:48px;padding:10px 0;border-radius:12px;border:2px solid var(--line);background:var(--panel2);color:inherit;font-family:'Orbitron',sans-serif;font-weight:800;}
+.roster-count button.on{border-color:var(--energy);background:#f5c04222;color:var(--energy);}
+.roster-names{display:flex;flex-direction:column;gap:8px;margin:10px 0 14px;}
+.roster-name-row{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:8px 10px;}
+.roster-name-row .seat-label{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);min-width:52px;}
+.roster-name-row input,.claim-name{flex:1;min-width:0;background:#0a1018;border:1px solid var(--line);border-radius:10px;color:var(--text);padding:10px 12px;font-size:16px;font-family:'Rajdhani',sans-serif;font-weight:700;}
+.roster-name-row input:focus,.claim-name:focus{outline:none;border-color:var(--energy);}
+.char-card.claim{cursor:default;text-align:left;padding:12px;}
+.char-card.claim .claim-row{display:flex;gap:8px;align-items:center;margin-top:8px;}
+.char-card.claim .claim-row .btn{margin:0;padding:10px 12px;font-size:13px;width:auto;}
+.char-card .cname.empty{color:var(--dim);font-style:italic;font-weight:600;}
 
 .chrome-sticky{position:sticky;top:0;z-index:22;background:linear-gradient(#081018fb,#081018f0);
   backdrop-filter:blur(10px);padding:6px 0 8px;margin:0 0 10px;border-bottom:1px solid #2a405066;}
@@ -344,32 +356,68 @@ const firebaseConfig = {
   appId: "1:259546833788:web:22ae17ff32c2c60269baf9"
 };
 
-const PLAYERS = {
-  dave:  { name:'Dave',  short:'Dave',  img:'assets/crew-dave.png',  color:'#f0b429', title:'Captain',  initial:'D' },
-  brian: { name:'Brian', short:'Brian', img:'assets/crew-brian.png', color:'#4db8ff', title:'Gunner',   initial:'B' },
-  joel:  { name:'Joel',  short:'Joel',  img:'assets/crew-joel.png',  color:'#3ecf8e', title:'Engineer', initial:'J' },
-  chris: { name:'Chris', short:'Chris', img:'assets/crew-chris.png', color:'#9aff6b', title:'Scout',    initial:'C' },
-  sam:   { name:'Sam',   short:'Sam',   img:null,                    color:'#ff7eb6', title:'Medic',    initial:'S' },
-  riley: { name:'Riley', short:'Riley', img:null,                    color:'#a78bfa', title:'Pilot',    initial:'R' },
+/** Seat cosmetics only — display names are typed in by players. */
+const SEAT_META = {
+  p1: { color:'#f0b429', img:'assets/crew-dave.png',  title:'Seat 1' },
+  p2: { color:'#4db8ff', img:'assets/crew-brian.png', title:'Seat 2' },
+  p3: { color:'#3ecf8e', img:'assets/crew-joel.png',  title:'Seat 3' },
+  p4: { color:'#9aff6b', img:'assets/crew-chris.png', title:'Seat 4' },
+  p5: { color:'#ff7eb6', img:null,                    title:'Seat 5' },
+  p6: { color:'#a78bfa', img:null,                    title:'Seat 6' },
 };
-const ALL_PIDS = ['dave','brian','joel','chris','sam','riley'];
+/** Legacy fixed names (older games) */
+const LEGACY_NAMES = {
+  dave:'Dave', brian:'Brian', joel:'Joel', chris:'Chris', sam:'Sam', riley:'Riley',
+};
+const LEGACY_META = {
+  dave:  { color:'#f0b429', img:'assets/crew-dave.png',  title:'Captain' },
+  brian: { color:'#4db8ff', img:'assets/crew-brian.png', title:'Gunner' },
+  joel:  { color:'#3ecf8e', img:'assets/crew-joel.png',  title:'Engineer' },
+  chris: { color:'#9aff6b', img:'assets/crew-chris.png', title:'Scout' },
+  sam:   { color:'#ff7eb6', img:null,                    title:'Medic' },
+  riley: { color:'#a78bfa', img:null,                    title:'Pilot' },
+};
+const ALL_PIDS = ['p1','p2','p3','p4','p5','p6'];
 const MIN_PLAYERS = 3;
 const MAX_PLAYERS = 6;
-const DEFAULT_ROSTER = ['dave','brian','joel','chris'];
+const DEFAULT_ROSTER = ['p1','p2','p3','p4'];
 const INFECTION_SLOTS = 8; // rounds 2–9
+function seatMeta(id){
+  return SEAT_META[id] || LEGACY_META[id] || { color:'#4db8ff', img:null, title:'Seat' };
+}
+function knownSeat(id){ return !!(SEAT_META[id] || LEGACY_META[id]); }
 function rosterOf(g){
   const r = g && (g.roster || g.playerIds);
   if (Array.isArray(r) && r.length >= MIN_PLAYERS){
-    return r.filter(p => !!PLAYERS[p]);
+    return r.filter(p => knownSeat(p));
   }
   return DEFAULT_ROSTER.slice();
 }
 function tableSize(g){ return rosterOf(g).length; }
+function cleanPlayerName(s){
+  return String(s||'').replace(/\s+/g,' ').trim().slice(0, 16);
+}
+function playerName(pid, g){
+  g = g || (typeof G !== 'undefined' ? G : null);
+  const pl = g && g.players && g.players[pid];
+  if (pl && cleanPlayerName(pl.name)) return cleanPlayerName(pl.name);
+  if (LEGACY_NAMES[pid]) return LEGACY_NAMES[pid];
+  const m = seatMeta(pid);
+  return m.title || 'Player';
+}
+function playerShort(pid, g){
+  const n = playerName(pid, g);
+  return n.length <= 6 ? n : (n.slice(0,5) + '…');
+}
+function playerInitial(pid, g){
+  const n = playerName(pid, g);
+  return (n && n[0] ? n[0] : '?').toUpperCase();
+}
 function crewImg(id, cls=''){
-  const c = PLAYERS[id];
-  if (!c) return '';
-  if (c.img) return `<img class="avatar-img ${cls}" src="${c.img}" alt="${c.name}" width="72" height="72">`;
-  return `<span class="avatar-fallback ${cls}" style="--c:${c.color}" aria-label="${escName(c.name)}">${c.initial||c.short[0]}</span>`;
+  const c = seatMeta(id);
+  const label = playerName(id);
+  if (c.img) return `<img class="avatar-img ${cls}" src="${c.img}" alt="${escName(label)}" width="72" height="72">`;
+  return `<span class="avatar-fallback ${cls}" style="--c:${c.color}" aria-label="${escName(label)}">${escName(playerInitial(id))}</span>`;
 }
 function escName(s){ return String(s).replace(/[&<>"]/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
 function parasiteArtHTML(size, stage){
@@ -378,8 +426,18 @@ function parasiteArtHTML(size, stage){
   const px = Math.round(size);
   return `<span class="parasite-art" aria-hidden="true"><img src="${img}" alt="The parasite" width="${px}" height="${px}" style="max-width:${px}px"></span>`;
 }
-/** @deprecated use rosterOf(G) — kept as full catalog alias for older call sites during migrate */
 const PIDS = ALL_PIDS;
+/** Compat shim — old code read PLAYERS[id].name */
+const PLAYERS = new Proxy({}, {
+  get(_t, id){
+    if (typeof id !== 'string') return undefined;
+    if (!knownSeat(id)) return undefined;
+    const m = seatMeta(id);
+    const name = playerName(id);
+    return { name, short: playerShort(id), img: m.img, color: m.color, title: m.title, initial: playerInitial(id) };
+  },
+  has(_t, id){ return knownSeat(id); },
+});
 const COLORS = ['red','blue','green'];
 const COLOR_META = {
   red:   { name:'Weapons',  icon:'W' },
@@ -388,7 +446,7 @@ const COLOR_META = {
 };
 
 const TOTAL_ROUNDS = 10;
-const SCHEMA = 5;
+const SCHEMA = 6;
 
 const CFG = {
   roundStipend: 5,
@@ -776,17 +834,24 @@ let me = localStorage.getItem('stp_me') || null;
 let cart = null;
 let cartRound = 0;
 let animating = false;
-let ui = { selectedDie: null, selectedFace: null, selectedModFace: null, showHelp: false, tipKey: null, showLog: false, showRosterPick: false, pendingRoster: null };
+let ui = { selectedDie: null, selectedFace: null, selectedModFace: null, showHelp: false, tipKey: null, showLog: false, showRosterPick: false, pendingCount: 4, pendingNames: ['','','',''] };
 let session = null;
 
-function newGameData(roster){
-  const ids = (Array.isArray(roster) ? roster : DEFAULT_ROSTER).filter(p => PLAYERS[p]);
+function newGameData(roster, names){
+  let ids;
+  if (typeof roster === 'number'){
+    ids = ALL_PIDS.slice(0, Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, roster|0)));
+  } else {
+    ids = (Array.isArray(roster) ? roster : DEFAULT_ROSTER).filter(p => knownSeat(p));
+  }
   if (ids.length < MIN_PLAYERS || ids.length > MAX_PLAYERS){
     throw new Error('Roster must be '+MIN_PLAYERS+'-'+MAX_PLAYERS+' players');
   }
+  const nameList = Array.isArray(names) ? names : [];
   const players = {};
-  ids.forEach(p=>{
+  ids.forEach((p,i)=>{
     players[p] = {
+      name: cleanPlayerName(nameList[i] || ''),
       pts: 0,
       energy: CFG.roundStipend,
       dice: starterDice(),
@@ -1295,7 +1360,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.3.0';
+const APP_BUILD = 'v4.3.1';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1314,7 +1379,7 @@ function normalizeGame(v){
     const legacy = DEFAULT_ROSTER.filter(p => g.players && g.players[p]);
     g.roster = legacy.length >= MIN_PLAYERS ? legacy : DEFAULT_ROSTER.slice();
   }
-  g.roster = g.roster.filter(p => !!PLAYERS[p]);
+  g.roster = g.roster.filter(p => knownSeat(p));
   g.playerIds = g.roster.slice();
   if (!Array.isArray(g.schedule) || g.schedule.length !== INFECTION_SLOTS){
     // keep existing if plausible; otherwise rebuild from roster
@@ -1334,9 +1399,15 @@ function normalizeGame(v){
     let pl = g.players[pid];
     if (!pl){
       pl = g.players[pid] = {
-        pts:0, energy:CFG.roundStipend, dice:starterDice(), modDie:starterModDie(),
+        name:'', pts:0, energy:CFG.roundStipend, dice:starterDice(), modDie:starterModDie(),
         scarLv:0, perks:{ freeReroll:false },
       };
+    }
+    if (pl.name == null || pl.name === ''){
+      if (LEGACY_NAMES[pid]) pl.name = LEGACY_NAMES[pid];
+      else pl.name = pl.name || '';
+    } else {
+      pl.name = cleanPlayerName(pl.name);
     }
     if (!pl.dice) pl.dice = starterDice();
     if (!pl.modDie) pl.modDie = starterModDie();
@@ -1499,28 +1570,26 @@ function submitAction(action){
     submitAction(action);
   });
 }
-function loadSavedRoster(){
+function loadSavedCount(){
   try{
-    const raw = JSON.parse(localStorage.getItem('stp_roster')||'null');
-    if (Array.isArray(raw)){
-      const ids = raw.filter(p => PLAYERS[p]);
-      if (ids.length >= MIN_PLAYERS && ids.length <= MAX_PLAYERS) return ids;
-    }
+    const n = parseInt(localStorage.getItem('stp_table_n')||'4', 10);
+    if (n >= MIN_PLAYERS && n <= MAX_PLAYERS) return n;
   }catch(e){}
-  return DEFAULT_ROSTER.slice();
+  return 4;
 }
-function startNewGame(roster){
-  const ids = (roster && roster.length) ? roster : (ui.pendingRoster || loadSavedRoster());
+function startNewGame(roster, names){
+  const count = typeof roster === 'number' ? roster : (Array.isArray(roster) ? roster.length : (ui.pendingCount || loadSavedCount()));
+  const ids = Array.isArray(roster) ? roster.filter(knownSeat) : ALL_PIDS.slice(0, count);
   let data;
   try{
-    data = normalizeGame(newGameData(ids));
+    data = normalizeGame(newGameData(ids, names));
   }catch(err){
-    alert(err.message || 'Bad roster');
+    alert(err.message || 'Bad table');
     ui.showRosterPick = true;
     render();
     return;
   }
-  localStorage.setItem('stp_roster', JSON.stringify(ids));
+  localStorage.setItem('stp_table_n', String(ids.length));
   if (me && !ids.includes(me)){ me = null; localStorage.removeItem('stp_me'); }
   session = null; cart = null;
   try{ localStorage.removeItem('stp_seen_'+(G && G.createdAt)); }catch(e){}
@@ -1536,48 +1605,86 @@ function startNewGame(roster){
   save().then(()=> applyRemoteGame(data)).catch(err=> showConnectError(err.message||'Could not create game'));
 }
 function confirmResetGame(){
-  ui.pendingRoster = (G && G.roster && G.roster.length) ? G.roster.slice() : loadSavedRoster();
+  ui.pendingCount = (G && G.roster && G.roster.length) ? G.roster.length : loadSavedCount();
+  if (G && G.players){
+    ui.pendingNames = rosterOf(G).map(pid => cleanPlayerName((G.players[pid]&&G.players[pid].name)||''));
+  } else {
+    ui.pendingNames = Array(ui.pendingCount).fill('');
+  }
+  while (ui.pendingNames.length < ui.pendingCount) ui.pendingNames.push('');
+  ui.pendingNames = ui.pendingNames.slice(0, ui.pendingCount);
   ui.showRosterPick = true;
   render();
 }
-function toggleRosterPid(pid){
-  if (!PLAYERS[pid]) return;
-  const cur = new Set(ui.pendingRoster || loadSavedRoster());
-  if (cur.has(pid)) cur.delete(pid);
-  else if (cur.size < MAX_PLAYERS) cur.add(pid);
-  ui.pendingRoster = ALL_PIDS.filter(p => cur.has(p));
+function setPendingCount(n){
+  n = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n|0));
+  // preserve typed names from DOM before re-render
+  const keep = [];
+  for (let i=0;i<MAX_PLAYERS;i++){
+    const el = document.getElementById('roster-name-'+i);
+    keep[i] = el ? el.value : ((ui.pendingNames&&ui.pendingNames[i])||'');
+  }
+  ui.pendingCount = n;
+  ui.pendingNames = keep.slice(0, n);
   render();
+  // restore values after render
+  setTimeout(()=>{
+    for (let i=0;i<n;i++){
+      const el = document.getElementById('roster-name-'+i);
+      if (el) el.value = ui.pendingNames[i] || '';
+    }
+  }, 0);
 }
 function confirmRosterAndStart(){
-  const ids = (ui.pendingRoster || []).filter(p => PLAYERS[p]);
-  if (ids.length < MIN_PLAYERS || ids.length > MAX_PLAYERS){
-    alert('Pick '+MIN_PLAYERS+' to '+MAX_PLAYERS+' players for this table.');
+  const n = ui.pendingCount || loadSavedCount();
+  if (n < MIN_PLAYERS || n > MAX_PLAYERS){
+    alert('Pick '+MIN_PLAYERS+' to '+MAX_PLAYERS+' players.');
     return;
   }
-  if (!confirm('Start a fresh Schema v'+SCHEMA+' game with '+ids.length+' players? This wipes the current run.')) return;
-  startNewGame(ids);
+  const names = [];
+  for (let i=0;i<n;i++){
+    const el = document.getElementById('roster-name-'+i);
+    names.push(cleanPlayerName(el && el.value));
+  }
+  if (names.some(x => !x)){
+    alert('Type a name for every player.');
+    return;
+  }
+  // unique-ish names (case-insensitive)
+  const lower = names.map(x=>x.toLowerCase());
+  if (new Set(lower).size !== lower.length){
+    alert('Each player needs a different name.');
+    return;
+  }
+  if (!confirm('Start a fresh Schema v'+SCHEMA+' game with '+n+' players? This wipes the current run.')) return;
+  startNewGame(ALL_PIDS.slice(0, n), names);
 }
 function cancelRosterPick(){ ui.showRosterPick = false; render(); }
 function rosterPickModalHTML(){
   if (!ui.showRosterPick) return '';
-  const picked = new Set(ui.pendingRoster || loadSavedRoster());
-  const n = picked.size;
-  const t = parasiteTuning(Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n || 4)));
-  const cards = ALL_PIDS.map(p=>{
-    const on = picked.has(p);
-    return `<button type="button" class="roster-card ${on?'on':''}" onclick="toggleRosterPid('${p}')">
-      ${crewImg(p)}
-      <div class="rname">${PLAYERS[p].name}</div>
-      <div class="ctitle">${PLAYERS[p].title}</div>
-    </button>`;
-  }).join('');
+  const n = ui.pendingCount || loadSavedCount();
+  const t = parasiteTuning(n);
+  const countBtns = [3,4,5,6].map(c =>
+    `<button type="button" class="${c===n?'on':''}" onclick="setPendingCount(${c})">${c}</button>`
+  ).join('');
+  const rows = [];
+  for (let i=0;i<n;i++){
+    const pid = ALL_PIDS[i];
+    const val = esc((ui.pendingNames && ui.pendingNames[i]) || '');
+    rows.push(`<div class="roster-name-row">
+      ${crewImg(pid,'')}
+      <span class="seat-label">P${i+1}</span>
+      <input id="roster-name-${i}" class="claim-name" maxlength="16" placeholder="Type name" value="${val}" autocomplete="nickname" />
+    </div>`);
+  }
   return `<div class="modal-back" onclick="if(event.target===this)cancelRosterPick()">
     <div class="modal-sheet" role="dialog" aria-label="Table size">
       <h2>Who's playing?</h2>
-      <p class="small">Pick <b>3–6</b> crew. Always 10 rounds: Training → Infection/Skirmish → Boss. Host seats are random (max 2 each, never 3).</p>
-      <div class="roster-grid">${cards}</div>
-      <div class="roster-meta"><b>${n}</b> selected · Parasite tuned for ${t.n}p (aura +${t.startAura}, share ${Math.round(t.startFusion*100)}%, boss HP ${t.hpBase}+${t.hpPerMeter}/meter)</div>
-      <button class="btn" onclick="confirmRosterAndStart()" ${n<MIN_PLAYERS||n>MAX_PLAYERS?'disabled':''}>Start ${n}-player game</button>
+      <p class="small">Pick <b>3–6</b>, then <b>type each player's name</b>. Those names are what the game shows. Host seats stay random (max 2 each).</p>
+      <div class="roster-count">${countBtns}</div>
+      <div class="roster-names">${rows.join('')}</div>
+      <div class="roster-meta"><b>${n}</b> players · Parasite tuned for ${t.n}p (aura +${t.startAura}, share ${Math.round(t.startFusion*100)}%, boss HP ${t.hpBase}+${t.hpPerMeter}/meter)</div>
+      <button class="btn" onclick="confirmRosterAndStart()">Start ${n}-player game</button>
       <button class="btn ghost modal-close" onclick="cancelRosterPick()">Cancel</button>
     </div>
   </div>`;
@@ -1603,7 +1710,7 @@ function logModalHTML(){
     body = keys.map(r=>{
       const res = rounds[r].result;
       const head = res.kind==='infection'
-        ? `R${r} · ${res.hostWins?'Host won':'Crew won'} · ${(PLAYERS[res.hostId]||{}).name||'?'}`
+        ? `R${r} · ${res.hostWins?'Host won':'Crew won'} · ${playerName(res.hostId)}`
         : res.kind==='boss'
           ? `R${r} · Boss ${res.cleared?'cleared':'escaped'} · HP ${res.hp}`
           : res.kind==='skirmish' ? `R${r} · Skirmish` : `R${r} · Training`;
@@ -1635,7 +1742,7 @@ function instructionsModalHTML(){
     <div class="modal-sheet" role="dialog" aria-label="Instructions">
       <h2>How to play</h2>
       <p>3–6 players. 10 rounds. Training → Infection → Boss. Highest points wins — unless Round 10 fails and the parasite escapes.</p>
-      <p class="small">Tap <b>New game</b> to pick who is at the table. Host seats are random (nobody hosts 3 times). Parasite strength scales with table size. Tap dotted gold words for tips. Use <b>Log</b> for finished rounds.</p>
+      <p class="small">Tap <b>New game</b>, set 3–6 players, and <b>type each name</b>. Host seats are random (nobody hosts 3 times). Parasite strength scales with table size. Tap dotted gold words for tips. Use <b>Log</b> for finished rounds.</p>
       <h3>Energy</h3>
       <ul>
         <li><b>+5</b> every round (banks). Top bar counts down as you spend.</li>
@@ -1729,7 +1836,10 @@ function render(){
   const app = $('#app');
   try{
   if (!configOK()){ app.innerHTML = setupScreen(); return; }
-  if (!G){ app.innerHTML = `<div class="panel center"><h2 class="brand-hero" style="font-size:18px">SPACE TRIBES</h2><p>Connecting…</p><p class="small">Build ${APP_BUILD}. If this hangs, wait 3s for backup link.</p><button class="btn ghost" onclick="retryConnect()">Retry now</button></div>`; return; }
+  if (!G){
+    app.innerHTML = `<div class="panel center"><h2 class="brand-hero" style="font-size:18px">SPACE TRIBES</h2><p>Connecting…</p><p class="small">Build ${APP_BUILD}. If this hangs, wait 3s for backup link.</p><button class="btn ghost" onclick="retryConnect()">Retry now</button><button class="btn" style="margin-top:8px" onclick="confirmResetGame()">New game</button></div>${bottomDockHTML()}`;
+    return;
+  }
   if (G.status==='need_reset'){
     app.innerHTML = `<div class="panel center">
       <h2>Schema v${SCHEMA}</h2>
@@ -1771,23 +1881,63 @@ function setupScreen(){
     <p class="small">Add your Firebase config to play.</p></div>`;
 }
 function charSelectScreen(){
-  const pool = G ? rosterOf(G) : ALL_PIDS;
-  const note = G
-    ? `This table is <b>${pool.length} players</b>. Pick your seat.`
-    : 'Pick your crew. This phone remembers you. Use <b>New game</b> to set 3–6 players.';
+  if (!G){
+    return `<div class="center" style="padding-top:4vh">
+      <h1 class="brand-hero">SPACE TRIBES: <span>PARASITE</span></h1>
+      <p class="small">Tap <b>New game</b>, pick 3–6 players, and type everyone's name.</p>
+      <button class="btn" style="margin-top:16px" onclick="confirmResetGame()">New game</button>
+    </div>`;
+  }
+  const pool = rosterOf(G);
+  const cards = pool.map(p=>{
+    const nm = cleanPlayerName((G.players[p]&&G.players[p].name)||'');
+    const taken = !!nm;
+    return `<div class="char-card claim">
+      ${crewImg(p)}
+      <div class="cname ${taken?'':'empty'}">${taken ? esc(nm) : 'Open seat'}</div>
+      <div class="ctitle">${seatMeta(p).title}</div>
+      <div class="claim-row">
+        <input id="claim-${p}" class="claim-name" maxlength="16" placeholder="Your name" value="${esc(nm)}" autocomplete="nickname" />
+        <button type="button" class="btn" onclick="claimSeat('${p}')">Join</button>
+      </div>
+    </div>`;
+  }).join('');
   return `<div class="center" style="padding-top:4vh">
     <h1 class="brand-hero">SPACE TRIBES: <span>PARASITE</span></h1>
-    <p class="small">${note}</p>
-    <div class="char-grid">${pool.map(p=>`
-      <button class="char-card" onclick="pickChar('${p}')">
-        ${crewImg(p)}<div class="cname">${PLAYERS[p].name}</div>
-        <div class="ctitle">${PLAYERS[p].title}</div>
-      </button>`).join('')}</div>
+    <p class="small">This table is <b>${pool.length} players</b>. Type <b>your</b> name on your seat, then Join. This phone remembers you.</p>
+    <div class="char-grid">${cards}</div>
   </div>`;
 }
+function claimSeat(pid){
+  if (!G || !rosterOf(G).includes(pid)) return;
+  const el = document.getElementById('claim-'+pid);
+  const name = cleanPlayerName(el && el.value);
+  if (!name){ alert('Type your name first.'); return; }
+  // block duplicate names on other seats
+  const clash = rosterOf(G).find(p => p!==pid && cleanPlayerName((G.players[p]&&G.players[p].name)||'').toLowerCase()===name.toLowerCase());
+  if (clash){ alert('That name is already taken.'); return; }
+  const prev = cleanPlayerName((G.players[pid]&&G.players[pid].name)||'');
+  if (prev && prev.toLowerCase() !== name.toLowerCase()){
+    if (!confirm('Replace "'+prev+'" with "'+name+'" on this seat?')) return;
+  }
+  G.players[pid].name = name;
+  me = pid;
+  localStorage.setItem('stp_me', pid);
+  localStorage.setItem('stp_myname', name);
+  render();
+  // persist name to shared game
+  const path = 'games/current/players/'+pid+'/name';
+  const save = ()=> {
+    if (gameRef && !usingRest){
+      return gameRef.child('players/'+pid+'/name').set(name).catch(()=> restPut(path, name));
+    }
+    return restPut(path, JSON.parse(JSON.stringify(name)));
+  };
+  save().catch(err => console.warn('name save', err));
+}
 function pickChar(p){
-  if (G && !rosterOf(G).includes(p)) return;
-  me = p; localStorage.setItem('stp_me', p); render();
+  // back-compat for older calls / tests
+  claimSeat(p);
 }
 
 function topbarHTML(){
@@ -1798,7 +1948,7 @@ function topbarHTML(){
   const baseFaces = (pl.modDie||[]).filter(f=>f.kind==='base').map(f=>modFaceValue(f));
   const baseHint = baseFaces.length ? `Base ${baseFaces.map(v=>'+'+v).join('/')}` : '';
   return `<div class="topbar">
-    <button class="me-chip" onclick="switchChar()">${crewImg(me,'')} ${PLAYERS[me].name}</button>
+    <button class="me-chip" onclick="switchChar()">${crewImg(me,'')} ${esc(playerName(me))}</button>
     <div class="stat-chip energy">${tip('energy','⚡')} ${showLeft}${showLeft!==(pl.energy||0)?` <span class="small" style="color:var(--dim)">/${pl.energy||0}</span>`:''}</div>
     <div class="stat-chip pts">${pl.pts||0} pts</div>
   </div>
@@ -1816,7 +1966,7 @@ function standingsBarHTML(){
     const scar = G.players[p].scarLv ? `L${G.players[p].scarLv}` : '';
     const cls = (p===me?'me':'') + (pts===leadPts && leadPts>0?' lead':'');
     return `<div class="sb-chip ${cls}">
-      <div class="sb-name">${i+1}. ${PLAYERS[p].short}</div>
+      <div class="sb-name">${i+1}. ${esc(playerShort(p))}</div>
       <div class="sb-pts">${pts}</div>
       ${scar?`<div class="sb-meta" style="color:#ff8a9a">Scar ${scar}</div>`:''}
     </div>`;
@@ -1849,7 +1999,7 @@ function roundStripHTML(){
     else {
       const hid = hostIdForRound(G, r);
       if (r === G.round || (G.rounds[r] && G.rounds[r].result)){
-        label = (PLAYERS[hid] ? PLAYERS[hid].short : '?').slice(0,3);
+        label = playerShort(hid).slice(0,3);
       } else {
         label = '???'; cls+=' fog';
       }
@@ -1897,7 +2047,7 @@ function turnCoachHTML(r, isHost){
     how = `Play your human dice <b>plus</b> the monster vs the other <b>${n-1}</b>. Soft = safer. Heavy = power now + ${tip('scar','Scar')} + fatter ${tip('boss','Round 10')}. ${tip('instinct','Specialty die')} is live.`;
   } else {
     const hid = hostIdForRound(G, r);
-    title = `${(PLAYERS[hid]||{}).name||'Someone'} is infected`;
+    title = `${esc(playerName(hid))} is infected`;
     how = `Hold the ship. Your <b>${n-1}</b> crew totals combine against the host + parasite (balanced for this table).`;
   }
   return `<div class="turn-coach ${isHost?'parasite':''}"><div class="step">Round ${r} · ${kind}</div>
@@ -2350,7 +2500,7 @@ function waitingHTML(r){
     ${rosterOf(G).map(p=>{
       const ok = actionLocked(actions[p]);
       const tag = hostId===p ? ' · HOST' : '';
-      return `<div class="wait-row">${crewImg(p)} <b>${PLAYERS[p].name}</b>${tag}
+      return `<div class="wait-row">${crewImg(p)} <b>${esc(playerName(p))}</b>${tag}
         <span class="st ${ok?'in':'thinking'}">${ok?'LOCKED':'…'}</span></div>`;
     }).join('')}
   </div>`;
@@ -2381,7 +2531,7 @@ function playerReviewCardHTML(pid, res){
   }
   return `<div class="panel" style="padding:10px;margin-bottom:8px">
     <div class="award-row" style="border:none;padding:0 0 6px">
-      <span class="who">${crewImg(pid)} <b>${PLAYERS[pid].name}</b>${isHost?' <span class="badge" style="background:#8dff6a33;color:var(--bio)">HOST</span>':''}</span>
+      <span class="who">${crewImg(pid)} <b>${esc(playerName(pid))}</b>${isHost?' <span class="badge" style="background:#8dff6a33;color:var(--bio)">HOST</span>':''}</span>
       <span class="total-big crew" style="font-size:22px;margin:0">${Math.round(total)}</span>
     </div>
     ${diceRowMiniHTML(rolls)}
@@ -2405,7 +2555,7 @@ function verdictHTML(r){
     body = `<div class="vs-bar">
       <div class="vs-side h"><div class="lbl">Crew (${crewN})</div><div class="val">${Math.round(res.crewTotal)}</div></div>
       <div class="vs-x">vs</div>
-      <div class="vs-side p"><div class="lbl">${(PLAYERS[res.hostId]||{}).name||'Host'}+bug</div><div class="val">${Math.round(res.hostTotal)}</div></div>
+      <div class="vs-side p"><div class="lbl">${esc(playerName(res.hostId))}+bug</div><div class="val">${Math.round(res.hostTotal)}</div></div>
     </div>
     ${res.growth?`<div class="small center" style="margin:6px 0">Growth: <b>${esc(growthTitle(res.growth.key))}</b> · Boss Meter ${res.bossMeter}</div>`:''}`;
   } else if (res.kind==='boss'){
@@ -2415,7 +2565,7 @@ function verdictHTML(r){
       <div class="vs-x">vs</div>
       <div class="vs-side p"><div class="lbl">Boss HP</div><div class="val">${res.hp}</div></div>
     </div>
-    <div class="small center">${res.cleared ? `Hero: <b>${PLAYERS[res.hero].name}</b>` : 'It slips into the vents. Hollow victory on points.'}</div>`;
+    <div class="small center">${res.cleared ? `Hero: <b>${esc(playerName(res.hero))}</b>` : 'It slips into the vents. Hollow victory on points.'}</div>`;
   }
 
   // Order: host first if infection, else by total desc
@@ -2441,7 +2591,7 @@ function verdictHTML(r){
       return '';
     }).join('');
     const pend = (res.breakdown && res.breakdown[p] && res.breakdown[p].pendingEnergy) ? ` · mod +${res.breakdown[p].pendingEnergy}⚡` : '';
-    return `<div class="award-row"><span class="who">${crewImg(p)} ${PLAYERS[p].name}${badges}</span>
+    return `<div class="award-row"><span class="who">${crewImg(p)} ${esc(playerName(p))}${badges}</span>
       <span>+${a.pts}pts · +${a.energy}⚡${pend}</span></div>`;
   }).join('');
 
@@ -2483,7 +2633,7 @@ function runFinalReveal(){
       row.className = 'reveal-row'+(isWin?' winner':'');
       row.innerHTML = `<span class="place">${ordinalPlace(place)}</span>
         ${crewImg(e.p)}
-        <b>${PLAYERS[e.p].name}</b>${isWin?' <span class="badge mvp">HERO</span>':''}
+        <b>${esc(playerName(e.p))}</b>${isWin?' <span class="badge mvp">HERO</span>':''}
         <span class="pts-final">0</span>`;
       zone.prepend(row);
       requestAnimationFrame(()=>row.classList.add('show'));
