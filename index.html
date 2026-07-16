@@ -2847,7 +2847,8 @@ function rollPhaseHTML(r, isHost){
     const canParRR = canAffordParReroll();
     const parSel = session.selectedRoll && isParasiteRollType(session.selectedRoll.type);
     const par = liveParasiteBreakdown(live.attack, session.rolls||[]);
-    hostCombined = Math.round(humanSum + (par.total||0));
+    parTotal = Math.round(par.total||0);
+    hostCombined = humanSum + parTotal;
     const modBit = (par.flat||0) + (par.pctAdd||0);
     const parFinal = `<div class="roll-final" style="border-color:#8dff6a44">
         <div class="roll-eq par">
@@ -2861,9 +2862,9 @@ function rollPhaseHTML(r, isHost){
           <span class="op">+</span>
           <span class="rf tiny">Aura <b>${par.aura||0}</b></span>
           <span class="op">=</span>
-          <span class="rf total">Par <b>${Math.round(par.total||0)}</b></span>
+          <span class="rf total">Par <b>${parTotal}</b></span>
         </div>
-        <div class="small center" style="margin-top:6px">Host total = human <b>${humanSum}</b> + parasite <b>${Math.round(par.total||0)}</b> = <b style="color:var(--bio)">${hostCombined}</b></div>
+        <div class="small center" style="margin-top:6px">Host total = human <b>${humanSum}</b> + parasite <b>${parTotal}</b> = <b style="color:var(--bio)">${hostCombined}</b></div>
       </div>`;
     parBlock = `<div class="panel" style="border-color:#8dff6a44">
       <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('host','Parasite package')}</div>
@@ -2909,7 +2910,7 @@ function rollPhaseHTML(r, isHost){
 
   const canRR = canAffordReroll();
   const lockLabel = isHost
-    ? `Lock in · ${humanSum} + Par ${hostCombined - humanSum} = ${hostCombined}`
+    ? `Lock in · ${humanSum} + Par ${parTotal} = ${hostCombined}`
     : `Lock in · ${humanSum}`;
   return `<div class="panel">
       <div class="lane-label" style="margin-top:0">Your roll</div>
