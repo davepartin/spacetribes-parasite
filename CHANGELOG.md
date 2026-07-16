@@ -1,10 +1,13 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.16** · Schema **v6**
+Current build: **v4.3.17** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.17 — Readable Reroll button
+- **Reroll selected** uses white text on a blue gradient (was low-contrast grey on gold)
 
 ## v4.3.16 — Parasite “what these dice do” box
 - Bigger explanation box under the parasite package (Attack / Mod / Specialty)
