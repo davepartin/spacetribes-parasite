@@ -1,10 +1,14 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.15** · Schema **v6**
+Current build: **v4.3.16** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.16 — Parasite “what these dice do” box
+- Bigger explanation box under the parasite package (Attack / Mod / Specialty)
+- Titled **What these dice do**, with this roll’s Mod + Specialty called out
 
 ## v4.3.15 — Clearer parasite package
 - Parasite Attack / Mod / Specialty dice use solid, readable colors

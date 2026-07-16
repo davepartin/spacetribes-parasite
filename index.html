@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.3.15">
+<meta name="stp-build" content="v4.3.16">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -364,12 +364,15 @@ code{background:#00000055;padding:2px 5px;border-radius:5px;font-size:12px;word-
   box-shadow:inset 0 2px 0 #ffffff55, inset 0 -5px 0 #00000035, 0 6px 14px #f5c04244;}
 .die.scar .face-num,.die.scar .num{color:#fff;background:#8a2030;}
 .die.instinct .face-num{color:#1a1208;background:#c49220;}
-.explain-box{margin-top:10px;padding:12px 12px 11px;border-radius:12px;background:#0c1810;
-  border:1px solid #8dff6a44;color:var(--text);font-size:13px;line-height:1.45;}
-.explain-box p{margin:0 0 8px;color:var(--text);}
+.explain-box{margin-top:12px;padding:14px 14px 12px;border-radius:14px;background:#0c1810;
+  border:1.5px solid #8dff6a66;color:var(--text);font-size:14px;line-height:1.5;
+  box-shadow:inset 0 0 0 1px #8dff6a14;}
+.explain-box .ex-title{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--bio);margin:0 0 8px;}
+.explain-box p{margin:0 0 9px;color:var(--text);}
 .explain-box p:last-child{margin:0;}
 .explain-box b{color:var(--bio);}
-.explain-box .now{color:var(--energy);}
+.explain-box .now{color:var(--energy);font-weight:700;}
 .face-chip.scar{background:#2a1018;color:#ff8a9a;border-color:#ff5a4e55;}
 .face-chip.instinct{background:#2a2410;color:#f5c042;border-color:#f5c04255;}
 /* energy-face / base-face shop styles live with .face-chip block above */
@@ -1464,7 +1467,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.3.15';
+const APP_BUILD = 'v4.3.16';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2759,10 +2762,11 @@ function rollPhaseHTML(r, isHost){
           <div class="die-sub">${instId==='explode'&&session.instinctExtra?('+'+session.instinctExtra):''}</div></div>
       </div>
       <div class="explain-box">
-        <p><b>Attack</b> dice are the parasite’s hit power. If a die hits its max face, it ${tip('explode','explodes')} — roll again and add it.</p>
-        <p><b>Mod</b> adds a flat bonus or a % of those attack dice (this roll: <span class="now">${esc(pModTxt)}</span>).</p>
-        <p><b>Specialty</b> is a wild card each host turn. This roll: <span class="now">${esc(instFull)}</span>.${instExtra}</p>
-        <p>All of this stacks with your human total when you fight the rest of the crew.</p>
+        <div class="ex-title">What these dice do</div>
+        <p><b>Attack</b> — the parasite’s hit power. Hit the max face and it ${tip('explode','explodes')}: roll again and keep adding.</p>
+        <p><b>Mod</b> — a boost on top of Attack (flat number or %). This roll: <span class="now">${esc(pModTxt)}</span>.</p>
+        <p><b>Specialty</b> — a wild card each host turn. This roll: <span class="now">${esc(instFull)}</span>.${instExtra}</p>
+        <p>Together they stack with your human total when you fight the rest of the crew.</p>
       </div>
     </div>`;
   }
