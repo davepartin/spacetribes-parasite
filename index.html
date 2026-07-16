@@ -715,29 +715,58 @@ function applyHeavyGrowth(parasite, key, hostPl){
 }
 
 /* ================= COMBAT HELPERS ================= */
+function normalizeModRoll(modRoll){
+  if (!modRoll || !modRoll.kind) return modRoll;
+  if (modRoll.value == null){
+    modRoll = { ...modRoll, value: modFaceValue(modRoll) };
+  }
+  return modRoll;
+}
+
 function computeHumanTotal(rolls, modRoll, scarRoll, scarLv){
-  // rolls: [{v, color, dieId}], modRoll: {kind, level, value} | null if static
-  // scar applied already to rolls/mod in session; this is for resolve
+  // rolls should already include scar combat effects (bleed / −highest / fumble).
+  // modRoll null means scar blocked mod (no mod).
+  modRoll = normalizeModRoll(modRoll);
   let attack = (rolls||[]).reduce((s,d)=>s+(d.v||0), 0);
   let total = attack;
   let pendingEnergy = 0;
   let modAdd = 0;
   let modLabel = 'no mod';
   if (modRoll && modRoll.kind==='energy'){
-    pendingEnergy = modRoll.value;
-    modLabel = '+'+modRoll.value+'⚡ next';
+    pendingEnergy = modRoll.value|0;
+    modLabel = '+'+pendingEnergy+'⚡ next';
   } else if (modRoll && modRoll.kind==='pct'){
-    modAdd = Math.floor(attack * modRoll.value / 100);
+    modAdd = Math.floor(attack * (modRoll.value|0) / 100);
     total += modAdd;
     modLabel = '+'+modRoll.value+'% → +'+modAdd;
   } else if (modRoll && modRoll.kind==='base'){
-    modAdd = modRoll.value;
+    modAdd = modRoll.value|0;
     total += modAdd;
-    modLabel = 'Base +'+modRoll.value;
-  } else if (!modRoll){
-    modLabel = 'no mod';
+    modLabel = 'Base +'+modAdd;
   }
-  return { attack, total, pendingEnergy, modAdd, modLabel };
+  let scarLabel = '';
+  if (scarRoll && scarRoll.label) scarLabel = scarRoll.label;
+  return { attack, total, pendingEnergy, modAdd, modLabel, scarLabel };
+}
+
+/** Build display math from clean base dice + current mod/scar (for the big blue total). */
+function liveHumanBreakdown(){
+  const base = session.baseRolls || session.rolls || [];
+  const rawAttack = base.reduce((s,d)=>s+(d.v||0), 0);
+  const scar = session.scarRoll;
+  // Working rolls already have scar applied for resolve — use those for final total
+  const br = computeHumanTotal(session.rolls||[], session.modRoll, scar, G.players[me].scarLv||0);
+  return {
+    rawAttack,
+    attack: br.attack,
+    modAdd: br.modAdd,
+    modLabel: br.modLabel,
+    pendingEnergy: br.pendingEnergy,
+    scarLabel: br.scarLabel,
+    total: br.total,
+    ptsDelta: session.ptsDelta||0,
+    energyLoss: session.scarEnergyLoss||0,
+  };
 }
 
 function modStatusLine(pl){
@@ -1069,7 +1098,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.1.5';
+const APP_BUILD = 'v4.1.6';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1798,12 +1827,21 @@ function applyScarToSession(){
 function rollPhaseHTML(r, isHost){
   const shake = session.shake ? 'rolling' : '';
   const rolls = session.rolls||[];
-  const br = computeHumanTotal(rolls, session.modRoll, session.scarRoll, G.players[me].scarLv||0);
-  const humanSum = br.total;
+  const live = liveHumanBreakdown();
+  const humanSum = live.total;
+  const modKind = session.modRoll && session.modRoll.kind;
   let modLine = session.modRoll
-    ? `<div class="mod-flip"><span class="${modFaceClass({kind:session.modRoll.kind})}">Mod: ${esc(br.modLabel)}</span></div>`
-    : `<div class="mod-flip"><span class="blank">Mod: ${esc(br.modLabel)}</span></div>`;
-  const mathLine = `<div class="small center" style="margin-top:4px">Dice <b>${br.attack}</b>${br.modAdd?` + Mod <b>+${br.modAdd}</b>`:''}${br.pendingEnergy?` · <span style="color:var(--energy)">+${br.pendingEnergy}⚡ next</span>`:''} = <b>${br.total}</b></div>`;
+    ? `<div class="mod-flip"><span class="${modFaceClass({kind:modKind})}">Mod: ${esc(live.modLabel)}</span></div>`
+    : `<div class="mod-flip"><span class="blank">Mod: ${esc(live.modLabel)}</span></div>`;
+  const parts = [`Dice <b>${live.attack}</b>`];
+  if (live.modAdd) parts.push(`Mod <b>+${live.modAdd}</b> <span style="color:var(--dim)">(${esc(live.modLabel)})</span>`);
+  else if (live.pendingEnergy) parts.push(`<span style="color:var(--energy)">${esc(live.modLabel)}</span>`);
+  else parts.push(`Mod <span style="color:var(--dim)">${esc(live.modLabel)}</span>`);
+  if (live.scarLabel) parts.push(`Scar <b style="color:#ff8a9a">${esc(live.scarLabel)}</b>`);
+  if (live.ptsDelta) parts.push(`<span style="color:#ff8a9a">${live.ptsDelta} pts</span>`);
+  if (live.energyLoss) parts.push(`<span style="color:#ff8a9a">−${live.energyLoss}⚡</span>`);
+  const mathLine = `<div class="small center" style="margin-top:4px">${parts.join(' · ')}</div>
+    <div class="small center" style="margin-top:2px">Final combat total</div>`;
 
   let scarLine = '';
   if (session.scarRoll){
@@ -1852,13 +1890,16 @@ function rollPhaseHTML(r, isHost){
   return `<div class="panel">
       <div class="lane-label" style="margin-top:0">Your human roll</div>
       <div class="dice-row">${dice}${scarDie}</div>
-      ${modLine}${mathLine}${scarLine}
-      <div class="total-big crew center">${humanSum}</div>
+      ${modLine}${scarLine}
       <div class="hint">Tap a die, then reroll (${session.freeLeft?`<b>${session.freeLeft} free</b> · then `:''}⚡${CFG.rerollCost})</div>
       <button class="btn reroll" onclick="confirmReroll()" ${!session.selectedRoll || !canRR?'disabled':''}>Reroll selected</button>
     </div>
     ${parBlock}
-    <div class="fixed-cta"><button class="btn" onclick="lockIn()">Lock in</button></div>`;
+    <div class="fixed-cta" style="display:flex;flex-direction:column;gap:6px">
+      ${mathLine}
+      <div class="total-big crew center" style="margin:0">${humanSum}</div>
+      <button class="btn" onclick="lockIn()">Lock in</button>
+    </div>`;
 }
 
 function pickRoll(type, i){
