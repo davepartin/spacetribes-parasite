@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.3.13">
+<meta name="stp-build" content="v4.3.14">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -110,6 +110,7 @@ button{font-family:inherit;border:none;cursor:pointer;}
   line-height:1.1;white-space:nowrap;}
 .stat-chip.energy{color:var(--energy);border-color:#f5c04255;}
 .stat-chip.base{color:var(--good);border-color:#3ecf8e55;}
+.stat-chip.base.dim{color:var(--dim);border-color:var(--line);}
 .stat-chip.pts{color:var(--energy);}
 .round-strip{display:flex;gap:4px;margin:0 0 10px;overflow-x:auto;padding-bottom:2px;}
 .rnode{display:flex;flex-direction:column;align-items:center;flex:0 0 auto;width:58px;border-radius:9px;border:1.5px solid var(--line);background:var(--panel);
@@ -600,8 +601,8 @@ function ordinalPlace(place){
 const MOD_LEVELS = {
   energy: [2, 3, 4],
   pct:    [20, 30, 40],
-  // Flat Base only applies when this face is rolled — not a standing human stat
-  base:   [3, 4, 5],
+  // Base starts at 0; upgrade faces to earn +3 then +5 (shown in sticky header)
+  base:   [0, 3, 5],
 };
 
 const SCAR_FACES = {
@@ -635,7 +636,7 @@ const INSTINCT_FACES = [
 
 
 const TIPS = {
-  mod: { title:'Human mod die', body:'Always rolls with you. Faces: +2⚡ next (→3/4), +20% attack (→30/40), or Base +3 (→4/5). Base is only added when that face rolls — humans have no standing base attack. Upgrade a face for 2 Energy (max level 3).' },
+  mod: { title:'Human mod die', body:'Always rolls with you. Faces: +2⚡ next (→3/4), +20% attack (→30/40), or Base +0 (→3/5). Sticky header Base starts at +0 and rises as you upgrade Base faces. Base only adds to your total when that face rolls. Upgrade a face for 2 Energy (max level 3).' },
   scar: { title:'Scar die', body:'You get this after a heavy parasite growth. All 6 faces hurt. Labels show the real effect. You can reroll it.' },
   fusion: { title:'Human share', body:'On host turns, part of your human attack is added into the parasite total. Soft growth raises this percent; heavy can make it 100% for one round.' },
   aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn.' },
@@ -804,7 +805,7 @@ function modFaceLabel(face){
   const v = modFaceValue(face);
   if (face.kind==='energy') return '+'+v+'⚡';
   if (face.kind==='pct') return '+'+v+'%';
-  if (face.kind==='base') return 'B+'+v;
+  if (face.kind==='base') return v ? ('B+'+v) : 'B0';
   return '?';
 }
 function modFaceClass(face){
@@ -1446,7 +1447,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.3.13';
+const APP_BUILD = 'v4.3.14';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2051,7 +2052,7 @@ function instructionsModalHTML(){
       </ul>
       <h3>Human mod die</h3>
       <ul>
-        <li>2× Energy (+2/3/4⚡) · 2× % (+20/30/40) · 2× Base (+3/4/5). Always rolls. Base only counts when that face hits — no standing human base.</li>
+        <li>2× Energy (+2/3/4⚡) · 2× % (+20/30/40) · 2× Base (+0/3/5). Header Base starts at +0 and rises when you upgrade Base faces. Base only adds when that face rolls.</li>
         <li>Your big blue total = dice + mod (after scar, if any).</li>
       </ul>
       <h3>Host turns (R2–9)</h3>
@@ -2253,14 +2254,27 @@ function pickChar(p){
   claimSeat(p);
 }
 
+/** Best Base face value (0 until you upgrade). Uses shop preview so queued upgrades show live. */
+function myBaseAttackValue(pl){
+  const die = (typeof previewModDie === 'function' && session && cart && session.phase === 'upgrade')
+    ? previewModDie(pl)
+    : ((pl && pl.modDie) || []);
+  const vals = die.filter(f => f && f.kind === 'base').map(f => modFaceValue(f));
+  return vals.length ? Math.max(...vals) : 0;
+}
+function myBaseAttackLabel(pl){
+  return 'Base +' + myBaseAttackValue(pl);
+}
 function topbarHTML(){
   const pl = (G.players && G.players[me]) || { energy:0, pts:0, modDie:[] };
   const left = (typeof energyLeft === 'function' && session && cart) ? energyLeft() : (pl.energy||0);
   const showLeft = (session && session.phase) ? left : (pl.energy||0);
-  // No standing "Base" chip — Base only applies when the mod die rolls a Base face
+  const baseLab = myBaseAttackLabel(pl);
+  const baseN = myBaseAttackValue(pl);
   return `<div class="topbar">
     <button class="me-chip" onclick="switchChar()">${whoHTML(me)}</button>
     <div class="stat-chip energy">${tip('energy','⚡')} ${showLeft}${showLeft!==(pl.energy||0)?`<span style="color:var(--dim);font-size:10px">/${pl.energy||0}</span>`:''}</div>
+    <div class="stat-chip base${baseN?'':' dim'}" title="Rises when you upgrade Base faces on your mod die">${tip('mod', baseLab)}</div>
     <div class="stat-chip pts">${pl.pts||0} pts</div>
   </div>`;
 }
@@ -2422,8 +2436,8 @@ function shopHTML(r, isHost){
     </div>`;
   }
 
-  const modBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('mod','Modifier die')} (2⚡ / 20% / Base+3)</div>
-    <div class="si-desc">Upgrade a face for 2⚡. Max level 3 (⚡→4, %→40, Base→5).</div></div><div class="si-cost">2⚡</div></div>
+  const modBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('mod','Modifier die')} (2⚡ / 20% / Base+0)</div>
+    <div class="si-desc">Upgrade a face for 2⚡. Max level 3 (⚡→4, %→40, Base 0→3→5).</div></div><div class="si-cost">2⚡</div></div>
     <div class="face-strip">${modPrev.map((f,i)=>{
       const queued = (cart.modUps||[]).filter(x=>x===i).length;
       const pick = ui.selectedModFace===i;

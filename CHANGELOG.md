@@ -1,10 +1,15 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.13** · Schema **v6**
+Current build: **v4.3.14** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.14 — Base chip back (starts +0)
+- Sticky header shows **Base** again (You · Energy · Base · Points)
+- Base starts at **+0**; rises to **+3 / +5** as you upgrade mod Base faces
+- Still only adds to combat total when the mod die rolls Base
 
 ## v4.3.13 — Cleaner shop + roll layout
 - **Reset choices** no longer floats over Extra die (scrolls with shop)
