@@ -1,10 +1,14 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.3** · Schema **v6**
+Current build: **v4.3.4** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.4 — Computer opponents (solo test)
+- Leave a seat **blank** at New game → it becomes a **Comp** that auto-shops, rolls, and locks
+- Type only your name to solo-play against computers
 
 ## v4.3.3 — Color + shape seat icons
 - Each seat is a distinct **color + shape** (circle, triangle, square, diamond, star, hex)
