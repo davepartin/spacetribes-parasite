@@ -1476,7 +1476,7 @@ function topbarHTML(){
     <div class="stat-chip energy">⚡ ${showLeft}${showLeft!==(pl.energy||0)?` <span class="small" style="color:var(--dim)">/${pl.energy||0}</span>`:''}</div>
     <div class="stat-chip pts">${pl.pts||0} pts</div>
   </div>
-  <div class="small center" style="margin:2px 0 6px;color:var(--dim)">Mod die: ${esc(modStatusLine(pl))}${baseHint?` · <b style="color:var(--energy)">${baseHint}</b>`:''}</div>`;
+  <div class="small center" style="margin:4px 0 0;color:var(--dim)">Mod die: ${esc(modStatusLine(pl))}${baseHint?` · <b style="color:var(--energy)">${baseHint}</b>`:''}</div>`;
 }
 function switchChar(){ if (confirm('Switch crew on this phone?')){ me=null; localStorage.removeItem('stp_me'); render(); } }
 
@@ -1502,7 +1502,7 @@ function standingsBarHTML(){
   </div>`;
 }
 function chromeHTML(){
-  return topbarHTML() + standingsBarHTML();
+  return `<div class="chrome-sticky">${topbarHTML()}${standingsBarHTML()}</div>`;
 }
 function scoreboardHTML(){
   // Kept for any deep links; main standings live in the sticky bar now.
