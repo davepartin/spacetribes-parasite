@@ -1,10 +1,14 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.7** · Schema **v6**
+Current build: **v4.3.8** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.8 — Solid color dice
+- Red / blue / green dice are solid color with **white pips + white number**
+- Bought extra dice use the same look
 
 ## v4.3.7 — Clearer roll total / reroll
 - Combat total sits **inline** with dice math (not stacked over Reroll)
