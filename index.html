@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.3.12">
+<meta name="stp-build" content="v4.3.13">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -28,7 +28,8 @@ body{background:
   radial-gradient(700px 420px at 50% -5%, #1a3a2a66, transparent),
   radial-gradient(600px 400px at 100% 40%, #3a152055, transparent),
   var(--bg);}
-#app{max-width:520px;margin:0 auto;padding:10px 12px 150px;position:relative;min-height:100vh;z-index:1;}
+#app{max-width:520px;margin:0 auto;padding:10px 12px 180px;position:relative;min-height:100vh;z-index:1;}
+.cta-spacer{height:8px;margin-bottom:12px;}
 h1,h2,h3{margin:0 0 6px;font-family:'Orbitron',sans-serif;letter-spacing:.03em;line-height:1.2;}
 h3{font-size:15px;}
 button{font-family:inherit;border:none;cursor:pointer;}
@@ -131,7 +132,7 @@ button{font-family:inherit;border:none;cursor:pointer;}
 
 .role-banner{display:none;}
 
-.dice-row{display:flex;justify-content:center;gap:10px;margin:10px 0;flex-wrap:wrap;}
+.dice-row{display:flex;justify-content:center;align-items:flex-start;gap:10px;margin:10px 0;flex-wrap:wrap;}
 .die-wrap{text-align:center;}
 .die-wrap.selected .die{box-shadow:0 0 0 3px var(--energy), 0 6px 16px #0008;}
 .die-wrap.can-pick{cursor:pointer;}
@@ -342,14 +343,18 @@ code{background:#00000055;padding:2px 5px;border-radius:5px;font-size:12px;word-
 .roll-math .roll-bits{flex:1;min-width:0;}
 .roll-math .roll-total{font-family:'IBM Plex Mono',monospace;font-weight:800;color:var(--blue);white-space:nowrap;font-size:15px;}
 .roll-math .roll-total b{font-size:22px;margin-left:4px;}
-.roll-final{margin:10px 0 4px;padding:12px 10px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);}
+.roll-final{margin:10px 0 4px;padding:14px 12px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);}
 .roll-eq{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
   font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;color:var(--dim);}
 .roll-eq .rf b{color:var(--text);font-size:18px;}
 .roll-eq .rf.total{color:var(--blue);}
-.roll-eq .rf.total b{color:var(--blue);font-size:28px;font-weight:800;}
+.roll-eq .rf.total b{color:var(--blue);font-size:30px;font-weight:800;}
 .roll-eq .op{color:var(--dim);font-size:16px;}
 .die-label.hmod{color:var(--energy);}
+.dice-plus{display:flex;align-items:center;justify-content:center;align-self:center;
+  width:22px;height:22px;margin:0 2px 22px;border-radius:50%;
+  background:#f5c04222;border:1px solid #f5c04255;color:var(--energy);
+  font-weight:800;font-size:14px;font-family:'IBM Plex Mono',monospace;flex:0 0 auto;}
 .hint{font-size:13px;color:var(--dim);text-align:center;margin:6px 0;line-height:1.4;}
 
 .die.scar{background:linear-gradient(160deg,#2a1018,#12080c);color:#ff8a9a;border:1px solid #ff5a4e55;}
@@ -1441,7 +1446,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.3.12';
+const APP_BUILD = 'v4.3.13';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2464,8 +2469,9 @@ function shopHTML(r, isHost){
     <div class="spent-preview">Energy left after shop: ⚡ ${left}</div>
     <div class="dice-row">${diceRow}</div>
     ${forgeBlock}${modBlock}${extras}
-    <div class="fixed-cta" style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn ghost" onclick="resetChoices()">Reset choices</button>
+    <button class="btn ghost" style="margin-top:4px" onclick="resetChoices()">Reset choices</button>
+    <div class="cta-spacer"></div>
+    <div class="fixed-cta">
       <button class="btn" onclick="beginRoll()" ${!canRoll || left<0?'disabled':''}>${isHost&&!cart.growth?'Pick a growth first':'Roll dice'}</button>
     </div>`;
 }
@@ -2739,13 +2745,14 @@ function rollPhaseHTML(r, isHost){
   const canRR = canAffordReroll();
   return `<div class="panel">
       <div class="lane-label" style="margin-top:0">Your roll</div>
-      <div class="dice-row">${dice}${modDie}${scarDie}</div>
+      <div class="dice-row">${dice}<span class="dice-plus" aria-hidden="true">+</span>${modDie}${scarDie}</div>
       ${scarLine}
       ${finalBlock}
       <div class="hint">Tap any die (including mod), then reroll (${session.freeLeft?`<b>${session.freeLeft} free</b> · then `:''}⚡${CFG.rerollCost})</div>
       <button class="btn reroll" onclick="confirmReroll()" ${!session.selectedRoll || !canRR?'disabled':''}>Reroll selected</button>
     </div>
     ${parBlock}
+    <div class="cta-spacer"></div>
     <div class="fixed-cta">
       <button class="btn" onclick="lockIn()">Lock in · ${humanSum}</button>
     </div>`;

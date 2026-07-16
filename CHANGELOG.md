@@ -1,10 +1,15 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.12** · Schema **v6**
+Current build: **v4.3.13** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.13 — Cleaner shop + roll layout
+- **Reset choices** no longer floats over Extra die (scrolls with shop)
+- Roll board shows crew dice **+** mod die, then **Dice + Mod = Total**
+- More bottom room so Lock in / Roll dice don’t cover content
 
 ## v4.3.12 — Big mod die on the roll board
 - Shop mod faces look like mini dice (⚡ / % / Base colors)
