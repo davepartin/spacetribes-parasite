@@ -2,7 +2,7 @@
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.3.1** — Variable table size (3–6). **Type in each player's name** (no fixed Dave/Brian seats). Parasite + boss HP scale with player count. Host seats are random (max 2 each, never 3). 3-player tables get two skirmish rounds so the math fits.
+**v4.3.2** — Full 4.0→4.3 stack. Variable table size (3–6). **Type in each player's name**. Parasite + boss HP scale with player count. Host seats are random (max 2 each, never 3). 3-player tables get two skirmish rounds. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Mission map
 
