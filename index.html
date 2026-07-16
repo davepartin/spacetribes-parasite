@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.3.8">
+<meta name="stp-build" content="v4.3.9">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -168,6 +168,13 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .die.green .face-num{color:#fff;background:#1a8f68;}
 .die.attack .face-num{color:#ffd2b0;background:#1e100c;}
 .die.mod .face-num{color:var(--bio);background:#0e1a10;}
+/* Bought bonus die: light diagonal hatch + corner + (same color family as starter) */
+.die.bonus::before{content:'';position:absolute;inset:2px;border-radius:12px;pointer-events:none;z-index:1;
+  background:repeating-linear-gradient(-38deg,transparent 0 4px,rgba(255,255,255,.3) 4px 6px);}
+.die.bonus .pips,.die.bonus .num{position:relative;z-index:2;}
+.die.bonus .face-num{z-index:3;}
+.die.bonus .die-bonus-mark{position:absolute;top:2px;right:4px;z-index:4;font-size:11px;font-weight:800;
+  line-height:1;color:#fff;text-shadow:0 1px 2px #000a;pointer-events:none;}
 .die .corner-num{display:none;}
 .die.rolling{animation:shake .5s ease-in-out infinite;}
 @keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg) translateY(-5px)}
@@ -644,11 +651,13 @@ function shuffle(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=randInt(i+1
 
 function starterDice(){
   return [
-    { id:'w1', color:'red',   faces:stdFaces() },
-    { id:'s1', color:'blue',  faces:stdFaces() },
-    { id:'a1', color:'green', faces:stdFaces() },
+    { id:'w1', color:'red',   faces:stdFaces(), bonus:false },
+    { id:'s1', color:'blue',  faces:stdFaces(), bonus:false },
+    { id:'a1', color:'green', faces:stdFaces(), bonus:false },
   ];
 }
+function isStarterDieId(id){ return id==='w1' || id==='s1' || id==='a1'; }
+function isBonusDie(d){ return !!(d && (d.bonus || d.tempNew || d.id==='preview')); }
 function starterModDie(){
   // 2 energy, 2 pct, 2 base — all level 0
   return [
@@ -851,12 +860,13 @@ function pipHTML(v){
   for (let i=0;i<9;i++) cells += `<i style="visibility:${map[v].includes(i)?'visible':'hidden'}"></i>`;
   return `<span class="pips">${cells}</span><span class="face-num">${v}</span>`;
 }
-function dieHTML(color, value, extraCls=''){
+function dieHTML(color, value, extraCls='', opts={}){
   let face;
   if (value==null) face = `<span class="num">?</span>`;
   else if (typeof value==='number') face = pipHTML(value);
   else face = `<span class="num">${esc(String(value))}</span>`;
-  return `<div class="die ${color} ${extraCls}">${face}</div>`;
+  const bonus = !!(opts && opts.bonus);
+  return `<div class="die ${color} ${extraCls}${bonus?' bonus':''}"${bonus?' title="Bought bonus die"':''}>${face}${bonus?'<span class="die-bonus-mark">+</span>':''}</div>`;
 }
 function facesStripHTML(faces, opts={}){
   const { dieId, selectable, picked, forgedSet } = opts;
@@ -1082,7 +1092,7 @@ function modStatusLine(pl){
 
 function diceRowMiniHTML(rolls){
   return `<div class="dice-row" style="margin:6px 0">${(rolls||[]).map(d=>
-    `<div class="die-wrap">${dieHTML(d.color||'red', d.scarZeroed?0:d.v)}${d.scarNote?`<div class="die-sub">${esc(d.scarNote)}</div>`:''}</div>`
+    `<div class="die-wrap">${dieHTML(d.color||'red', d.scarZeroed?0:d.v, '', {bonus:isBonusDie(d)})}${d.scarNote?`<div class="die-sub">${esc(d.scarNote)}</div>`:''}${isBonusDie(d)?`<div class="die-sub">bonus</div>`:''}</div>`
   ).join('')}</div>`;
 }
 
@@ -1161,7 +1171,7 @@ function resolveRound(g){
     if (a.addDie && canAddColor(pl, a.addDie, null)){
       spent += CFG.addDieCost;
       const fromRoll = (a.rolls||[]).find(d=>d.tempNew);
-      pl.dice.push({ id: fromRoll ? fromRoll.dieId : uid(a.addDie[0]), color: a.addDie, faces: stdFaces() });
+      pl.dice.push({ id: fromRoll ? fromRoll.dieId : uid(a.addDie[0]), color: a.addDie, faces: stdFaces(), bonus: true });
     }
     spent += Math.max(0, a.rerollBuys||0) * CFG.rerollCost;
     // free-reroll perk purchase removed — everyone gets CFG.freeRerollsPerRound each round
@@ -1405,7 +1415,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.3.8';
+const APP_BUILD = 'v4.3.9';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1458,6 +1468,9 @@ function normalizeGame(v){
     }
     if (pl.isBot && /^comp\b/i.test(pl.name) === false && !cleanPlayerName(pl.name)) pl.name = 'Comp';
     if (!pl.dice) pl.dice = starterDice();
+    (pl.dice||[]).forEach(d=>{
+      if (d && d.bonus == null) d.bonus = !isStarterDieId(d.id);
+    });
     if (!pl.modDie) pl.modDie = starterModDie();
     if (!pl.perks) pl.perks = { freeReroll:false };
     if (pl.scarLv == null) pl.scarLv = 0;
@@ -1703,7 +1716,7 @@ function buildBotAction(pid){
   });
   let rolls = dice.map(d=>{
     const rf = rollFace(d.faces);
-    return { dieId:d.id, color:d.color, faces:d.faces, index:rf.index, v:rf.value, first:rf.value, rerolled:false };
+    return { dieId:d.id, color:d.color, faces:d.faces, index:rf.index, v:rf.value, first:rf.value, rerolled:false, bonus:!!d.bonus };
   });
   const modDie = deep(pl.modDie);
   const mi = rollIndex(modDie.length);
@@ -2077,7 +2090,7 @@ function previewHumanDice(pl){
     const d = findDie(dice, f.dieId);
     applyForge(d, f.faceIndex, CFG.forgeBump);
   });
-  if (cart.addDie) dice.push({ id:'preview', color: cart.addDie, faces:stdFaces() });
+  if (cart.addDie) dice.push({ id:'preview', color: cart.addDie, faces:stdFaces(), bonus:true });
   return dice;
 }
 function previewModDie(pl){
@@ -2370,8 +2383,10 @@ function shopHTML(r, isHost){
 
   const diceRow = preview.map(d=>{
     const cls = ui.selectedDie===d.id ? 'selected' : '';
-    return `<div class="die-wrap can-pick ${cls}" onclick="selectDie('${d.id}')">${dieHTML(d.color, d.faces[0])}
-      <div class="die-label ${d.color}">${COLOR_META[d.color].name}</div></div>`;
+    const bonus = isBonusDie(d);
+    return `<div class="die-wrap can-pick ${cls}" onclick="selectDie('${d.id}')">${dieHTML(d.color, d.faces[0], '', {bonus})}
+      <div class="die-label ${d.color}">${COLOR_META[d.color].name}${bonus?' +':''}</div>
+      ${bonus?`<div class="die-sub">bonus</div>`:''}</div>`;
   }).join('');
 
   let forgeBlock = '';
@@ -2498,11 +2513,12 @@ function beginRoll(){
   // human rolls
   const rolls = preview.map(d=>{
     const rf = rollFace(d.faces);
-    return { dieId:d.id, color:d.color, faces:d.faces, index:rf.index, v:rf.value, first:rf.value, rerolled:false, tempNew:d.id==='preview' };
+    const bonus = isBonusDie(d);
+    return { dieId:d.id, color:d.color, faces:d.faces, index:rf.index, v:rf.value, first:rf.value, rerolled:false, tempNew:d.id==='preview', bonus };
   });
   if (cart.addDie){
     const last = rolls[rolls.length-1];
-    if (last && last.tempNew) last.dieId = uid(cart.addDie[0]);
+    if (last && last.tempNew){ last.dieId = uid(cart.addDie[0]); last.bonus = true; }
   }
   // mod roll
   const mi = rollIndex(modPrev.length);
@@ -2647,10 +2663,14 @@ function rollPhaseHTML(r, isHost){
   const dice = rolls.map((d,i)=>{
     const sel = session.selectedRoll && session.selectedRoll.type==='h' && session.selectedRoll.i===i;
     const shown = d.scarZeroed ? 0 : d.v;
-    const sub = d.scarNote ? d.scarNote : (d.rerolled?'rerolled':'');
-    return `<div class="die-wrap can-pick ${sel?'selected':''}" onclick="pickRoll('h',${i})">${dieHTML(d.color, shown, shake)}
-      <div class="die-label ${d.color}">${COLOR_META[d.color].name}</div>
-      <div class="die-sub">${sub}</div></div>`;
+    const bonus = isBonusDie(d);
+    const bits = [];
+    if (d.scarNote) bits.push(d.scarNote);
+    else if (d.rerolled) bits.push('rerolled');
+    if (bonus) bits.push('bonus');
+    return `<div class="die-wrap can-pick ${sel?'selected':''}" onclick="pickRoll('h',${i})">${dieHTML(d.color, shown, shake, {bonus})}
+      <div class="die-label ${d.color}">${COLOR_META[d.color].name}${bonus?' +':''}</div>
+      <div class="die-sub">${bits.join(' · ')}</div></div>`;
   }).join('');
 
   let parBlock = '';

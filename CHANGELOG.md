@@ -1,10 +1,14 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.8** · Schema **v6**
+Current build: **v4.3.9** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.9 — Bonus dice look different
+- Bought extra dice keep the solid color but get a **light diagonal hatch** and a small **+**
+- Label shows “bonus” so you can tell starter red from a later-bought red
 
 ## v4.3.8 — Solid color dice
 - Red / blue / green dice are solid color with **white pips + white number**
