@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.3.5">
+<meta name="stp-build" content="v4.3.6">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -85,10 +85,10 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .char-card.claim .claim-row .btn{margin:0;padding:10px 12px;font-size:13px;width:auto;}
 .char-card .cname.empty{color:var(--dim);font-style:italic;font-weight:600;}
 
-.chrome-sticky{position:sticky;top:0;z-index:22;background:linear-gradient(#081018fb,#081018f0);
-  backdrop-filter:blur(10px);padding:6px 0 8px;margin:0 0 10px;border-bottom:1px solid #2a405066;}
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:0;padding:0;}
-.standings-bar{border:1px solid var(--line);border-radius:12px;padding:8px 8px 6px;margin:6px 0 0;
+.chrome-sticky{position:sticky;top:0;z-index:22;background:linear-gradient(#081018fc,#081018f5);
+  backdrop-filter:blur(10px);padding:4px 0 5px;margin:0 0 8px;border-bottom:1px solid #2a405055;}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:5px;margin:0;padding:0;min-height:0;}
+.standings-bar{border:1px solid var(--line);border-radius:12px;padding:8px 8px 6px;margin:0 0 10px;
   background:var(--panel);box-shadow:0 4px 14px #0005;}
 .standings-bar .sb-label{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-bottom:5px;}
 .standings-bar .sb-row{display:flex;gap:4px;justify-content:space-between;flex-wrap:wrap;}
@@ -98,12 +98,17 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .standings-bar .sb-chip.lead{border-color:#f5c04266;}
 .standings-bar .sb-pts{font-size:14px;font-weight:800;color:var(--energy);line-height:1.1;margin-top:1px;}
 .standings-bar .sb-meta{font-size:9px;color:var(--dim);margin-top:3px;font-family:'IBM Plex Sans',sans-serif;}
-.me-chip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
-  border-radius:99px;padding:6px 12px 6px 8px;font-weight:700;font-size:14px;color:inherit;}
-.me-chip .em{font-size:18px;}
-.stat-chip{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:6px 11px;
-  font-weight:700;font-size:14px;display:flex;align-items:center;gap:4px;font-family:'IBM Plex Mono',monospace;}
+.mod-status-line{font-size:12px;color:var(--dim);margin:0 0 10px;line-height:1.35;}
+.me-chip{display:flex;align-items:center;gap:5px;background:var(--panel);border:1px solid var(--line);
+  border-radius:999px;padding:3px 8px 3px 4px;font-weight:700;font-size:12px;color:inherit;line-height:1.1;min-width:0;}
+.me-chip .seat-mark{width:18px;height:18px;}
+.me-chip .who{gap:5px;font-size:12px;}
+.me-chip .em{font-size:14px;}
+.stat-chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 8px;
+  font-weight:700;font-size:12px;display:flex;align-items:center;gap:3px;font-family:'IBM Plex Mono',monospace;
+  line-height:1.1;white-space:nowrap;}
 .stat-chip.energy{color:var(--energy);border-color:#f5c04255;}
+.stat-chip.base{color:var(--good);border-color:#3ecf8e55;}
 .stat-chip.pts{color:var(--energy);}
 .round-strip{display:flex;gap:4px;margin:0 0 10px;overflow-x:auto;padding-bottom:2px;}
 .rnode{display:flex;flex-direction:column;align-items:center;flex:0 0 auto;width:58px;border-radius:9px;border:1.5px solid var(--line);background:var(--panel);
@@ -1385,7 +1390,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.3.5';
+const APP_BUILD = 'v4.3.6';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2189,28 +2194,33 @@ function pickChar(p){
   claimSeat(p);
 }
 
+function myBaseAttackLabel(pl){
+  const baseFaces = ((pl && pl.modDie) || []).filter(f => f.kind==='base').map(f => modFaceValue(f));
+  if (!baseFaces.length) return 'Base —';
+  const lo = Math.min(...baseFaces);
+  const hi = Math.max(...baseFaces);
+  return lo===hi ? `Base +${hi}` : `Base +${lo}/${hi}`;
+}
 function topbarHTML(){
   const pl = (G.players && G.players[me]) || { energy:0, pts:0, modDie:[] };
   const left = (typeof energyLeft === 'function' && session && cart) ? energyLeft() : (pl.energy||0);
   const showLeft = (session && session.phase) ? left : (pl.energy||0);
-  // Base faces on mod die — show strongest Base face value as your "base floor" when it hits
-  const baseFaces = (pl.modDie||[]).filter(f=>f.kind==='base').map(f=>modFaceValue(f));
-  const baseHint = baseFaces.length ? `Base ${baseFaces.map(v=>'+'+v).join('/')}` : '';
+  const baseLab = myBaseAttackLabel(pl);
   return `<div class="topbar">
     <button class="me-chip" onclick="switchChar()">${whoHTML(me)}</button>
-    <div class="stat-chip energy">${tip('energy','⚡')} ${showLeft}${showLeft!==(pl.energy||0)?` <span class="small" style="color:var(--dim)">/${pl.energy||0}</span>`:''}</div>
+    <div class="stat-chip energy">${tip('energy','⚡')} ${showLeft}${showLeft!==(pl.energy||0)?`<span style="color:var(--dim);font-size:10px">/${pl.energy||0}</span>`:''}</div>
+    <div class="stat-chip base" title="Best Base faces on your mod die">${tip('mod', baseLab)}</div>
     <div class="stat-chip pts">${pl.pts||0} pts</div>
-  </div>
-  <div class="small center" style="margin:4px 0 0;color:var(--dim)">${tip('mod','Mod die')}: ${esc(modStatusLine(pl))}${baseHint?` · <b style="color:var(--energy)">${baseHint}</b>`:''}</div>`;
+  </div>`;
 }
 function switchChar(){ if (confirm('Switch crew on this phone?')){ me=null; localStorage.removeItem('stp_me'); render(); } }
 
-/** Compact always-on standings — sticky under the top bar on every screen. */
+/** Standings + mod faces — scroll with the page (not sticky). */
 function standingsBarHTML(){
   if (!G || !G.players) return '';
   const ranked = rosterOf(G).slice().sort((a,b)=> (G.players[b].pts||0)-(G.players[a].pts||0));
   const leadPts = G.players[ranked[0]] ? (G.players[ranked[0]].pts||0) : 0;
-  const chips = ranked.map((p,i)=>{
+  const chips = ranked.map((p)=>{
     const pts = G.players[p].pts||0;
     const scar = G.players[p].scarLv ? `L${G.players[p].scarLv}` : '';
     const bot = !!G.players[p].isBot;
@@ -2228,11 +2238,16 @@ function standingsBarHTML(){
     <div class="sb-row">${chips}</div>
   </div>`;
 }
+function modStatusBarHTML(){
+  if (!G || !me || !G.players || !G.players[me]) return '';
+  const pl = G.players[me];
+  return `<div class="mod-status-line">${tip('mod','Mod die')}: ${esc(modStatusLine(pl))}</div>`;
+}
 function chromeHTML(){
-  return `<div class="chrome-sticky">${topbarHTML()}${standingsBarHTML()}</div>`;
+  // Sticky: only you / energy / base / pts. Standings + mod faces scroll away.
+  return `<div class="chrome-sticky">${topbarHTML()}</div>${standingsBarHTML()}${modStatusBarHTML()}`;
 }
 function scoreboardHTML(){
-  // Kept for any deep links; main standings live in the sticky bar now.
   return '';
 }
 

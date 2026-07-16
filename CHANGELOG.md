@@ -1,10 +1,14 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.5** · Schema **v6**
+Current build: **v4.3.6** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.6 — Slim sticky header
+- Sticky top bar is **only**: you · energy left · Base attack · points
+- Standings and full mod-die face list **scroll** with the page
 
 ## v4.3.5 — Solo start with all seats blank
 - **Who’s playing?** no longer blocks when every name field is empty
