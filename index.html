@@ -1586,7 +1586,34 @@ function shopHTML(r, isHost){
     <div class="spent-preview">Energy left after shop: ⚡ ${left}</div>
     <div class="dice-row">${diceRow}</div>
     ${forgeBlock}${modBlock}${extras}
-    <div class="fixed-cta"><button class="btn" onclick="beginRoll()" ${!canRoll || left<0?'disabled':''}>${isHost&&!cart.growth?'Pick a growth first':'Roll dice'}</button></div>`;
+    <div class="fixed-cta" style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn ghost" onclick="resetChoices()">Reset choices</button>
+      <button class="btn" onclick="beginRoll()" ${!canRoll || left<0?'disabled':''}>${isHost&&!cart.growth?'Pick a growth first':'Roll dice'}</button>
+    </div>`;
+}
+function resetChoices(){
+  if (session && session.phase === 'roll'){
+    if (!confirm('Go back and clear this round’s upgrades? Your current roll will be discarded.')) return;
+    session.phase = 'upgrade';
+    session.rolls = null;
+    session.baseRolls = null;
+    session.baseModRoll = null;
+    session.modRoll = null;
+    session.scarRoll = null;
+    session.aRolls = null;
+    session.pModRoll = null;
+    session.instinctRoll = null;
+    session.paidRerolls = 0;
+    session.freeLeft = 0;
+    session.selectedRoll = null;
+    session.ptsDelta = 0;
+    session.scarEnergyLoss = 0;
+  }
+  cart = freshCart();
+  ui.selectedDie = null;
+  ui.selectedFace = null;
+  ui.selectedModFace = null;
+  render();
 }
 
 function selectDie(id){ ui.selectedDie=id; ui.selectedFace=null; render(); }
