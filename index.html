@@ -697,10 +697,35 @@ function computeHumanTotal(rolls, modRoll, scarRoll, scarLv){
   let attack = (rolls||[]).reduce((s,d)=>s+(d.v||0), 0);
   let total = attack;
   let pendingEnergy = 0;
-  if (modRoll && modRoll.kind==='energy') pendingEnergy = modRoll.value;
-  if (modRoll && modRoll.kind==='pct') total += Math.floor(attack * modRoll.value / 100);
-  if (modRoll && modRoll.kind==='base') total += modRoll.value;
-  return { attack, total, pendingEnergy };
+  let modAdd = 0;
+  let modLabel = 'no mod';
+  if (modRoll && modRoll.kind==='energy'){
+    pendingEnergy = modRoll.value;
+    modLabel = '+'+modRoll.value+'⚡ next';
+  } else if (modRoll && modRoll.kind==='pct'){
+    modAdd = Math.floor(attack * modRoll.value / 100);
+    total += modAdd;
+    modLabel = '+'+modRoll.value+'% → +'+modAdd;
+  } else if (modRoll && modRoll.kind==='base'){
+    modAdd = modRoll.value;
+    total += modAdd;
+    modLabel = 'Base +'+modRoll.value;
+  } else if (!modRoll){
+    modLabel = 'no mod';
+  }
+  return { attack, total, pendingEnergy, modAdd, modLabel };
+}
+
+function modStatusLine(pl){
+  const m = (pl && pl.modDie) || [];
+  const parts = m.map(f => modFaceLabel(f));
+  return parts.length ? parts.join(' · ') : '—';
+}
+
+function diceRowMiniHTML(rolls){
+  return `<div class="dice-row" style="margin:6px 0">${(rolls||[]).map(d=>
+    `<div class="die-wrap">${dieHTML(d.color||'red', d.scarZeroed?0:d.v)}${d.scarNote?`<div class="die-sub">${esc(d.scarNote)}</div>`:''}</div>`
+  ).join('')}</div>`;
 }
 
 function computeParasitePortion(parasite, aRolls, modRoll, instinctRoll, humanAttack, highestHumanDie, fusionOverride){
@@ -810,16 +835,22 @@ function resolveRound(g){
   if (kind==='training'){
     const totals = {};
     const rolls = {};
+    const breakdown = {};
     PIDS.forEach(pid=>{
       const a = actions[pid];
       rolls[pid] = deep(a.rolls||[]);
       const mod = a.modRoll || null;
       const scar = a.scarRoll || null;
-      // apply scar point losses already in action ptsDelta
-      const { attack, total, pendingEnergy } = computeHumanTotal(a.rolls, mod, scar, g.players[pid].scarLv);
-      totals[pid] = total;
-      awards[pid].pendingEnergy = Math.max(0, pendingEnergy - (a.scarEnergyLoss||0));
-      if (a.ptsDelta) awards[pid].pts += a.ptsDelta; // negative from scar
+      const br = computeHumanTotal(a.rolls, mod, scar, g.players[pid].scarLv);
+      totals[pid] = br.total;
+      breakdown[pid] = {
+        attack: br.attack, total: br.total, modAdd: br.modAdd, modLabel: br.modLabel,
+        modRoll: deep(mod), scarRoll: deep(scar),
+        pendingEnergy: Math.max(0, br.pendingEnergy - (a.scarEnergyLoss||0)),
+        ptsDelta: a.ptsDelta||0,
+      };
+      awards[pid].pendingEnergy = breakdown[pid].pendingEnergy;
+      if (a.ptsDelta) awards[pid].pts += a.ptsDelta;
     });
     const order = PIDS.slice().sort((a,b)=> totals[b]-totals[a]);
     order.forEach((pid,i)=>{ awards[pid].pts += CFG.trainRankPts[i]; awards[pid].tags.push('train'); });
@@ -843,7 +874,7 @@ function resolveRound(g){
       g.players[p].energy += awards[p].energy + (awards[p].pendingEnergy||0);
     });
     g.rounds[r].result = {
-      kind, rolls, totals, cats, awards,
+      kind, rolls, totals, breakdown, cats, awards,
       growth: null, hostId: null,
       resolvedAt: Date.now(),
     };
@@ -854,21 +885,36 @@ function resolveRound(g){
     const humans = PIDS.filter(p=>p!==hostId);
     const rolls = {};
     const humanTotals = {};
+    const breakdown = {};
     let crewTotal = 0;
     humans.forEach(h=>{
       const a = actions[h];
       rolls[h] = deep(a.rolls||[]);
-      const { attack, total, pendingEnergy } = computeHumanTotal(a.rolls, a.modRoll, a.scarRoll, g.players[h].scarLv);
-      humanTotals[h] = { attack, total };
-      crewTotal += total;
-      awards[h].pendingEnergy = Math.max(0, pendingEnergy - (a.scarEnergyLoss||0));
+      const br = computeHumanTotal(a.rolls, a.modRoll, a.scarRoll, g.players[h].scarLv);
+      humanTotals[h] = { attack: br.attack, total: br.total };
+      breakdown[h] = {
+        attack: br.attack, total: br.total, modAdd: br.modAdd, modLabel: br.modLabel,
+        modRoll: deep(a.modRoll||null), scarRoll: deep(a.scarRoll||null),
+        pendingEnergy: Math.max(0, br.pendingEnergy - (a.scarEnergyLoss||0)),
+        ptsDelta: a.ptsDelta||0,
+      };
+      crewTotal += br.total;
+      awards[h].pendingEnergy = breakdown[h].pendingEnergy;
       if (a.ptsDelta) awards[h].pts += a.ptsDelta;
     });
 
     const hAct = actions[hostId];
     rolls[hostId] = deep(hAct.rolls||[]);
     const hostHuman = computeHumanTotal(hAct.rolls, hAct.modRoll, hAct.scarRoll, g.players[hostId].scarLv);
-    awards[hostId].pendingEnergy = Math.max(0, hostHuman.pendingEnergy - (hAct.scarEnergyLoss||0));
+    breakdown[hostId] = {
+      attack: hostHuman.attack, total: hostHuman.total, modAdd: hostHuman.modAdd, modLabel: hostHuman.modLabel,
+      modRoll: deep(hAct.modRoll||null), scarRoll: deep(hAct.scarRoll||null),
+      pendingEnergy: Math.max(0, hostHuman.pendingEnergy - (hAct.scarEnergyLoss||0)),
+      ptsDelta: hAct.ptsDelta||0,
+      aRolls: deep(hAct.aRolls||[]), pModRoll: deep(hAct.pModRoll||null),
+      instinctRoll: hAct.instinctRoll, instinctExtra: hAct.instinctExtra||0,
+    };
+    awards[hostId].pendingEnergy = breakdown[hostId].pendingEnergy;
     if (hAct.ptsDelta) awards[hostId].pts += hAct.ptsDelta;
 
     const highestHumanDie = Math.max(0, ...(hAct.rolls||[]).map(d=>d.v||0));
@@ -941,7 +987,7 @@ function resolveRound(g){
       crewTotal, hostTotal,
       hostHuman: hostHuman.total, hostAttack: hostHuman.attack,
       parPart, growth: growthResult,
-      rolls, humanTotals, cats, mvp, awards,
+      rolls, humanTotals, breakdown, cats, mvp, awards,
       aRolls: hAct.aRolls||[], pModRoll: hAct.pModRoll||null,
       instinctRoll: hAct.instinctRoll, instinctExtra: hAct.instinctExtra||0,
       bossMeter: g.parasite.bossMeter,
@@ -954,14 +1000,21 @@ function resolveRound(g){
   else if (kind==='boss'){
     const rolls = {};
     const totals = {};
+    const breakdown = {};
     let crewTotal = 0;
     PIDS.forEach(pid=>{
       const a = actions[pid];
       rolls[pid] = deep(a.rolls||[]);
-      const { total, pendingEnergy } = computeHumanTotal(a.rolls, a.modRoll, a.scarRoll, g.players[pid].scarLv);
-      totals[pid] = total;
-      crewTotal += total;
-      awards[pid].pendingEnergy = Math.max(0, pendingEnergy - (a.scarEnergyLoss||0));
+      const br = computeHumanTotal(a.rolls, a.modRoll, a.scarRoll, g.players[pid].scarLv);
+      totals[pid] = br.total;
+      breakdown[pid] = {
+        attack: br.attack, total: br.total, modAdd: br.modAdd, modLabel: br.modLabel,
+        modRoll: deep(a.modRoll||null), scarRoll: deep(a.scarRoll||null),
+        pendingEnergy: Math.max(0, br.pendingEnergy - (a.scarEnergyLoss||0)),
+        ptsDelta: a.ptsDelta||0,
+      };
+      crewTotal += br.total;
+      awards[pid].pendingEnergy = breakdown[pid].pendingEnergy;
       if (a.ptsDelta) awards[pid].pts += a.ptsDelta;
     });
     const hp = bossHP(g);
@@ -983,7 +1036,7 @@ function resolveRound(g){
       g.players[p].energy += (awards[p].pendingEnergy||0);
     });
     g.rounds[r].result = {
-      kind, rolls, totals, crewTotal, hp, cleared, escaped: !cleared,
+      kind, rolls, totals, breakdown, crewTotal, hp, cleared, escaped: !cleared,
       awards, hero: order[0], bossMeter: g.parasite.bossMeter,
       resolvedAt: Date.now(),
     };
@@ -995,7 +1048,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.1.1';
+const APP_BUILD = 'v4.1.2';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1351,11 +1404,17 @@ function pickChar(p){ me = p; localStorage.setItem('stp_me', p); render(); }
 
 function topbarHTML(){
   const pl = G.players[me];
+  const left = (typeof energyLeft === 'function' && session && cart) ? energyLeft() : (pl.energy||0);
+  const showLeft = (session && session.phase) ? left : (pl.energy||0);
+  // Base faces on mod die — show strongest Base face value as your "base floor" when it hits
+  const baseFaces = (pl.modDie||[]).filter(f=>f.kind==='base').map(f=>modFaceValue(f));
+  const baseHint = baseFaces.length ? `Base ${baseFaces.map(v=>'+'+v).join('/')}` : '';
   return `<div class="topbar">
     <button class="me-chip" onclick="switchChar()">${crewImg(me,'')} ${PLAYERS[me].name}</button>
-    <div class="stat-chip energy">⚡ ${pl.energy||0}</div>
+    <div class="stat-chip energy">⚡ ${showLeft}${showLeft!==(pl.energy||0)?` <span class="small" style="color:var(--dim)">/${pl.energy||0}</span>`:''}</div>
     <div class="stat-chip pts">${pl.pts||0} pts</div>
-  </div>`;
+  </div>
+  <div class="small center" style="margin:-4px 0 8px;color:var(--dim)">Mod die: ${esc(modStatusLine(pl))}${baseHint?` · <b style="color:var(--energy)">${baseHint}</b>`:''}</div>`;
 }
 function switchChar(){ if (confirm('Switch crew on this phone?')){ me=null; localStorage.removeItem('stp_me'); render(); } }
 
@@ -1698,14 +1757,16 @@ function applyScarToSession(){
 function rollPhaseHTML(r, isHost){
   const shake = session.shake ? 'rolling' : '';
   const rolls = session.rolls||[];
-  const humanSum = rolls.reduce((s,d)=>s+(d.v||0),0);
+  const br = computeHumanTotal(rolls, session.modRoll, session.scarRoll, G.players[me].scarLv||0);
+  const humanSum = br.total;
   let modLine = session.modRoll
-    ? `<div class="mod-flip"><span class="${modFaceClass({kind:session.modRoll.kind})}">Mod: ${modFaceLabel({kind:session.modRoll.kind, level:session.modRoll.level})}</span></div>`
-    : `<div class="mod-flip"><span class="blank">Mod: blocked</span></div>`;
+    ? `<div class="mod-flip"><span class="${modFaceClass({kind:session.modRoll.kind})}">Mod: ${esc(br.modLabel)}</span></div>`
+    : `<div class="mod-flip"><span class="blank">Mod: ${esc(br.modLabel)}</span></div>`;
+  const mathLine = `<div class="small center" style="margin-top:4px">Dice <b>${br.attack}</b>${br.modAdd?` + Mod <b>+${br.modAdd}</b>`:''}${br.pendingEnergy?` · <span style="color:var(--energy)">+${br.pendingEnergy}⚡ next</span>`:''} = <b>${br.total}</b></div>`;
 
   let scarLine = '';
   if (session.scarRoll){
-    scarLine = `<div class="warn-box">Scar L${session.scarRoll.level}: <b>${session.scarRoll.label}</b> — tap scar die to reroll</div>`;
+    scarLine = `<div class="warn-box">Scar: <b>${session.scarRoll.label}</b> — tap scar die to reroll</div>`;
   }
 
   const dice = rolls.map((d,i)=>{
@@ -1750,7 +1811,7 @@ function rollPhaseHTML(r, isHost){
   return `<div class="panel">
       <div class="lane-label" style="margin-top:0">Your human roll</div>
       <div class="dice-row">${dice}${scarDie}</div>
-      ${modLine}${scarLine}
+      ${modLine}${mathLine}${scarLine}
       <div class="total-big crew center">${humanSum}</div>
       <div class="hint">Tap a die, then reroll (⚡${CFG.rerollCost}${session.freeLeft?' · free left':''})</div>
       <button class="btn reroll" onclick="confirmReroll()" ${!session.selectedRoll || !canRR?'disabled':''}>Reroll selected</button>
@@ -1853,6 +1914,39 @@ function waitingHTML(r){
 }
 
 /* ================= VERDICT ================= */
+function playerReviewCardHTML(pid, res){
+  const rolls = (res.rolls && res.rolls[pid]) || [];
+  const br = (res.breakdown && res.breakdown[pid]) || null;
+  // Fallback recompute from stored actions if older results lack breakdown
+  let attack = br ? br.attack : rolls.reduce((s,d)=>s+(d.v||0),0);
+  let total = br ? br.total : (res.totals && res.totals[pid] != null ? res.totals[pid] : attack);
+  let modLabel = br ? br.modLabel : 'mod ?';
+  let modAdd = br ? br.modAdd : 0;
+  let pending = br ? br.pendingEnergy : 0;
+  let scarLab = br && br.scarRoll ? br.scarRoll.label : '';
+  const isHost = res.hostId === pid;
+  let hostExtra = '';
+  if (isHost && res.parPart){
+    const p = res.parPart;
+    const aDice = ((br && br.aRolls) || res.aRolls || []).map(d=>dieHTML('attack', d.v)).join('');
+    const pMod = (br && br.pModRoll) || res.pModRoll;
+    const inst = (br && br.instinctRoll) || res.instinctRoll;
+    hostExtra = `<div class="lane-label" style="color:var(--bio)">Parasite</div>
+      <div class="dice-row" style="margin:4px 0">${aDice}${pMod?dieHTML('mod', pModLabel(pMod)):''}${inst!=null?dieHTML('instinct', typeof inst==='string'?inst:(inst.id||'?')):''}</div>
+      <div class="small">Atk ${p.atk} + mod ${p.flat||p.pctAdd||0} + fusion ${p.fusion} (${Math.round((p.fusionPct||0)*100)}%) + instinct ${p.instinctAdd} + aura ${p.aura} = <b>${Math.round(p.total)}</b></div>
+      <div class="small">Human ${Math.round(res.hostHuman)} + Parasite ${Math.round(p.total)} = <b style="color:var(--danger)">${Math.round(res.hostTotal)}</b></div>`;
+  }
+  return `<div class="panel" style="padding:10px;margin-bottom:8px">
+    <div class="award-row" style="border:none;padding:0 0 6px">
+      <span class="who">${crewImg(pid)} <b>${PLAYERS[pid].name}</b>${isHost?' <span class="badge" style="background:#8dff6a33;color:var(--bio)">HOST</span>':''}</span>
+      <span class="total-big crew" style="font-size:22px;margin:0">${Math.round(total)}</span>
+    </div>
+    ${diceRowMiniHTML(rolls)}
+    <div class="small">Dice <b>${attack}</b>${modAdd?` + Mod <b>+${modAdd}</b>`:''} (${esc(modLabel)})${pending?` · +${pending}⚡ next`:''}${scarLab?` · Scar ${esc(scarLab)}`:''}</div>
+    ${hostExtra}
+  </div>`;
+}
+
 function verdictHTML(r){
   const res = G.rounds[r].result;
   if (!res) return '';
@@ -1860,7 +1954,6 @@ function verdictHTML(r){
   let body = '';
   if (res.kind==='training'){
     banner = `<div class="result-banner h">TRAINING COMPLETE</div>`;
-    body = Object.keys(res.totals||{}).map(p=>`<div class="award-row"><span class="who">${crewImg(p)} ${PLAYERS[p].name}</span><span>${Math.round(res.totals[p])}</span></div>`).join('');
   } else if (res.kind==='infection'){
     banner = `<div class="result-banner ${res.hostWins?'p':'h'}">${res.hostWins ? 'THE HOST FEASTS' : 'THE CREW HOLDS'}</div>`;
     body = `<div class="vs-bar">
@@ -1868,9 +1961,7 @@ function verdictHTML(r){
       <div class="vs-x">vs</div>
       <div class="vs-side p"><div class="lbl">${PLAYERS[res.hostId].name}+bug</div><div class="val">${Math.round(res.hostTotal)}</div></div>
     </div>
-    <div class="small center">Human ${Math.round(res.hostHuman)} + Parasite ${Math.round(res.parPart.total)}
-      (atk ${res.parPart.atk} · fusion ${Math.round(res.parPart.fusionPct*100)}% · instinct ${res.instinctRoll||'—'} · aura +${res.parPart.aura})</div>
-    ${res.growth?`<div class="small center" style="margin-top:6px">Growth: <b>${res.growth.key}</b> (${res.growth.lane}) · Boss Meter ${res.bossMeter}</div>`:''}`;
+    ${res.growth?`<div class="small center" style="margin:6px 0">Growth: <b>${res.growth.key}</b> · Boss Meter ${res.bossMeter}</div>`:''}`;
   } else if (res.kind==='boss'){
     banner = `<div class="result-banner ${res.cleared?'h':'p'}">${res.cleared ? 'THE CREW SLAYS THE BEAST' : 'THE PARASITE ESCAPES'}</div>`;
     body = `<div class="vs-bar">
@@ -1880,6 +1971,20 @@ function verdictHTML(r){
     </div>
     <div class="small center">${res.cleared ? `Hero: <b>${PLAYERS[res.hero].name}</b>` : 'It slips into the vents. Hollow victory on points.'}</div>`;
   }
+
+  // Order: host first if infection, else by total desc
+  let order = PIDS.slice();
+  if (res.kind==='infection'){
+    order = [res.hostId, ...PIDS.filter(p=>p!==res.hostId)];
+  } else {
+    order.sort((a,b)=>{
+      const ta = (res.breakdown && res.breakdown[a] ? res.breakdown[a].total : (res.totals&&res.totals[a])||0);
+      const tb = (res.breakdown && res.breakdown[b] ? res.breakdown[b].total : (res.totals&&res.totals[b])||0);
+      return tb-ta;
+    });
+  }
+  const review = `<div class="lane-label">Dice review</div>${order.map(p=>playerReviewCardHTML(p, res)).join('')}`;
+
   const awards = res.awards || {};
   const awardRows = PIDS.map(p=>{
     const a = awards[p] || {pts:0,energy:0,tags:[]};
@@ -1889,12 +1994,14 @@ function verdictHTML(r){
       if (t==='kill') return '<span class="badge mvp">KILL</span>';
       return '';
     }).join('');
+    const pend = (res.breakdown && res.breakdown[p] && res.breakdown[p].pendingEnergy) ? ` · mod +${res.breakdown[p].pendingEnergy}⚡` : '';
     return `<div class="award-row"><span class="who">${crewImg(p)} ${PLAYERS[p].name}${badges}</span>
-      <span>+${a.pts}pts · +${a.energy}⚡</span></div>`;
+      <span>+${a.pts}pts · +${a.energy}⚡${pend}</span></div>`;
   }).join('');
 
-  return `<div class="panel">${banner}${body}
-    <div class="lane-label">Awards</div>${awardRows}
+  return `<div class="panel">${banner}${body}</div>
+    ${review}
+    <div class="panel"><div class="lane-label" style="margin-top:0">Awards</div>${awardRows}
     <button class="btn" style="margin-top:12px" onclick="dismissVerdict(${r})">Continue</button>
   </div>`;
 }
