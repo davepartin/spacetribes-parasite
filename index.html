@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.3.6">
+<meta name="stp-build" content="v4.3.7">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -302,6 +302,12 @@ code{background:#00000055;padding:2px 5px;border-radius:5px;font-size:12px;word-
 .warn-box{background:#2a141855;border:1px solid #ff5a4e44;border-radius:10px;padding:10px;font-size:13px;color:#ffc4bc;margin-bottom:8px;line-height:1.4;}
 .total-big{font-size:32px;font-weight:800;font-family:'IBM Plex Mono',monospace;line-height:1;margin:8px 0;}
 .total-big.crew{color:var(--blue);} .total-big.par{color:var(--danger);}
+.roll-math{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  margin:8px 0 2px;padding:8px 10px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);
+  font-size:13px;color:var(--dim);line-height:1.35;}
+.roll-math .roll-bits{flex:1;min-width:0;}
+.roll-math .roll-total{font-family:'IBM Plex Mono',monospace;font-weight:800;color:var(--blue);white-space:nowrap;font-size:15px;}
+.roll-math .roll-total b{font-size:22px;margin-left:4px;}
 .hint{font-size:13px;color:var(--dim);text-align:center;margin:6px 0;line-height:1.4;}
 
 .die.scar{background:linear-gradient(160deg,#2a1018,#12080c);color:#ff8a9a;border:1px solid #ff5a4e55;}
@@ -1390,7 +1396,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.3.6';
+const APP_BUILD = 'v4.3.7';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2612,14 +2618,17 @@ function rollPhaseHTML(r, isHost){
     ? `<div class="mod-flip"><span class="${modFaceClass({kind:modKind})}">Mod: ${esc(live.modLabel)}</span></div>`
     : `<div class="mod-flip"><span class="blank">Mod: ${esc(live.modLabel)}</span></div>`;
   const parts = [`Dice <b>${live.attack}</b>`];
-  if (live.modAdd) parts.push(`Mod <b>+${live.modAdd}</b> <span style="color:var(--dim)">(${esc(live.modLabel)})</span>`);
+  if (live.modAdd) parts.push(`Mod <b>+${live.modAdd}</b>`);
   else if (live.pendingEnergy) parts.push(`<span style="color:var(--energy)">${esc(live.modLabel)}</span>`);
-  else parts.push(`Mod <span style="color:var(--dim)">${esc(live.modLabel)}</span>`);
+  else if (live.modLabel) parts.push(`<span style="color:var(--dim)">${esc(live.modLabel)}</span>`);
   if (live.scarLabel) parts.push(`Scar <b style="color:#ff8a9a">${esc(live.scarLabel)}</b>`);
   if (live.ptsDelta) parts.push(`<span style="color:#ff8a9a">${live.ptsDelta} pts</span>`);
   if (live.energyLoss) parts.push(`<span style="color:#ff8a9a">−${live.energyLoss}⚡</span>`);
-  const mathLine = `<div class="small center" style="margin-top:4px">${parts.join(' · ')}</div>
-    <div class="small center" style="margin-top:2px">Final combat total</div>`;
+  // Keep total with the roll math (not in the fixed bottom bar) so Reroll stays readable
+  const mathLine = `<div class="roll-math">
+      <span class="roll-bits">${parts.join(' · ')}</span>
+      <span class="roll-total">Total <b>${humanSum}</b></span>
+    </div>`;
 
   let scarLine = '';
   if (session.scarRoll){
@@ -2669,14 +2678,13 @@ function rollPhaseHTML(r, isHost){
       <div class="lane-label" style="margin-top:0">Your human roll</div>
       <div class="dice-row">${dice}${scarDie}</div>
       ${modLine}${scarLine}
+      ${mathLine}
       <div class="hint">Tap a die, then reroll (${session.freeLeft?`<b>${session.freeLeft} free</b> · then `:''}⚡${CFG.rerollCost})</div>
       <button class="btn reroll" onclick="confirmReroll()" ${!session.selectedRoll || !canRR?'disabled':''}>Reroll selected</button>
     </div>
     ${parBlock}
-    <div class="fixed-cta" style="display:flex;flex-direction:column;gap:6px">
-      ${mathLine}
-      <div class="total-big crew center" style="margin:0">${humanSum}</div>
-      <button class="btn" onclick="lockIn()">Lock in</button>
+    <div class="fixed-cta">
+      <button class="btn" onclick="lockIn()">Lock in · ${humanSum}</button>
     </div>`;
 }
 

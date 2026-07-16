@@ -1,10 +1,14 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.6** · Schema **v6**
+Current build: **v4.3.7** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.3.7 — Clearer roll total / reroll
+- Combat total sits **inline** with dice math (not stacked over Reroll)
+- Bottom bar is just **Lock in · total** so Reroll stays readable
 
 ## v4.3.6 — Slim sticky header
 - Sticky top bar is **only**: you · energy left · Base attack · points
