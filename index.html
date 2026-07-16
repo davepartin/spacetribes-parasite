@@ -657,7 +657,7 @@ const TIPS = {
   instinct: { title:'Specialty die', body:'Extra parasite die. Faces show the effect: +8, +25% atk, +lowest, +your high, blank, or +extra die.' },
   host: { title:'Host turn', body:'You still roll your human dice + mod, AND the parasite package. Your total = human + parasite vs the rest of the crew (balanced to table size).' },
   energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge +2 costs 1. Mod upgrade 2. Extra die 3. 1 free reroll per round, then 1 each.' },
-  explode: { title:'Explode', body:'If a parasite attack die hits its highest face, roll that die once more and add it.' },
+  explode: { title:'Bonus re-roll', body:'If a parasite attack die hits its highest face, you get a bonus re-roll of that die and add it.' },
 };
 function tip(key, label){
   return `<button type="button" class="tip-link" onclick="showTip('${key}')">${label}</button>`;
@@ -1469,7 +1469,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.3.17';
+const APP_BUILD = 'v4.3.18';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2744,7 +2744,7 @@ function rollPhaseHTML(r, isHost){
       const sel = session.selectedRoll && session.selectedRoll.type==='a' && session.selectedRoll.i===i;
       return `<div class="die-wrap can-pick ${sel?'selected':''}" onclick="pickRoll('a',${i})">${dieHTML('attack', d.v, shake)}
         <div class="die-label" style="color:#ffb090">Attack</div>
-        <div class="die-sub">${d.exploded?'exploded':''}</div></div>`;
+        <div class="die-sub">${d.exploded?'+ bonus re-roll':''}</div></div>`;
     }).join('');
     const instSel = session.selectedRoll && session.selectedRoll.type==='i';
     const pModSel = session.selectedRoll && session.selectedRoll.type==='m';
@@ -2765,7 +2765,7 @@ function rollPhaseHTML(r, isHost){
       </div>
       <div class="explain-box">
         <div class="ex-title">What these dice do</div>
-        <p><b>Attack</b> — the parasite’s hit power. Hit the max face and it ${tip('explode','explodes')}: roll again and keep adding.</p>
+        <p><b>Attack</b> — the parasite’s hit power. Hit the max face for a ${tip('explode','+ bonus re-roll')}: roll again and keep adding.</p>
         <p><b>Mod</b> — a boost on top of Attack (flat number or %). This roll: <span class="now">${esc(pModTxt)}</span>.</p>
         <p><b>Specialty</b> — a wild card each host turn. This roll: <span class="now">${esc(instFull)}</span>.${instExtra}</p>
         <p>Together they stack with your human total when you fight the rest of the crew.</p>
