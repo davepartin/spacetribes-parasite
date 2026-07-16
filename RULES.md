@@ -56,6 +56,10 @@ Your blue total = **dice + mod** (after Scar effects, if any).
 
 When infected you still play your human upgrade → roll, **and** you must grow the parasite (soft or heavy), then roll the parasite package.
 
+- Parasite gets **⚡7** each host turn for **its own rerolls** (separate from human energy)
+- Human rerolls and parasite rerolls are separate
+- **Heavy** growth adds **+1 Attack die** when under the cap (max 4)
+
 **Host total** = human total + parasite portion  
 **Crew total** = the other humans combined  
 Ties go to the **crew**.
@@ -73,7 +77,7 @@ Baseline is **4 players**. Bigger tables get a stronger bug; smaller tables a le
 
 Also on the package:
 
-- **Attack dice** — on **max**, explode (roll again and add once)
+- **Attack dice** — on **max**, **+ bonus re-roll** (roll again and add once); faces listed under each die
 - **Mod die** — flat or % of parasite attack
 - **Human share** — add a % of your human attack (soft raises it; heavy can make **100% this round**)
 - **Aura** — permanent flat bonus (gain also scales)
@@ -82,7 +86,7 @@ Also on the package:
 ### Soft vs heavy growth
 
 - **Soft** — safer, Round-10 boss +1, no Scar  
-- **Heavy** — stronger tonight, **Scar die**, Round-10 boss +3  
+- **Heavy** — **+1 Attack die** (if room) + power tonight, **Scar die**, Round-10 boss +3  
 
 Scar caps at **L2**.
 

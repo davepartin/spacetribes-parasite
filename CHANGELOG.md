@@ -1,10 +1,16 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.3.18** · Schema **v6**
+Current build: **v4.4.0** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.4.0 — Parasite energy + separate rerolls + heavy die growth
+- Parasite gets **⚡7** each host turn for its own rerolls
+- Separate **Reroll parasite die** section (human rerolls stay separate)
+- Every **heavy** growth adds **+1 Attack die** when under max (4)
+- Attack dice show their face numbers underneath
 
 ## v4.3.18 — Parasite “+ bonus re-roll”
 - Parasite Attack dice that hit max show **+ bonus re-roll** (not “exploded”)

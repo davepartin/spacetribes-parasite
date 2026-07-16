@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.3.18">
+<meta name="stp-build" content="v4.4.0">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -42,6 +42,13 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .btn.reroll{background:linear-gradient(135deg,#1a6a9a,#2a9ad4);color:#fff;margin-top:10px;
   font-weight:800;box-shadow:0 3px 12px #1a6a9a55;}
 .btn.reroll:disabled,.btn.reroll.disabled{background:#243444;color:#8aa0ae;box-shadow:none;}
+.btn.par-reroll{background:linear-gradient(135deg,#1a6a40,#6adf7a);color:#071018;margin-top:10px;
+  font-weight:800;box-shadow:0 3px 12px #8dff6a33;}
+.btn.par-reroll:disabled,.btn.par-reroll.disabled{background:#243444;color:#8aa0ae;box-shadow:none;}
+.par-energy{text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:14px;
+  color:var(--bio);margin:8px 0 4px;}
+.die-faces{font-size:10px;color:var(--dim);font-family:'IBM Plex Mono',monospace;margin-top:2px;
+  letter-spacing:.02em;line-height:1.2;}
 .small{font-size:13px;color:var(--dim);line-height:1.4;}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;}
 .starfield{position:fixed;inset:0;pointer-events:none;z-index:0;}
@@ -386,6 +393,7 @@ code{background:#00000055;padding:2px 5px;border-radius:5px;font-size:12px;word-
 .growth-opt.heavy{border-color:#ff5a4e66;}
 .growth-opt.soft.picked{border-color:var(--good);}
 .growth-opt.heavy.picked{border-color:var(--danger);}
+.growth-opt:disabled{opacity:.4;cursor:default;}
 .fusion-chip{display:inline-block;padding:4px 8px;border-radius:8px;background:#8dff6a18;border:1px solid #8dff6a44;color:var(--bio);font-size:12px;font-weight:700;}
 
 
@@ -553,6 +561,8 @@ const CFG = {
   faceCap: 0,
   maxDicePerColor: 2,
   maxParAttack: 4,
+  hostParStipend: 7, // parasite energy on host turns (rerolls)
+  parRerollCost: 1,
   // points
   trainRankPts: [6,4,2,1],
   humanWinPts: r => r >= 6 ? 12 : 8,
@@ -655,7 +665,7 @@ const TIPS = {
   aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn.' },
   boss: { title:'Boss meter / Round 10 HP', body:'Tracks how much the table fed the parasite. Round 10 HP = 100 + (3 x Boss Meter). Soft growth +1, heavy +3, host win +1.' },
   instinct: { title:'Specialty die', body:'Extra parasite die. Faces show the effect: +8, +25% atk, +lowest, +your high, blank, or +extra die.' },
-  host: { title:'Host turn', body:'You still roll your human dice + mod, AND the parasite package. Your total = human + parasite vs the rest of the crew (balanced to table size).' },
+  host: { title:'Host turn', body:'You still roll your human dice + mod, AND the parasite package. You pick soft/heavy growth (heavy adds an Attack die when possible). Parasite gets ⚡7 for its own rerolls. Your total = human + parasite vs the rest of the crew.' },
   energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge +2 costs 1. Mod upgrade 2. Extra die 3. 1 free reroll per round, then 1 each.' },
   explode: { title:'Bonus re-roll', body:'If a parasite attack die hits its highest face, you get a bonus re-roll of that die and add it.' },
 };
@@ -1012,12 +1022,27 @@ function softGrowthOptions(p){
   opts.push({ key:'aura', lane:'soft', title:`Permanent +${auraGain} aura`, desc:`Safer. Always add +${auraGain} to parasite total on host turns. Round-10 boss +1.` });
   return opts;
 }
+function parAttackCount(p){ return ((p && p.attack) || []).length; }
+function canAddParAttackDie(p){ return parAttackCount(p) < CFG.maxParAttack; }
+function tryAddParAttackDie(parasite, faces){
+  if (!parasite.attack) parasite.attack = [];
+  if (parasite.attack.length >= CFG.maxParAttack) return false;
+  parasite.attack.push({ id: uid('atk'), faces: (faces || hotFaces()).slice() });
+  return true;
+}
 function heavyGrowthOptions(p){
+  const n = parAttackCount(p);
+  const room = canAddParAttackDie(p);
+  const grow = room ? `+1 Attack die (${n}→${n+1}). ` : `Attack dice maxed (${n}). `;
   return [
-    { key:'new_die', lane:'heavy', title:'+1 attack die', desc:'Strong now. Add exploding attack die (3–8). You get a Scar die. Round-10 boss +3.' },
-    { key:'ribcage', lane:'heavy', title:'+2 all attack faces', desc:'Strong now. +2 on every face of all parasite attack dice. Scar die. Round-10 boss +3.' },
-    { key:'full_fusion', lane:'heavy', title:'100% human share tonight', desc:'Strong now. This round only: add 100% of your human attack again. Scar die. Round-10 boss +3.' },
-    { key:'instinct_up', lane:'heavy', title:'Blank → +25% atk', desc:'Strong now. Replace a blank specialty face with +25% atk. Scar die. Round-10 boss +3.' },
+    { key:'new_die', lane:'heavy', title: room ? '+1 Attack die' : 'Attack dice maxed',
+      desc: grow + 'Exploding die (3–8). Scar. Round-10 boss +3.', disabled: !room },
+    { key:'ribcage', lane:'heavy', title: (room?'+1 Attack die · ':'') + '+2 all faces',
+      desc: grow + '+2 on every face of all Attack dice. Scar. Round-10 boss +3.' },
+    { key:'full_fusion', lane:'heavy', title: (room?'+1 Attack die · ':'') + '100% share tonight',
+      desc: grow + 'This round: add 100% of your human attack again. Scar. Round-10 boss +3.' },
+    { key:'instinct_up', lane:'heavy', title: (room?'+1 Attack die · ':'') + 'Specialty upgrade',
+      desc: grow + 'Blank → +25% atk (or empower a face). Scar. Round-10 boss +3.' },
   ];
 }
 function applySoftGrowth(parasite, key){
@@ -1061,10 +1086,10 @@ function applyHeavyGrowth(parasite, key, hostPl){
   parasite.mutations = (parasite.mutations||0) + 1;
   if (hostPl && (hostPl.scarLv||0) < 2) hostPl.scarLv = (hostPl.scarLv||0) + 1;
   let fusionOverride = null;
+  // Every heavy grows Attack die count when there’s room — keeps the parasite growing
+  tryAddParAttackDie(parasite);
   if (key==='new_die'){
-    if ((parasite.attack||[]).length < CFG.maxParAttack){
-      parasite.attack.push({ id: uid('atk'), faces: hotFaces() });
-    }
+    // die growth is the whole effect
   } else if (key==='ribcage'){
     (parasite.attack||[]).forEach(d=>{ d.faces = d.faces.map(v=>v+2); });
   } else if (key==='full_fusion'){
@@ -1075,7 +1100,6 @@ function applyHeavyGrowth(parasite, key, hostPl){
     if (bi>=0) inst[bi] = 'fever';
     else {
       const gi = inst.indexOf('gnash');
-      // mark empowered gnash by duplicating fever if needed
       if (gi>=0) inst[gi] = 'fever';
     }
     parasite.instinct = inst;
@@ -1469,7 +1493,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.3.18';
+const APP_BUILD = 'v4.4.0';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2080,10 +2104,10 @@ function instructionsModalHTML(){
       <h3>Host turns (R2–9)</h3>
       <ul>
         <li>You = human dice + parasite package vs the rest of the crew.</li>
-        <li>3-player tables get 2 skirmish rounds (no host) so nobody hosts 3 times.</li>
-        <li>Soft growth = safer. Heavy = stronger now + Scar die + fatter Round 10.</li>
-        <li>Specialty faces: +8, +25% atk, +lowest, +your high, +extra die.</li>
-        <li>Attack dice explode on their max face.</li>
+        <li>You pick parasite growth (soft or heavy). Heavy adds an Attack die when there’s room (max ${CFG.maxParAttack}).</li>
+        <li>Parasite gets <b>⚡ ${CFG.hostParStipend||7}</b> each host turn for its own rerolls (separate from your energy).</li>
+        <li>Human rerolls and parasite rerolls are separate buttons.</li>
+        <li>Specialty: +8, +25% atk, +lowest, +your high, +extra die. Attack max face = + bonus re-roll.</li>
       </ul>
       <h3>Round 10</h3>
       <ul>
@@ -2117,7 +2141,11 @@ function forgedSetFromCart(){
 function freeRerollThisRound(){
   return CFG.freeRerollsPerRound || 1;
 }
+function isParasiteRollType(type){ return type==='a' || type==='m' || type==='i'; }
+function isHumanRollType(type){ return type==='h' || type==='hm' || type==='s'; }
 function canAffordReroll(){
+  // Human pool only (crew dice / human mod / scar)
+  if (!session || !session.selectedRoll || !isHumanRollType(session.selectedRoll.type)) return false;
   if (session.freeLeft > 0) return true;
   return energyLeft() >= CFG.rerollCost;
 }
@@ -2126,11 +2154,24 @@ function spendRerollCharge(){
   if (energyLeft() >= CFG.rerollCost){ session.paidRerolls++; return true; }
   return false;
 }
+function parEnergyLeft(){ return (session && session.parEnergy != null) ? session.parEnergy : 0; }
+function canAffordParReroll(){
+  if (!session || !session.selectedRoll || !isParasiteRollType(session.selectedRoll.type)) return false;
+  return parEnergyLeft() >= (CFG.parRerollCost || 1);
+}
+function spendParRerollCharge(){
+  const cost = CFG.parRerollCost || 1;
+  if (parEnergyLeft() < cost) return false;
+  session.parEnergy = parEnergyLeft() - cost;
+  session.parRerolls = (session.parRerolls || 0) + 1;
+  return true;
+}
 function resetSessionForRound(r){
   if (!session || session.round !== r){
     session = { round:r, phase:'upgrade', rolls:null, modRoll:null, scarRoll:null,
       aRolls:null, pModRoll:null, instinctRoll:null, instinctExtra:0,
-      paidRerolls:0, freeLeft:0, shake:false, selectedRoll:null, ptsDelta:0 };
+      paidRerolls:0, freeLeft:0, parEnergy:0, parRerolls:0,
+      shake:false, selectedRoll:null, ptsDelta:0 };
   }
   if (cartRound !== r || !cart){ cart = freshCart(); cartRound = r; }
 }
@@ -2483,9 +2524,11 @@ function shopHTML(r, isHost){
   if (isHost){
     const soft = softGrowthOptions(G.parasite);
     const heavy = heavyGrowthOptions(G.parasite);
+    const atkN = parAttackCount(G.parasite);
     growthBlock = `<div class="panel" style="border-color:#8dff6a44">
       <div class="lane-label" style="margin-top:0;color:var(--bio)">Parasite must grow</div>
-      <div class="small">Soft = safer. Heavy = power now + ${tip('scar','Scar die')} + fatter ${tip('boss','Round 10')}.</div>
+      <div class="small">You pick the parasite’s growth. Soft = safer. Heavy = +1 Attack die (if room) + power now + ${tip('scar','Scar')} + fatter ${tip('boss','Round 10')}.</div>
+      <div class="spent-preview" style="color:var(--bio)">Attack dice now: <b>${atkN}</b> / ${CFG.maxParAttack} · Host turn parasite energy: ⚡ ${CFG.hostParStipend||7}</div>
       <div class="growth-grid">${soft.map(o=>{
         const picked = cart.growth && cart.growth.key===o.key;
         return `<button class="growth-opt soft ${picked?'picked':''}" onclick="pickGrowth('${o.key}','soft')">
@@ -2493,7 +2536,8 @@ function shopHTML(r, isHost){
       }).join('')}</div>
       <div class="growth-grid">${heavy.map(o=>{
         const picked = cart.growth && cart.growth.key===o.key;
-        return `<button class="growth-opt heavy ${picked?'picked':''}" onclick="pickGrowth('${o.key}','heavy')">
+        const dis = o.disabled && !picked;
+        return `<button class="growth-opt heavy ${picked?'picked':''}" ${dis?'disabled':''} onclick="pickGrowth('${o.key}','heavy')">
           <div class="go-title">${o.title}</div><div class="go-desc">${o.desc}</div></button>`;
       }).join('')}</div>
       ${pl.scarLv?`<div class="warn-box">You already carry Scar L${pl.scarLv}. Another heavy bumps to L2 (cap).</div>`:''}
@@ -2525,6 +2569,8 @@ function resetChoices(){
     session.instinctRoll = null;
     session.paidRerolls = 0;
     session.freeLeft = 0;
+    session.parEnergy = 0;
+    session.parRerolls = 0;
     session.selectedRoll = null;
     session.ptsDelta = 0;
     session.scarEnergyLoss = 0;
@@ -2559,7 +2605,14 @@ function setAddDie(c){
   render();
 }
 function clearAddDie(){ cart.addDie=null; render(); }
-function pickGrowth(key, lane){ cart.growth = { key, lane }; render(); }
+function pickGrowth(key, lane){
+  if (lane==='heavy'){
+    const opt = heavyGrowthOptions(G.parasite).find(o=>o.key===key);
+    if (opt && opt.disabled) return;
+  }
+  cart.growth = { key, lane };
+  render();
+}
 
 /* ================= ROLL ================= */
 function beginRoll(){
@@ -2629,6 +2682,11 @@ function beginRoll(){
       session.instinctExtra = er.value;
     }
     session._previewPar = fake;
+    session.parEnergy = CFG.hostParStipend || 7;
+    session.parRerolls = 0;
+  } else {
+    session.parEnergy = 0;
+    session.parRerolls = 0;
   }
 
   session.freeLeft = freeRerollThisRound();
@@ -2742,9 +2800,11 @@ function rollPhaseHTML(r, isHost){
   if (isHost){
     const aDice = (session.aRolls||[]).map((d,i)=>{
       const sel = session.selectedRoll && session.selectedRoll.type==='a' && session.selectedRoll.i===i;
+      const faceLine = (d.faces||[]).join('·');
       return `<div class="die-wrap can-pick ${sel?'selected':''}" onclick="pickRoll('a',${i})">${dieHTML('attack', d.v, shake)}
         <div class="die-label" style="color:#ffb090">Attack</div>
-        <div class="die-sub">${d.exploded?'+ bonus re-roll':''}</div></div>`;
+        <div class="die-sub">${d.exploded?'+ bonus re-roll':''}</div>
+        <div class="die-faces">${esc(faceLine)}</div></div>`;
     }).join('');
     const instSel = session.selectedRoll && session.selectedRoll.type==='i';
     const pModSel = session.selectedRoll && session.selectedRoll.type==='m';
@@ -2753,8 +2813,12 @@ function rollPhaseHTML(r, isHost){
     const instShort = instinctShortLabel(instId);
     const instFull = instinctDesc(instId);
     const instExtra = instId==='explode' && session.instinctExtra ? ` Extra die rolled: <b>+${session.instinctExtra}</b>.` : '';
+    const parEn = parEnergyLeft();
+    const canParRR = canAffordParReroll();
+    const parSel = session.selectedRoll && isParasiteRollType(session.selectedRoll.type);
     parBlock = `<div class="panel" style="border-color:#8dff6a44">
       <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('host','Parasite package')}</div>
+      <div class="par-energy">Parasite ⚡ ${parEn} / ${CFG.hostParStipend||7}</div>
       <div class="dice-row">${aDice}
         <div class="die-wrap can-pick ${pModSel?'selected':''}" onclick="pickRoll('m',0)">${dieHTML('mod', pModTxt, shake)}
           <div class="die-label" style="color:var(--bio)">Mod</div>
@@ -2763,12 +2827,14 @@ function rollPhaseHTML(r, isHost){
           <div class="die-label" style="color:var(--energy)">${tip('instinct','Specialty')}</div>
           <div class="die-sub">${instId==='explode'&&session.instinctExtra?('+'+session.instinctExtra):''}</div></div>
       </div>
+      <div class="hint">Tap a parasite die, then reroll with parasite energy (⚡${CFG.parRerollCost||1} each)</div>
+      <button class="btn par-reroll" onclick="confirmParReroll()" ${!parSel || !canParRR?'disabled':''}>Reroll parasite die · ⚡${CFG.parRerollCost||1}</button>
       <div class="explain-box">
         <div class="ex-title">What these dice do</div>
-        <p><b>Attack</b> — the parasite’s hit power. Hit the max face for a ${tip('explode','+ bonus re-roll')}: roll again and keep adding.</p>
+        <p><b>Attack</b> — the parasite’s hit power (faces listed under each die). Hit the max face for a ${tip('explode','+ bonus re-roll')}: roll again and keep adding. Heavy growth adds Attack dice over the game.</p>
         <p><b>Mod</b> — a boost on top of Attack (flat number or %). This roll: <span class="now">${esc(pModTxt)}</span>.</p>
         <p><b>Specialty</b> — a wild card each host turn. This roll: <span class="now">${esc(instFull)}</span>.${instExtra}</p>
-        <p>Together they stack with your human total when you fight the rest of the crew.</p>
+        <p>Parasite starts each host turn with <b>⚡ ${CFG.hostParStipend||7}</b> for its own rerolls — separate from your human energy.</p>
       </div>
     </div>`;
   }
@@ -2797,8 +2863,8 @@ function rollPhaseHTML(r, isHost){
       <div class="dice-row">${dice}<span class="dice-plus" aria-hidden="true">+</span>${modDie}${scarDie}</div>
       ${scarLine}
       ${finalBlock}
-      <div class="hint">Tap any die (including mod), then reroll (${session.freeLeft?`<b>${session.freeLeft} free</b> · then `:''}⚡${CFG.rerollCost})</div>
-      <button class="btn reroll" onclick="confirmReroll()" ${!session.selectedRoll || !canRR?'disabled':''}>Reroll selected</button>
+      <div class="hint">Tap a human die or mod, then reroll (${session.freeLeft?`<b>${session.freeLeft} free</b> · then `:''}⚡${CFG.rerollCost})</div>
+      <button class="btn reroll" onclick="confirmReroll()" ${!session.selectedRoll || !isHumanRollType(session.selectedRoll.type) || !canRR?'disabled':''}>Reroll human die</button>
     </div>
     ${parBlock}
     <div class="cta-spacer"></div>
@@ -2813,11 +2879,10 @@ function pickRoll(type, i){
   render();
 }
 function confirmReroll(){
-  if (!session || !session.selectedRoll || !canAffordReroll()) return;
+  if (!session || !session.selectedRoll || !isHumanRollType(session.selectedRoll.type) || !canAffordReroll()) return;
   const { type, i } = session.selectedRoll;
   if (!spendRerollCharge()) return;
   if (type==='h'){
-    // Reroll against the clean base die, then re-apply scar once
     if (!session.baseRolls || !session.baseRolls[i]) return;
     const d = session.baseRolls[i];
     const rf = rollFace(d.faces);
@@ -2831,7 +2896,23 @@ function confirmReroll(){
     session.baseModRoll = deep(modRoll);
     session.modRoll = deep(modRoll);
     reapplyScarFromBase();
-  } else if (type==='a'){
+  } else if (type==='s'){
+    const lv = G.players[me].scarLv||1;
+    const faces = SCAR_FACES[lv];
+    const si = rollIndex(faces.length);
+    session.scarRoll = { index:si, id:faces[si].id, label:faces[si].label, level:lv };
+    reapplyScarFromBase();
+  }
+  session.selectedRoll = null;
+  session.shake = true;
+  render();
+  setTimeout(()=>{ if(session) session.shake=false; render(); }, 450);
+}
+function confirmParReroll(){
+  if (!session || !session.selectedRoll || !isParasiteRollType(session.selectedRoll.type) || !canAffordParReroll()) return;
+  const { type, i } = session.selectedRoll;
+  if (!spendParRerollCharge()) return;
+  if (type==='a'){
     const d = session.aRolls[i];
     const er = rollExplodingAttack(d.faces);
     Object.assign(d, { index:er.index, v:er.value, shown:er.shown, exploded:er.exploded, rerolled:true });
@@ -2847,12 +2928,6 @@ function confirmReroll(){
     if (session.instinctRoll==='explode'){
       session.instinctExtra = rollExplodingAttack(hotFaces()).value;
     }
-  } else if (type==='s'){
-    const lv = G.players[me].scarLv||1;
-    const faces = SCAR_FACES[lv];
-    const si = rollIndex(faces.length);
-    session.scarRoll = { index:si, id:faces[si].id, label:faces[si].label, level:lv };
-    reapplyScarFromBase();
   }
   session.selectedRoll = null;
   session.shake = true;
