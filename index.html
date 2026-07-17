@@ -256,10 +256,25 @@ button{font-family:inherit;border:none;cursor:pointer;}
   display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;
   box-shadow:inset 0 -3px 0 #0002, 0 2px 6px #0004;}
 .face-chip.hot{background:linear-gradient(160deg,#fff8e0,#f5c042);border-color:#c49020;}
+/* Forge face chips — match the selected Attack die color so you know which die you're bumping */
+.face-chip.red,.face-chip.blue,.face-chip.green{
+  width:46px;height:46px;border-radius:11px;font-size:22px;font-weight:800;line-height:1;
+  color:#fff;text-shadow:0 1px 2px #000a;letter-spacing:-.02em;
+  box-shadow:inset 0 2px 0 #ffffff45, inset 0 -4px 0 #00000045, 0 3px 10px #0006;
+}
+.face-chip.red{background:linear-gradient(160deg,#ef5a5a,#c22e3e);border:1.5px solid #8a1a28;}
+.face-chip.blue{background:linear-gradient(160deg,#4da3ff,#216fbf);border:1.5px solid #154a86;}
+.face-chip.green{background:linear-gradient(160deg,#35c894,#1a8f68);border:1.5px solid #0f5c42;}
+.face-chip.red.hot,.face-chip.blue.hot,.face-chip.green.hot{
+  box-shadow:inset 0 2px 0 #ffffff55, inset 0 -4px 0 #00000040, 0 0 0 2px var(--energy), 0 3px 12px #f5c04255;
+}
 .face-chip.blank{background:var(--panel2);color:var(--dim);border-color:var(--line);box-shadow:none;}
 .face-chip.flat{background:#2a2010;color:var(--energy);border-color:#f5c04255;}
 .face-chip.picked{outline:2px solid var(--energy);outline-offset:2px;}
 .face-chip.forged{box-shadow:0 0 0 2px var(--energy), inset 0 -3px 0 #0002;}
+.face-chip.red.forged,.face-chip.blue.forged,.face-chip.green.forged{
+  box-shadow:0 0 0 2px var(--energy), inset 0 2px 0 #ffffff45, inset 0 -4px 0 #00000045;
+}
 /* Mod-die shop faces — mini dice */
 .face-chip.energy-face,.face-chip.pct,.face-chip.base-face,.face-chip.points-face,.face-chip.scar{
   width:48px;height:48px;border-radius:12px;font-size:12px;line-height:1.05;padding:3px;
@@ -1104,13 +1119,14 @@ function dieHTML(color, value, extraCls='', opts={}){
   return `<div class="die ${color} ${extraCls}${bonus?' bonus':''}"${bonus?' title="Bought bonus die"':''}>${face}${bonus?'<span class="die-bonus-mark">+</span>':''}</div>`;
 }
 function facesStripHTML(faces, opts={}){
-  const { dieId, selectable, picked, forgedSet } = opts;
-  return `<div class="face-strip">${faces.map((v,i)=>{
+  const { dieId, selectable, picked, forgedSet, color } = opts;
+  const colorCls = (color==='red'||color==='blue'||color==='green') ? color : '';
+  return `<div class="face-strip forge-faces">${faces.map((v,i)=>{
     const hot = v >= 7;
     const forged = forgedSet && forgedSet.has(dieId+':'+i);
     const pick = picked && picked.dieId===dieId && picked.faceIndex===i;
     const onclick = selectable ? `onclick="pickFace('${dieId}',${i})"` : '';
-    return `<button class="face-chip ${hot?'hot':''} ${forged?'forged':''} ${pick?'picked':''}" ${onclick}>${v}</button>`;
+    return `<button type="button" class="face-chip ${colorCls} ${hot?'hot':''} ${forged?'forged':''} ${pick?'picked':''}" ${onclick} aria-label="Face ${v}">${v}</button>`;
   }).join('')}</div>`;
 }
 
@@ -1837,7 +1853,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.12.8';
+const APP_BUILD = 'v4.12.9';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2889,9 +2905,10 @@ function shopHTML(r, isHost){
 
   let forgeBlock = '';
   if (sel){
-    forgeBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('forge','Forge')} a face</div>
-      <div class="si-desc">Spend 1⚡ to bump a face <b>+2</b>.</div></div><div class="si-cost">1⚡ → +2</div></div>
-      ${facesStripHTML(sel.faces, { dieId:sel.id, selectable:true, picked: ui.selectedFace, forgedSet: forged })}
+    const colorName = (COLOR_META[sel.color] && COLOR_META[sel.color].name) || sel.color;
+    forgeBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('forge','Forge')} a face · <span class="die-label ${sel.color}" style="display:inline;margin:0;font-size:13px">${esc(colorName)}</span></div>
+      <div class="si-desc">Tap a die above, then a face below. Spend 1⚡ to bump that face <b>+2</b>. Face chips match the die color.</div></div><div class="si-cost">1⚡ → +2</div></div>
+      ${facesStripHTML(sel.faces, { dieId:sel.id, selectable:true, picked: ui.selectedFace, forgedSet: forged, color: sel.color })}
       <button class="buy-btn primary" onclick="queueForge()" ${!ui.selectedFace || left < CFG.forgeCost?'disabled':''}>Forge +2</button>
       ${(cart.forges||[]).length?`<button class="buy-btn" onclick="undoForge()">Undo last forge (${cart.forges.length})</button>`:''}
     </div>`;

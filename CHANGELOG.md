@@ -1,8 +1,12 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.12.8** · Schema **v12**
+Current build: **v4.12.9** · Schema **v12**
 
 ---
+
+## v4.12.9 — Forge faces match die color
+- The six forge face chips turn red / blue / green with the selected Attack die
+- Larger white numbers so faces are easier to read
 
 ## v4.12.8 — Heal scar 3⚡
 - Healing one Scar die now costs **3⚡** (was 2⚡)
