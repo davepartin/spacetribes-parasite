@@ -111,22 +111,18 @@ Also on the package:
 
 - **Attack dice** — on **max**, **+ bonus re-roll** (roll again and add once); faces listed under each die
 - **Mod die** — flat or % of parasite attack
-- **Human share** — add a % of your human attack (soft raises it; heavy can make **100% this round**)
-- **Aura** — permanent flat bonus (gain also scales)
+- **Human share** — add a % of your human attack into the parasite total
+- **Aura** — permanent flat bonus (**Feed** raises it)
 - **Specialty die** faces: **+8**, **+25% atk**, **+lowest**, **+your high**, **—**, **+extra die**
 
-### Soft vs heavy growth
+## Scar & Poison dice
 
-- **Soft** — safer, Round-10 boss +1, no Scar  
-- **Heavy** — **+1 Attack die** (if room) + power tonight, **Scar die**, Round-10 boss +3  
+**Scar** — from **Outbreak** (on the host). Caps at L2.  
+**Poison** — from the **Poison** move (on a chosen crewmate). Caps at L2.
 
-Scar caps at **L2**.
+Both are separate d6s with bad faces. Labels are the effect. You can reroll them.
 
-## Scar die
-
-Heavy growth gives a separate d6. All faces bad. Labels are the effect. You can reroll it.
-
-**−highest** subtracts your strongest die from the combat total but **keeps the die showing**. Tap it and reroll to move which die is hit (or reroll the Scar face to clear the effect).
+**−highest** subtracts your strongest die from the combat total but **keeps the die showing**. Reroll that die to move the hit.
 
 ## Round 10 boss
 
