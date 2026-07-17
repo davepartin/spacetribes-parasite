@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.5.0">
+<meta name="stp-build" content="v4.5.1">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -666,7 +666,7 @@ const SCAR_FACES = {
     { id:'static',  label:'no mod',  desc:'Mod die ignored' },
     { id:'fumble',  label:'reroll↑', desc:'Reroll highest die' },
     { id:'penalty', label:'−5 pts',  desc:'Lose 5 points' },
-    { id:'shatter', label:'−highest',desc:'Subtract strongest die value (die stays)' },
+    { id:'shatter', label:'−highest',desc:'− your strongest die from the total (die stays — reroll it to move the hit)' },
   ],
   2: [
     { id:'drain',   label:'−4⚡',      desc:'Lose 4 Energy' },
@@ -674,7 +674,7 @@ const SCAR_FACES = {
     { id:'static',  label:'no mod−1⚡',desc:'Mod ignored & −1⚡' },
     { id:'fumble',  label:'reroll↑↑', desc:'Reroll two highest' },
     { id:'penalty', label:'−10 pts',  desc:'Lose 10 points' },
-    { id:'shatter', label:'−high −5pts', desc:'Subtract strongest die value & −5 pts' },
+    { id:'shatter', label:'−high −5pts', desc:'− strongest die from total (die stays; reroll can move the hit) & −5 pts' },
   ],
 };
 
@@ -691,7 +691,7 @@ const INSTINCT_FACES = [
 
 const TIPS = {
   mod: { title:'Human mod die', body:'Always rolls with you. Faces: +2⚡ next (→3/4), +20% attack (→30/40), or Base +0 (→3/5). Sticky header Base starts at +0 and rises as you upgrade Base faces. Base only adds to your total when that face rolls. Upgrade a face for 2 Energy (max level 3).' },
-  scar: { title:'Scar die', body:'You get this after a heavy parasite growth. All 6 faces hurt. Labels show the real effect. You can reroll it.' },
+  scar: { title:'Scar die', body:'You get this after a heavy parasite growth. All 6 faces hurt. Labels show the real effect. You can reroll it. −highest keeps the die showing — it subtracts from your total, and rerolling that die can move which face is hit.' },
   fusion: { title:'Human share', body:'On host turns, part of your human attack is added into the parasite total. Soft growth raises this percent; heavy can make it 100% for one round.' },
   aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn.' },
   boss: { title:'Boss meter / Round 10 HP', body:'Tracks how much the table fed the parasite. Round 10 HP = 100 + (3 x Boss Meter). Soft growth +1, heavy +3, host win +1.' },
@@ -1147,11 +1147,21 @@ function normalizeModRoll(modRoll){
   return modRoll;
 }
 
+/** Highest-die subtract for Scar shatter. Legacy rolls may already have scarZeroed v=0. */
+function shatterSubFromRolls(rolls, scarRoll){
+  if (!scarRoll || scarRoll.id !== 'shatter' || !rolls || !rolls.length) return 0;
+  // Old locked actions zeroed the die in place — don't double-subtract
+  if (rolls.some(d => d.scarZeroed)) return 0;
+  return rolls.reduce((m,d)=> Math.max(m, d.v||0), 0);
+}
 function computeHumanTotal(rolls, modRoll, scarRoll, scarLv){
-  // rolls should already include scar combat effects (bleed / −highest / fumble).
+  // rolls may include scar combat effects (bleed / fumble). Shatter is a live −highest
+  // penalty so dice keep their face values and can be rerolled.
   // modRoll null means scar blocked mod (no mod).
   modRoll = normalizeModRoll(modRoll);
   let attack = (rolls||[]).reduce((s,d)=>s+(d.v||0), 0);
+  const shatterSub = shatterSubFromRolls(rolls, scarRoll);
+  if (shatterSub) attack = Math.max(0, attack - shatterSub);
   let total = attack;
   let pendingEnergy = 0;
   let modAdd = 0;
@@ -1170,13 +1180,13 @@ function computeHumanTotal(rolls, modRoll, scarRoll, scarLv){
   }
   let scarLabel = '';
   if (scarRoll && scarRoll.label) scarLabel = scarRoll.label;
-  return { attack, total, pendingEnergy, modAdd, modLabel, scarLabel };
+  return { attack, total, pendingEnergy, modAdd, modLabel, scarLabel, shatterSub };
 }
 
 /** Build display math from clean base dice + current mod/scar (for the big blue total). */
 function liveHumanBreakdown(){
   if (!session || !session.rolls){
-    return { rawAttack:0, attack:0, modAdd:0, modLabel:'—', pendingEnergy:0, scarLabel:'', total:0, ptsDelta:0, energyLoss:0 };
+    return { rawAttack:0, attack:0, modAdd:0, modLabel:'—', pendingEnergy:0, scarLabel:'', total:0, ptsDelta:0, energyLoss:0, shatterSub:0 };
   }
   const base = session.baseRolls || session.rolls || [];
   const rawAttack = base.reduce((s,d)=>s+(d.v||0), 0);
@@ -1193,13 +1203,15 @@ function liveHumanBreakdown(){
     total: br.total,
     ptsDelta: session.ptsDelta||0,
     energyLoss: session.scarEnergyLoss||0,
+    shatterSub: br.shatterSub||0,
   };
 }
 /** Live parasite package math on host roll screen (before lock-in). */
 function liveParasiteBreakdown(humanAttack, humanRolls){
   const par = session._previewPar || G.parasite;
   const rolls = humanRolls || session.rolls || [];
-  const highest = rolls.reduce((m,d)=> Math.max(m, d.scarZeroed ? 0 : (d.v||0)), 0);
+  // Shatter subtracts highest from human total but the face still counts for Specialty "your high"
+  const highest = rolls.reduce((m,d)=> Math.max(m, d.v||0), 0);
   const fusionOverride = (cart && cart.growth && cart.growth.key==='full_fusion') ? 1.0 : null;
   const part = computeParasitePortion(
     par, session.aRolls, session.pModRoll, session.instinctRoll,
@@ -1220,7 +1232,7 @@ function modStatusLine(pl){
 
 function diceRowMiniHTML(rolls){
   return `<div class="dice-row" style="margin:6px 0">${(rolls||[]).map(d=>
-    `<div class="die-wrap">${dieHTML(d.color||'red', d.scarZeroed?0:d.v, '', {bonus:isBonusDie(d)})}${d.scarNote?`<div class="die-sub">${esc(d.scarNote)}</div>`:''}${isBonusDie(d)?`<div class="die-sub">bonus</div>`:''}</div>`
+    `<div class="die-wrap">${dieHTML(d.color||'red', d.v, '', {bonus:isBonusDie(d)})}${d.scarNote?`<div class="die-sub">${esc(d.scarNote)}</div>`:''}${isBonusDie(d)?`<div class="die-sub">bonus</div>`:''}</div>`
   ).join('')}</div>`;
 }
 
@@ -1543,7 +1555,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.5.0';
+const APP_BUILD = 'v4.5.1';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1796,12 +1808,13 @@ function applyScarToBundle(rollsIn, modRollIn, scarRoll){
   } else if (scarRoll.id==='penalty'){
     ptsDelta = -(lv===1 ? 5 : 10);
   } else if (scarRoll.id==='shatter'){
+    // Mark strongest die; value stays so rerolls can move which die is hit.
+    // Combat math subtracts that highest via shatterSubFromRolls / computeHumanTotal.
     if (rolls.length){
       let hi=0; for (let i=1;i<rolls.length;i++) if ((rolls[i].v||0)>(rolls[hi].v||0)) hi=i;
       const lost = rolls[hi].v||0;
-      rolls[hi].scarNote = '−'+lost;
-      rolls[hi].scarZeroed = true;
-      rolls[hi].v = 0;
+      rolls[hi].scarNote = '−'+lost+' scar';
+      rolls[hi].scarZeroed = false;
     }
     if (lv===2) ptsDelta -= 5;
   }
@@ -2874,13 +2887,12 @@ function applyScarToSession(){
   } else if (scar.id==='penalty'){
     session.ptsDelta = -(lv===1 ? 5 : 10);
   } else if (scar.id==='shatter'){
-    // Subtract strongest die value — keep the die so scar rerolls can restore cleanly
+    // −highest from total; die keeps its face so you can reroll it and move the hit
     if (rolls.length){
       let hi=0; for (let i=1;i<rolls.length;i++) if ((rolls[i].v||0)>(rolls[hi].v||0)) hi=i;
       const lost = rolls[hi].v||0;
-      rolls[hi].scarNote = '−'+lost;
-      rolls[hi].scarZeroed = true;
-      rolls[hi].v = 0;
+      rolls[hi].scarNote = '−'+lost+' scar';
+      rolls[hi].scarZeroed = false;
     }
     if (lv===2) session.ptsDelta = (session.ptsDelta||0) - 5;
   }
@@ -2915,13 +2927,15 @@ function rollPhaseHTML(r, isHost){
   }
   let extraBits = '';
   if (live.scarLabel) extraBits += `<div class="small center" style="margin-top:4px;color:#ff8a9a">Scar ${esc(live.scarLabel)}</div>`;
+  if (live.shatterSub) extraBits += `<div class="small center" style="color:#ff8a9a">Scar −${live.shatterSub} (strongest die — reroll it to move the hit)</div>`;
   if (live.ptsDelta) extraBits += `<div class="small center" style="color:#ff8a9a">${live.ptsDelta} pts</div>`;
   if (live.energyLoss) extraBits += `<div class="small center" style="color:#ff8a9a">−${live.energyLoss}⚡</div>`;
 
   const canPickHuman = humanRolled && !humanLocked;
   const dice = humanRolled ? rolls.map((d,i)=>{
     const sel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='h' && session.selectedRoll.i===i;
-    const shown = d.scarZeroed ? 0 : d.v;
+    // Always show the rolled face — shatter subtracts in the total, it does not blank the die
+    const shown = d.v;
     const bonus = isBonusDie(d);
     const bits = [];
     if (d.scarNote) bits.push(d.scarNote);

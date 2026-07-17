@@ -1,10 +1,16 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.5.0** · Schema **v6**
+Current build: **v4.5.1** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.5.1 — Scar −highest is rerollable
+- Scar **−highest** no longer blanks the die to 0
+- It subtracts your strongest die from the combat total; the face still shows
+- Reroll that die (or another) to move which die is hit — you can get value back
+- Rerolling the Scar face away from −highest still clears it entirely
 
 ## v4.5.0 — Independent host locks + table-scaled parasite ⚡
 - Host turns: after growth shop, **Continue to rolls** — then **Roll / Lock human** and **Roll / Lock parasite** independently

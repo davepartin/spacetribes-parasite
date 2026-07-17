@@ -100,6 +100,8 @@ Scar caps at **L2**.
 
 Heavy growth gives a separate d6. All faces bad. Labels are the effect. You can reroll it.
 
+**−highest** subtracts your strongest die from the combat total but **keeps the die showing**. Tap it and reroll to move which die is hit (or reroll the Scar face to clear the effect).
+
 ## Round 10 boss
 
 HP = **table base + (per-meter × Boss Meter)**. Clear it for hero bonuses. Fail → escape (consolation ranks).
