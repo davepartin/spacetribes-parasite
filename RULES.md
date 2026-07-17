@@ -1,8 +1,8 @@
-# Space Tribes: Parasite — Crew Manual (v4.6)
+# Space Tribes: Parasite — Crew Manual (v4.7)
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.6.0** — Crew paths + commit a die (Mint / Score / Path). Schema **v7** (new game). See [CHANGELOG.md](CHANGELOG.md).
+**v4.7.0** — Four parasite moves (Feed / Harden / Outbreak / Poison). Schema **v8** (new game). See [CHANGELOG.md](CHANGELOG.md).
 
 ## Mission map
 
@@ -72,17 +72,25 @@ Your blue total = **dice + mod** (after Scar effects, if any).
 
 ## Host turn (you + the monster)
 
-When infected: shop + pick soft/heavy growth → **Continue to rolls**.
+When infected: shop + pick **one parasite move** → **Continue to rolls**.
 
-1. **Roll / Lock human** (your dice + mod + scar) — use your energy / free reroll  
-2. **Roll / Lock parasite** (Attack / Mod / Specialty) — spend parasite ⚡  
-3. **Submit both rolls** when both sides are locked  
+### Four moves (pick one)
 
-Order doesn’t matter; you can finish either side first. You must lock each side before submit.
+| Move | Effect | Cost | Boss |
+|---|---|---|---|
+| **Feed** | Permanent +aura | Safe | +1 |
+| **Harden** | +1 on every face of all Attack dice | Safe | +1 |
+| **Outbreak** | +1 Attack die (if room) · **+10 tonight** | **Scar on you** | +3 |
+| **Poison** | Chosen crewmate gains a **Poison die** (Scar-like, to L2) | Hits them | +2 |
 
-- Parasite ⚡ stipend by table: **3p → 5 · 4p → 6 · 5–6p → 7** (a bit less if it already has 3–4 Attack dice)
+Then:
+
+1. **Roll / Lock human** (commit a die too)  
+2. **Roll / Lock parasite**  
+3. **Submit both rolls**
+
+- Parasite ⚡ by table: **3p → 5 · 4p → 6 · 5–6p → 7**
 - Human energy and parasite ⚡ are separate
-- **Heavy** growth adds **+1 Attack die** when under the cap (max 4)
 
 **Host total** = human total + parasite portion  
 **Crew total** = the other humans combined  

@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.6.0">
+<meta name="stp-build" content="v4.7.0">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -65,6 +65,16 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .path-card.gunner.picked{border-color:#ff5a4e;}
 .path-card.engineer.picked{border-color:#4aa8ff;}
 .path-card.warden.picked{border-color:#3ecf8e;}
+.move-grid{display:grid;gap:8px;margin:8px 0;}
+.growth-opt.move{border-color:#8dff6a55;}
+.growth-opt.move.feed{border-color:#3ecf8e66;}
+.growth-opt.move.harden{border-color:#4aa8ff66;}
+.growth-opt.move.outbreak{border-color:#ff5a4e66;}
+.growth-opt.move.poison{border-color:#c77dff66;}
+.growth-opt.move.picked{box-shadow:0 0 0 1px #8dff6a55;}
+.target-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.btn.target{padding:8px 10px;font-size:12px;background:var(--panel2);border:1.5px solid var(--line);color:var(--text);box-shadow:none;}
+.btn.target.on{border-color:#c77dff;background:#2a1830;}
 .commit-grid{display:grid;gap:7px;margin-top:8px;}
 .btn.commit{background:var(--panel2);border:1.5px solid var(--line);color:var(--text);font-weight:700;padding:10px;border-radius:10px;box-shadow:none;}
 .btn.commit.on{border-color:var(--energy);background:#2a2410;}
@@ -611,7 +621,7 @@ function randomPathId(){ return PATH_IDS[randInt(PATH_IDS.length)]; }
 
 
 const TOTAL_ROUNDS = 10;
-const SCHEMA = 7;
+const SCHEMA = 8;
 
 const CFG = {
   roundStipend: 5,
@@ -652,6 +662,8 @@ const CFG = {
   auraGain: 4,
   softMeter: 1,
   heavyMeter: 3,
+  poisonMeter: 2,
+  outbreakTonight: 10,
   winMeter: 1,
   hpBase: 100,
   hpPerMeter: 3,
@@ -727,6 +739,26 @@ const SCAR_FACES = {
   ],
 };
 
+// Poison die — inflicted by host Poison move (same pain language as Scar)
+const POISON_FACES = {
+  1: [
+    { id:'drain',   label:'−2⚡',     desc:'Lose 2 Energy' },
+    { id:'bleed',   label:'−10%',    desc:'−10% attack' },
+    { id:'static',  label:'no mod',  desc:'Mod die ignored' },
+    { id:'fumble',  label:'reroll↑', desc:'Reroll highest die' },
+    { id:'penalty', label:'−5 pts',  desc:'Lose 5 points' },
+    { id:'blank',   label:'—',       desc:'Nothing this roll' },
+  ],
+  2: [
+    { id:'drain',   label:'−4⚡',      desc:'Lose 4 Energy' },
+    { id:'bleed',   label:'−20%',     desc:'−20% attack' },
+    { id:'static',  label:'no mod−1⚡',desc:'Mod ignored & −1⚡' },
+    { id:'fumble',  label:'reroll↑↑', desc:'Reroll two highest' },
+    { id:'penalty', label:'−10 pts',  desc:'Lose 10 points' },
+    { id:'shatter', label:'−highest', desc:'− strongest die from total' },
+  ],
+};
+
 // Instinct die — the fun parasite specialty die (always rolled)
 const INSTINCT_FACES = [
   { id:'gnash',  label:'+8',         desc:'Add +8 to parasite total' },
@@ -745,7 +777,10 @@ const TIPS = {
   aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn.' },
   boss: { title:'Boss meter / Round 10 HP', body:'Tracks how much the table fed the parasite. Round 10 HP = 100 + (3 x Boss Meter). Soft growth +1, heavy +3, host win +1.' },
   instinct: { title:'Specialty die', body:'Extra parasite die. Faces show the effect: +8, +25% atk, +lowest, +your high, blank, or +extra die.' },
-  host: { title:'Host turn', body:'Shop first, then roll human and parasite independently — reroll and Lock each side, then Submit both rolls. Soft/heavy growth (heavy adds an Attack die when possible). Parasite ⚡ scales with table size (leaner at 3p). Your total = human + parasite vs the rest of the crew.' },
+  host: { title:'Host turn', body:'Pick one of 4 parasite moves (Feed / Harden / Outbreak / Poison), then roll human + parasite separately and Submit both. Parasite ⚡ scales with table size.' },
+  poison: { title:'Poison', body:'Host move: pick a crewmate. They gain a Poison die (like Scar) that rolls with them until L2. Person-to-person parasite attack.' },
+  moves: { title:'Parasite moves', body:'Every host turn pick exactly one: Feed (safe aura), Harden (+1 all Attack faces), Outbreak (+Attack die +10 tonight + Scar on you), or Poison (give a crewmate a Poison die).' },
+
   path: { title:'Crew path', body:'Pick Gunner, Engineer, or Warden once. Each path has a passive and a color action. Every roll you must Commit one die: Path action, Mint +1 on that face (die out of combat — grow forever), or Score half the die as points.' },
   mint: { title:'Mint +1', body:'Reroll until the face you want is up, then Commit → Mint. That face permanently +1, but the die scores 0 combat this round. Strong long-term build choice.' },
   commit: { title:'Commit a die', body:'After rolling, tap a die and choose: Path action (color match), Mint +1 on that face, or Score points. One commit per turn before Lock in.' },
@@ -943,6 +978,11 @@ function instinctDesc(id){
 }
 function growthTitle(key){
   const map = {
+    feed: 'Feed',
+    harden: 'Harden',
+    outbreak: 'Outbreak',
+    poison: 'Poison',
+    // legacy soft/heavy keys
     surge: '+1 all faces (1 atk die)',
     push_mod: 'Upgrade parasite mod',
     fusion: `Human share +${Math.round(CFG.fusionStep*100)}%`,
@@ -1060,6 +1100,7 @@ function newGameData(roster, names, botFlags){
       dice: starterDice(),
       modDie: starterModDie(),
       scarLv: 0,
+      poisonLv: 0,
       path: isBot ? randomPathId() : null,
       perks: { freeReroll:false },
     };
@@ -1093,20 +1134,7 @@ function canAddColor(pl, color, pendingColor){
 }
 function actionLocked(a){ return a && a.phase === 'locked'; }
 
-/* ================= GROWTH ================= */
-function softGrowthOptions(p){
-  const cap = (p && p.fusionCap != null) ? p.fusionCap : CFG.fusionCap;
-  const step = (p && p.fusionStep != null) ? p.fusionStep : CFG.fusionStep;
-  const auraGain = (p && p.auraGain != null) ? p.auraGain : CFG.auraGain;
-  const opts = [];
-  opts.push({ key:'surge', lane:'soft', title:'+1 all faces (1 atk die)', desc:'Safer. +1 to every face on one parasite attack die. Round-10 boss +1.' });
-  opts.push({ key:'push_mod', lane:'soft', title:'Upgrade parasite mod', desc:'Safer. Upgrade the weakest parasite mod face. Round-10 boss +1.' });
-  if ((p.fusionPct||0) < cap - 1e-9){
-    opts.push({ key:'fusion', lane:'soft', title:`Human share ${Math.round(p.fusionPct*100)}%→${Math.round(Math.min(cap, p.fusionPct+step)*100)}%`, desc:'Safer. Add more of your human attack into the parasite total. Round-10 boss +1.' });
-  }
-  opts.push({ key:'aura', lane:'soft', title:`Permanent +${auraGain} aura`, desc:`Safer. Always add +${auraGain} to parasite total on host turns. Round-10 boss +1.` });
-  return opts;
-}
+/* ================= PARASITE MOVES (host) ================= */
 function parAttackCount(p){ return ((p && p.attack) || []).length; }
 function canAddParAttackDie(p){ return parAttackCount(p) < CFG.maxParAttack; }
 function tryAddParAttackDie(parasite, faces){
@@ -1115,20 +1143,60 @@ function tryAddParAttackDie(parasite, faces){
   parasite.attack.push({ id: uid('atk'), faces: (faces || hotFaces()).slice() });
   return true;
 }
-function heavyGrowthOptions(p){
+/** Always exactly 4 moves — the host’s attack menu. */
+function parasiteMoveOptions(p, g){
+  const auraGain = (p && p.auraGain != null) ? p.auraGain : CFG.auraGain;
   const n = parAttackCount(p);
   const room = canAddParAttackDie(p);
-  const grow = room ? `+1 Attack die (${n}→${n+1}). ` : `Attack dice maxed (${n}). `;
+  const tonight = CFG.outbreakTonight || 10;
   return [
-    { key:'new_die', lane:'heavy', title: room ? '+1 Attack die' : 'Attack dice maxed',
-      desc: grow + 'Exploding die (3–8). Scar. Round-10 boss +3.', disabled: !room },
-    { key:'ribcage', lane:'heavy', title: (room?'+1 Attack die · ':'') + '+2 all faces',
-      desc: grow + '+2 on every face of all Attack dice. Scar. Round-10 boss +3.' },
-    { key:'full_fusion', lane:'heavy', title: (room?'+1 Attack die · ':'') + '100% share tonight',
-      desc: grow + 'This round: add 100% of your human attack again. Scar. Round-10 boss +3.' },
-    { key:'instinct_up', lane:'heavy', title: (room?'+1 Attack die · ':'') + 'Specialty upgrade',
-      desc: grow + 'Blank → +25% atk (or empower a face). Scar. Round-10 boss +3.' },
+    { key:'feed', lane:'soft', title:'Feed',
+      desc:`Safer. Permanent +${auraGain} aura. Round-10 boss +1.` },
+    { key:'harden', lane:'soft', title:'Harden',
+      desc:'Safer. +1 on every face of all Attack dice. Round-10 boss +1.' },
+    { key:'outbreak', lane:'heavy', title:'Outbreak',
+      desc:(room?`+1 Attack die (${n}→${n+1}). `:`Attack dice maxed (${n}). `)+`+${tonight} tonight. You take Scar. Round-10 boss +3.` },
+    { key:'poison', lane:'strike', title:'Poison',
+      desc:'Pick a crewmate — they gain a Poison die (like Scar). No Scar on you. Round-10 boss +2.', needsTarget:true },
   ];
+}
+function softGrowthOptions(p){ return parasiteMoveOptions(p).filter(o=>o.lane==='soft'); }
+function heavyGrowthOptions(p){ return parasiteMoveOptions(p).filter(o=>o.lane!=='soft'); }
+
+function applyParasiteMove(parasite, key, hostPl, opts){
+  opts = opts || {};
+  let fusionOverride = null;
+  let tonightFlat = 0;
+  let poisonTarget = opts.poisonTarget || null;
+  parasite.mutations = (parasite.mutations||0) + 1;
+
+  if (key==='feed'){
+    parasite.bossMeter = (parasite.bossMeter||0) + CFG.softMeter;
+    parasite.auraFlat = (parasite.auraFlat||0) + (parasite.auraGain!=null?parasite.auraGain:CFG.auraGain);
+    return { key, lane:'soft', fusionOverride, tonightFlat, poisonTarget, scarLv: hostPl?hostPl.scarLv:0 };
+  }
+  if (key==='harden'){
+    parasite.bossMeter = (parasite.bossMeter||0) + CFG.softMeter;
+    (parasite.attack||[]).forEach(d=>{ d.faces = d.faces.map(v=>v+1); });
+    return { key, lane:'soft', fusionOverride, tonightFlat, poisonTarget, scarLv: hostPl?hostPl.scarLv:0 };
+  }
+  if (key==='outbreak'){
+    parasite.bossMeter = (parasite.bossMeter||0) + CFG.heavyMeter;
+    tryAddParAttackDie(parasite);
+    tonightFlat = CFG.outbreakTonight || 10;
+    if (hostPl && (hostPl.scarLv||0) < 2) hostPl.scarLv = (hostPl.scarLv||0) + 1;
+    return { key, lane:'heavy', fusionOverride, tonightFlat, poisonTarget, scarLv: hostPl?hostPl.scarLv:0 };
+  }
+  if (key==='poison'){
+    parasite.bossMeter = (parasite.bossMeter||0) + (CFG.poisonMeter||2);
+    return { key, lane:'strike', fusionOverride, tonightFlat, poisonTarget, scarLv: hostPl?hostPl.scarLv:0 };
+  }
+  // Legacy soft keys
+  if (key==='surge' || key==='push_mod' || key==='fusion' || key==='aura'){
+    return applySoftGrowth(parasite, key);
+  }
+  // Legacy heavy
+  return applyHeavyGrowth(parasite, key, hostPl);
 }
 function applySoftGrowth(parasite, key){
   parasite.bossMeter = (parasite.bossMeter||0) + CFG.softMeter;
@@ -1160,8 +1228,12 @@ function applySoftGrowth(parasite, key){
     parasite.fusionPct = Math.min((parasite.fusionCap!=null?parasite.fusionCap:CFG.fusionCap), (parasite.fusionPct||CFG.startFusion) + (parasite.fusionStep!=null?parasite.fusionStep:CFG.fusionStep));
     return { key, lane:'soft' };
   }
-  if (key==='aura'){
+  if (key==='aura' || key==='feed'){
     parasite.auraFlat = (parasite.auraFlat||0) + (parasite.auraGain!=null?parasite.auraGain:CFG.auraGain);
+    return { key, lane:'soft' };
+  }
+  if (key==='harden'){
+    (parasite.attack||[]).forEach(d=>{ d.faces = d.faces.map(v=>v+1); });
     return { key, lane:'soft' };
   }
   return null;
@@ -1171,10 +1243,10 @@ function applyHeavyGrowth(parasite, key, hostPl){
   parasite.mutations = (parasite.mutations||0) + 1;
   if (hostPl && (hostPl.scarLv||0) < 2) hostPl.scarLv = (hostPl.scarLv||0) + 1;
   let fusionOverride = null;
-  // Every heavy grows Attack die count when there’s room — keeps the parasite growing
+  let tonightFlat = 0;
   tryAddParAttackDie(parasite);
-  if (key==='new_die'){
-    // die growth is the whole effect
+  if (key==='new_die' || key==='outbreak'){
+    if (key==='outbreak') tonightFlat = CFG.outbreakTonight || 10;
   } else if (key==='ribcage'){
     (parasite.attack||[]).forEach(d=>{ d.faces = d.faces.map(v=>v+2); });
   } else if (key==='full_fusion'){
@@ -1189,7 +1261,7 @@ function applyHeavyGrowth(parasite, key, hostPl){
     }
     parasite.instinct = inst;
   }
-  return { key, lane:'heavy', fusionOverride, scarLv: hostPl ? hostPl.scarLv : 0 };
+  return { key, lane:'heavy', fusionOverride, tonightFlat, scarLv: hostPl ? hostPl.scarLv : 0 };
 }
 
 /* ================= COMBAT HELPERS ================= */
@@ -1202,8 +1274,9 @@ function normalizeModRoll(modRoll){
 }
 
 /** Highest-die subtract for Scar shatter. Legacy rolls may already have scarZeroed v=0. */
-function shatterSubFromRolls(rolls, scarRoll, combatVals){
-  if (!scarRoll || scarRoll.id !== 'shatter' || !rolls || !rolls.length) return 0;
+function shatterSubFromRolls(rolls, scarRoll, combatVals, poisonRoll){
+  const hit = (scarRoll && scarRoll.id==='shatter') || (poisonRoll && poisonRoll.id==='shatter');
+  if (!hit || !rolls || !rolls.length) return 0;
   // Old locked actions zeroed the die in place — don't double-subtract
   if (rolls.some(d => d.scarZeroed)) return 0;
   if (combatVals) return combatVals.reduce((m,v)=> Math.max(m, v||0), 0);
@@ -1227,6 +1300,7 @@ function computeHumanTotal(rolls, modRoll, scarRoll, scarLv, opts){
   opts = opts || {};
   const path = opts.path || null;
   const dieCommit = opts.dieCommit || null;
+  const poisonRoll = opts.poisonRoll || null;
   const pinfo = pathInfo(path);
   modRoll = normalizeModRoll(modRoll);
   const vals = combatValuesForRolls(rolls, dieCommit);
@@ -1236,7 +1310,7 @@ function computeHumanTotal(rolls, modRoll, scarRoll, scarLv, opts){
     if (v > 0 && path==='gunner' && d.color==='red') v += 1;
     attack += v;
   });
-  const shatterSub = shatterSubFromRolls(rolls, scarRoll, vals);
+  const shatterSub = shatterSubFromRolls(rolls, scarRoll, vals, poisonRoll);
   if (shatterSub) attack = Math.max(0, attack - shatterSub);
   let pathBonus = 0;
   let pathNote = '';
@@ -1271,8 +1345,10 @@ function computeHumanTotal(rolls, modRoll, scarRoll, scarLv, opts){
   const scorePts = scorePtsFromCommit(rolls, dieCommit);
   let scarLabel = '';
   if (scarRoll && scarRoll.label) scarLabel = scarRoll.label;
+  let poisonLabel = '';
+  if (poisonRoll && poisonRoll.label) poisonLabel = poisonRoll.label;
   return {
-    attack, total, pendingEnergy, modAdd, modLabel, scarLabel, shatterSub,
+    attack, total, pendingEnergy, modAdd, modLabel, scarLabel, poisonLabel, shatterSub,
     pathBonus, pathNote, scorePts, dieCommit: dieCommit||null, path: path||null,
   };
 }
@@ -1297,6 +1373,7 @@ function liveHumanBreakdown(){
   const br = computeHumanTotal(session.rolls||[], session.modRoll, scar, pl.scarLv||0, {
     path: pl.path||null,
     dieCommit: session.dieCommit||null,
+    poisonRoll: session.poisonRoll||null,
   });
   let energyLoss = session.scarEnergyLoss||0;
   if (pl.path==='warden' && energyLoss) energyLoss = Math.max(0, energyLoss - 1);
@@ -1314,6 +1391,7 @@ function liveHumanBreakdown(){
     pathBonus: br.pathBonus||0,
     pathNote: br.pathNote||'',
     scorePts: br.scorePts||0,
+    poisonLabel: br.poisonLabel||'',
   };
 }
 /** Live parasite package math on host roll screen (before lock-in). */
@@ -1330,6 +1408,11 @@ function liveParasiteBreakdown(humanAttack, humanRolls){
   if (session.instinctRoll==='explode' && session.instinctExtra){
     part.instinctAdd = session.instinctExtra|0;
     part.total = part.atk + part.flat + part.pctAdd + part.fusion + part.instinctAdd + part.aura;
+  }
+  const tf = session._previewTonight || 0;
+  if (tf){
+    part.tonightFlat = tf;
+    part.total = (part.total||0) + tf;
   }
   return part;
 }
@@ -1409,6 +1492,7 @@ function resolvePlayerBundle(g, pid, action){
   const br = computeHumanTotal(a.rolls, a.modRoll||null, a.scarRoll||null, pl.scarLv||0, {
     path: pl.path||null,
     dieCommit: a.dieCommit||null,
+    poisonRoll: a.poisonRoll||null,
   });
   const scarLoss = scarEnergyAfterPath(pl, a.scarEnergyLoss||0);
   const pending = Math.max(0, (br.pendingEnergy||0) - scarLoss);
@@ -1455,16 +1539,31 @@ function resolveRound(g){
     pl.energy = Math.max(0, (pl.energy||0) - spent);
   });
 
-  // Host growth
+  // Host parasite move
   let growthResult = null;
   let fusionOverride = null;
+  let tonightFlat = 0;
   if (kind==='infection' && hostId){
     const a = actions[hostId];
     const growth = a.growth;
     if (growth && growth.key){
-      if (growth.lane==='heavy'){
+      const MOVE_KEYS = { feed:1, harden:1, outbreak:1, poison:1 };
+      if (MOVE_KEYS[growth.key]){
+        growthResult = applyParasiteMove(g.parasite, growth.key, g.players[hostId], {
+          poisonTarget: growth.target || null,
+        });
+        fusionOverride = growthResult.fusionOverride;
+        tonightFlat = growthResult.tonightFlat || 0;
+        if (growth.key==='poison' && growth.target && g.players[growth.target] && growth.target !== hostId){
+          const vic = g.players[growth.target];
+          vic.poisonLv = Math.min(2, (vic.poisonLv||0) + 1);
+          growthResult.poisonTarget = growth.target;
+          growthResult.poisonLv = vic.poisonLv;
+        }
+      } else if (growth.lane==='heavy'){
         growthResult = applyHeavyGrowth(g.parasite, growth.key, g.players[hostId]);
         fusionOverride = growthResult.fusionOverride;
+        tonightFlat = growthResult.tonightFlat || 0;
       } else {
         growthResult = applySoftGrowth(g.parasite, growth.key);
       }
@@ -1590,6 +1689,10 @@ function resolveRound(g){
       parPart.instinctAdd = hAct.instinctExtra;
       parPart.total = parPart.atk + parPart.flat + parPart.pctAdd + parPart.fusion + parPart.instinctAdd + parPart.aura;
     }
+    if (tonightFlat){
+      parPart.tonightFlat = tonightFlat;
+      parPart.total = (parPart.total||0) + tonightFlat;
+    }
 
     const hostTotal = hostHuman.total + parPart.total;
     const hostWins = hostTotal > crewTotal; // ties → crew
@@ -1705,7 +1808,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.6.0';
+const APP_BUILD = 'v4.7.0';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1745,7 +1848,7 @@ function normalizeGame(v){
     if (!pl){
       pl = g.players[pid] = {
         name:'', isBot:false, pts:0, energy:CFG.roundStipend, dice:starterDice(), modDie:starterModDie(),
-        scarLv:0, path:null, perks:{ freeReroll:false },
+        scarLv:0, poisonLv:0, path:null, perks:{ freeReroll:false },
       };
     }
     pl.isBot = !!pl.isBot;
@@ -1764,6 +1867,7 @@ function normalizeGame(v){
     if (!pl.modDie) pl.modDie = starterModDie();
     if (!pl.perks) pl.perks = { freeReroll:false };
     if (pl.scarLv == null) pl.scarLv = 0;
+    if (pl.poisonLv == null) pl.poisonLv = 0;
     if (pl.energy == null) pl.energy = CFG.roundStipend;
     if (pl.pts == null) pl.pts = 0;
     if (pl.path != null && !PATHS[pl.path]) pl.path = null;
@@ -1988,17 +2092,13 @@ function buildBotAction(pid){
 
   let growth = null;
   if (isHost){
-    const soft = softGrowthOptions(G.parasite);
-    const heavy = heavyGrowthOptions(G.parasite);
-    if (soft.length && (randInt(100) < 70 || !heavy.length)){
-      const o = soft[randInt(soft.length)];
-      growth = { key:o.key, lane:'soft' };
-    } else if (heavy.length){
-      const o = heavy[randInt(heavy.length)];
-      growth = { key:o.key, lane:'heavy' };
-    } else if (soft.length){
-      const o = soft[0];
-      growth = { key:o.key, lane:'soft' };
+    const moves = parasiteMoveOptions(G.parasite, G);
+    const o = moves[randInt(moves.length)];
+    growth = { key:o.key, lane:o.lane, target:null };
+    if (o.key==='poison'){
+      const victims = rosterOf(G).filter(p => p !== pid);
+      if (victims.length) growth.target = victims[randInt(victims.length)];
+      else growth = { key:'feed', lane:'soft', target:null };
     }
   }
 
@@ -2021,9 +2121,23 @@ function buildBotAction(pid){
     const si = rollIndex(faces.length);
     scarRoll = { index:si, id:faces[si].id, label:faces[si].label, level:scarLv };
   }
-  const scarred = applyScarToBundle(rolls, modRoll, scarRoll);
+  let poisonRoll = null;
+  const poisonLv = pl.poisonLv||0;
+  if (poisonLv > 0){
+    const faces = POISON_FACES[poisonLv] || POISON_FACES[1];
+    const si = rollIndex(faces.length);
+    poisonRoll = { index:si, id:faces[si].id, label:faces[si].label, level:poisonLv };
+  }
+  let scarred = applyScarToBundle(rolls, modRoll, scarRoll);
   rolls = scarred.rolls;
   modRoll = scarred.modRoll;
+  if (poisonRoll && poisonRoll.id!=='blank'){
+    const p2 = applyScarToBundle(rolls, modRoll, poisonRoll);
+    rolls = p2.rolls;
+    modRoll = p2.modRoll;
+    scarred.ptsDelta = (scarred.ptsDelta||0) + (p2.ptsDelta||0);
+    scarred.scarEnergyLoss = (scarred.scarEnergyLoss||0) + (p2.scarEnergyLoss||0);
+  }
 
   if (!pl.path) pl.path = randomPathId();
   const pinfo = pathInfo(pl.path);
@@ -2058,6 +2172,7 @@ function buildBotAction(pid){
     rolls,
     modRoll,
     scarRoll,
+    poisonRoll,
     ptsDelta: scarred.ptsDelta||0,
     scarEnergyLoss: scarred.scarEnergyLoss||0,
     bot: true,
@@ -2065,8 +2180,7 @@ function buildBotAction(pid){
   if (isHost && growth){
     action.growth = growth;
     const fake = deep(G.parasite);
-    if (growth.lane==='soft') applySoftGrowth(fake, growth.key);
-    else applyHeavyGrowth(fake, growth.key, { scarLv: pl.scarLv||0 });
+    applyParasiteMove(fake, growth.key, { scarLv: pl.scarLv||0 }, { poisonTarget: growth.target });
     action.aRolls = (fake.attack||[]).map(d=>{
       const er = rollExplodingAttack(d.faces);
       return { dieId:d.id, faces:d.faces, index:er.index, v:er.value, shown:er.shown, exploded:er.exploded, first:er.value, rerolled:false };
@@ -2346,10 +2460,9 @@ function instructionsModalHTML(){
       <h3>Host turns (R2–9)</h3>
       <ul>
         <li>You = human dice + parasite package vs the rest of the crew.</li>
-        <li>You pick parasite growth (soft or heavy). Heavy adds an Attack die when there’s room (max ${CFG.maxParAttack}).</li>
-        <li>After shop: <b>Roll / Lock human</b> and <b>Roll / Lock parasite</b> separately, then <b>Submit both rolls</b>.</li>
-        <li>Parasite ⚡ scales with table size (3p:5 · 4p:6 · 5–6p:7; a bit less if it already has many Attack dice).</li>
-        <li>Human energy and parasite ⚡ are separate pools for rerolls.</li>
+        <li>Pick <b>one of 4 moves</b>: Feed (aura) · Harden (+1 all faces) · Outbreak (+die +10 tonight + Scar on you) · Poison (give a crewmate a Poison die).</li>
+        <li>After shop: <b>Roll / Lock human</b> and <b>Roll / Lock parasite</b>, then <b>Submit both rolls</b>.</li>
+        <li>Parasite ⚡ scales with table size (3p:5 · 4p:6 · 5–6p:7).</li>
         <li>Specialty: +8, +25% atk, +lowest, +your high, +extra die. Attack max face = + bonus re-roll.</li>
       </ul>
       <h3>Round 10</h3>
@@ -2385,7 +2498,7 @@ function freeRerollThisRound(){
   return CFG.freeRerollsPerRound || 1;
 }
 function isParasiteRollType(type){ return type==='a' || type==='m' || type==='i'; }
-function isHumanRollType(type){ return type==='h' || type==='hm' || type==='s'; }
+function isHumanRollType(type){ return type==='h' || type==='hm' || type==='s' || type==='p'; }
 function canAffordReroll(){
   // Human pool only (crew dice / human mod / scar)
   if (!session || !session.selectedRoll || !isHumanRollType(session.selectedRoll.type)) return false;
@@ -2413,7 +2526,7 @@ function spendParRerollCharge(){
 }
 function resetSessionForRound(r){
   if (!session || session.round !== r){
-    session = { round:r, phase:'upgrade', rolls:null, modRoll:null, scarRoll:null,
+    session = { round:r, phase:'upgrade', rolls:null, modRoll:null, scarRoll:null, poisonRoll:null,
       aRolls:null, pModRoll:null, instinctRoll:null, instinctExtra:0,
       paidRerolls:0, freeLeft:0, parEnergy:0, parRerolls:0,
       humanRolled:false, humanLocked:false, parRolled:false, parLocked:false,
@@ -2659,14 +2772,16 @@ function standingsBarHTML(){
   const leadPts = G.players[ranked[0]] ? (G.players[ranked[0]].pts||0) : 0;
   const chips = ranked.map((p)=>{
     const pts = G.players[p].pts||0;
-    const scar = G.players[p].scarLv ? `L${G.players[p].scarLv}` : '';
+    const scar = G.players[p].scarLv ? `Scar L${G.players[p].scarLv}` : '';
+    const poison = G.players[p].poisonLv ? `Psn L${G.players[p].poisonLv}` : '';
     const bot = !!G.players[p].isBot;
     const cls = (p===me?'me':'') + (pts===leadPts && leadPts>0?' lead':'');
     return `<div class="sb-chip ${cls}">
       <div class="sb-name">${crewImg(p)}<span>${esc(playerShort(p))}</span></div>
       <div class="sb-pts">${pts}</div>
       ${bot?`<div class="sb-meta">COMP</div>`:''}
-      ${scar?`<div class="sb-meta" style="color:#ff8a9a">Scar ${scar}</div>`:''}
+      ${scar?`<div class="sb-meta" style="color:#ff8a9a">${esc(scar)}</div>`:''}
+      ${poison?`<div class="sb-meta" style="color:#c77dff">${esc(poison)}</div>`:''}
     </div>`;
   }).join('');
   const boss = G.parasite ? `${tip('boss','Boss')} ${G.parasite.bossMeter||0} · HP ${bossHP(G)}` : '';
@@ -2751,7 +2866,7 @@ function turnCoachHTML(r, isHost){
     how = `Crew vs <b>${bossHP(G)} HP</b>.${pathBit}`;
   } else if (isHost){
     title = 'You are the HOST';
-    how = `Roll &amp; <b>Lock</b> human and parasite separately, then Submit. Commit a human die too.${pathBit} Soft = safer. Heavy = +1 Attack die + ${tip('scar','Scar')}. Par ⚡ <b>${hostParStipendNow()}</b>.`;
+    how = `Pick one ${tip('moves','move')}: Feed / Harden / Outbreak / ${tip('poison','Poison')}. Then roll &amp; lock human + parasite.${pathBit} Par ⚡ <b>${hostParStipendNow()}</b>.`;
   } else {
     const hid = hostIdForRound(G, r);
     title = `${whoHTML(hid)} is infected`;
@@ -2844,32 +2959,34 @@ function shopHTML(r, isHost){
 
   let growthBlock = '';
   if (isHost){
-    const soft = softGrowthOptions(G.parasite);
-    const heavy = heavyGrowthOptions(G.parasite);
+    const moves = parasiteMoveOptions(G.parasite, G);
     const atkN = parAttackCount(G.parasite);
+    const crew = rosterOf(G).filter(p => p !== me);
+    const poisonOn = cart.growth && cart.growth.key==='poison';
+    const targetRow = poisonOn ? `<div class="small" style="margin-top:8px">${tip('poison','Poison target')}:</div>
+      <div class="target-row">${crew.map(pid=>{
+        const on = cart.growth && cart.growth.target===pid;
+        return `<button type="button" class="btn target ${on?'on':''}" onclick="pickPoisonTarget('${pid}')">${whoHTML(pid,{short:true})}${G.players[pid].poisonLv?` · P${G.players[pid].poisonLv}`:''}</button>`;
+      }).join('')}</div>` : '';
     growthBlock = `<div class="panel" style="border-color:#8dff6a44">
-      <div class="lane-label" style="margin-top:0;color:var(--bio)">Parasite must grow</div>
-      <div class="small">You pick the parasite’s growth. Soft = safer. Heavy = +1 Attack die (if room) + power now + ${tip('scar','Scar')} + fatter ${tip('boss','Round 10')}.</div>
-      <div class="spent-preview" style="color:var(--bio)">Attack dice now: <b>${atkN}</b> / ${CFG.maxParAttack} · Host turn parasite energy: ⚡ ${hostParStipendNow()}</div>
-      <div class="growth-grid">${soft.map(o=>{
+      <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('moves','Parasite move')} — pick one</div>
+      <div class="small">Four attacks. Feed/Harden are safer. Outbreak is big power + ${tip('scar','Scar')} on you. ${tip('poison','Poison')} hits a crewmate.</div>
+      <div class="spent-preview" style="color:var(--bio)">Attack dice: <b>${atkN}</b> / ${CFG.maxParAttack} · Par ⚡ ${hostParStipendNow()}</div>
+      <div class="move-grid">${moves.map(o=>{
         const picked = cart.growth && cart.growth.key===o.key;
-        return `<button class="growth-opt soft ${picked?'picked':''}" onclick="pickGrowth('${o.key}','soft')">
+        return `<button class="growth-opt move ${o.key} ${picked?'picked':''}" onclick="pickGrowth('${o.key}','${o.lane}')">
           <div class="go-title">${o.title}</div><div class="go-desc">${o.desc}</div></button>`;
       }).join('')}</div>
-      <div class="growth-grid">${heavy.map(o=>{
-        const picked = cart.growth && cart.growth.key===o.key;
-        const dis = o.disabled && !picked;
-        return `<button class="growth-opt heavy ${picked?'picked':''}" ${dis?'disabled':''} onclick="pickGrowth('${o.key}','heavy')">
-          <div class="go-title">${o.title}</div><div class="go-desc">${o.desc}</div></button>`;
-      }).join('')}</div>
-      ${pl.scarLv?`<div class="warn-box">You already carry Scar L${pl.scarLv}. Another heavy bumps to L2 (cap).</div>`:''}
+      ${targetRow}
+      ${pl.scarLv?`<div class="warn-box">You carry Scar L${pl.scarLv}. Outbreak bumps toward L2 (cap).</div>`:''}
     </div>`;
   }
 
-  const canRoll = !isHost || (cart.growth && cart.growth.key);
+  const moveReady = !isHost || (cart.growth && cart.growth.key && (cart.growth.key!=='poison' || cart.growth.target));
+  const canRoll = moveReady;
   const parStip = hostParStipendNow();
   const startLabel = isHost
-    ? (!cart.growth ? 'Pick a growth first' : 'Continue to rolls')
+    ? (!cart.growth ? 'Pick a move first' : (cart.growth.key==='poison' && !cart.growth.target ? 'Pick who to Poison' : 'Continue to rolls'))
     : 'Roll dice';
   const startFn = isHost ? 'startHostRollPhase()' : 'beginRoll()';
   return `${growthBlock}
@@ -2891,6 +3008,7 @@ function resetChoices(){
     session.baseModRoll = null;
     session.modRoll = null;
     session.scarRoll = null;
+    session.poisonRoll = null;
     session.aRolls = null;
     session.pModRoll = null;
     session.instinctRoll = null;
@@ -2939,11 +3057,14 @@ function setAddDie(c){
 }
 function clearAddDie(){ cart.addDie=null; render(); }
 function pickGrowth(key, lane){
-  if (lane==='heavy'){
-    const opt = heavyGrowthOptions(G.parasite).find(o=>o.key===key);
-    if (opt && opt.disabled) return;
-  }
-  cart.growth = { key, lane };
+  const prevTarget = (cart.growth && cart.growth.key==='poison') ? cart.growth.target : null;
+  cart.growth = { key, lane, target: key==='poison' ? prevTarget : null };
+  render();
+}
+function pickPoisonTarget(pid){
+  if (!cart.growth || cart.growth.key!=='poison') return;
+  if (pid === me) return;
+  cart.growth.target = pid;
   render();
 }
 
@@ -2951,8 +3072,18 @@ function pickGrowth(key, lane){
 function prepareHostGrowthPreview(){
   const fake = deep(G.parasite);
   if (cart && cart.growth && cart.growth.key){
-    if (cart.growth.lane==='soft') applySoftGrowth(fake, cart.growth.key);
-    else applyHeavyGrowth(fake, cart.growth.key, { scarLv: G.players[me].scarLv||0 });
+    const hostFake = { scarLv: G.players[me].scarLv||0 };
+    const MOVE_KEYS = { feed:1, harden:1, outbreak:1, poison:1 };
+    if (MOVE_KEYS[cart.growth.key]){
+      const res = applyParasiteMove(fake, cart.growth.key, hostFake, { poisonTarget: cart.growth.target });
+      session._previewTonight = res.tonightFlat || 0;
+    } else if (cart.growth.lane==='soft'){
+      applySoftGrowth(fake, cart.growth.key);
+      session._previewTonight = 0;
+    } else {
+      const res = applyHeavyGrowth(fake, cart.growth.key, hostFake);
+      session._previewTonight = (res && res.tonightFlat) || 0;
+    }
   }
   session._previewPar = fake;
   return fake;
@@ -2978,11 +3109,19 @@ function rollHumanBundle(){
     const si = rollIndex(faces.length);
     scarRoll = { index:si, id:faces[si].id, label:faces[si].label, level:scarLv };
   }
+  let poisonRoll = null;
+  const poisonLv = G.players[me].poisonLv||0;
+  if (poisonLv > 0){
+    const faces = POISON_FACES[poisonLv] || POISON_FACES[1];
+    const si = rollIndex(faces.length);
+    poisonRoll = { index:si, id:faces[si].id, label:faces[si].label, level:poisonLv };
+  }
   session.baseRolls = deep(rolls);
   session.baseModRoll = deep(modRoll);
   session.rolls = deep(rolls);
   session.modRoll = deep(modRoll);
   session.scarRoll = scarRoll;
+  session.poisonRoll = poisonRoll;
   session.ptsDelta = 0;
   session.scarEnergyLoss = 0;
   reapplyScarFromBase();
@@ -3013,6 +3152,7 @@ function rollParasiteBundle(){
 function startHostRollPhase(){
   const r = G.round;
   if (!(cart.growth && cart.growth.key)) return;
+  if (cart.growth.key==='poison' && !cart.growth.target) return;
   prepareHostGrowthPreview();
   session.phase = 'roll';
   session.humanRolled = false;
@@ -3023,6 +3163,7 @@ function startHostRollPhase(){
   session.baseRolls = null;
   session.modRoll = null;
   session.scarRoll = null;
+  session.poisonRoll = null;
   session.aRolls = null;
   session.pModRoll = null;
   session.instinctRoll = null;
@@ -3092,7 +3233,7 @@ function beginRoll(){
   setTimeout(()=>{ if(session) session.shake=false; render(); }, 550);
 }
 
-/** Restore clean dice/mod, then apply current scar once (safe to call on every scar reroll). */
+/** Restore clean dice/mod, then apply scar + poison once. */
 function reapplyScarFromBase(){
   if (!session) return;
   session.rolls = deep(session.baseRolls || session.rolls || []);
@@ -3101,47 +3242,50 @@ function reapplyScarFromBase(){
   session.scarEnergyLoss = 0;
   (session.rolls||[]).forEach(d=>{ d.scarZeroed = false; d.scarNote = ''; });
   applyScarToSession();
+  applyPoisonToSession();
 }
-
-function applyScarToSession(){
-  const scar = session.scarRoll;
-  if (!scar) return;
-  const lv = scar.level;
+function applyHurtFace(hurt, kind){
+  // kind: 'scar' | 'poison' — mutates session.rolls / mod / pts / energy
+  if (!hurt || hurt.id==='blank') return;
+  const lv = hurt.level;
   const rolls = session.rolls || [];
-  if (scar.id==='drain'){
-    session.scarEnergyLoss = lv===1 ? 2 : 4;
-  } else if (scar.id==='bleed'){
+  if (hurt.id==='drain'){
+    session.scarEnergyLoss = (session.scarEnergyLoss||0) + (lv===1 ? 2 : 4);
+  } else if (hurt.id==='bleed'){
     const mult = lv===1 ? 0.9 : 0.8;
     rolls.forEach(d=>{ d.v = Math.max(0, Math.round(d.v * mult)); });
-  } else if (scar.id==='static'){
+  } else if (hurt.id==='static'){
     session.modRoll = null;
     if (lv===2) session.scarEnergyLoss = (session.scarEnergyLoss||0) + 1;
-  } else if (scar.id==='fumble'){
+  } else if (hurt.id==='fumble'){
     const n = lv===1 ? 1 : 2;
     for (let k=0;k<n;k++){
       if (!rolls.length) break;
       let hi=0; for (let i=1;i<rolls.length;i++) if ((rolls[i].v||0)>(rolls[hi].v||0)) hi=i;
       const rf = rollFace(rolls[hi].faces);
       rolls[hi].v = rf.value; rolls[hi].index = rf.index; rolls[hi].rerolled = true;
-      // keep base in sync for the fumbled die so later scar rerolls don't revive the old high
       if (session.baseRolls && session.baseRolls[hi]){
         session.baseRolls[hi].v = rf.value;
         session.baseRolls[hi].index = rf.index;
-        session.baseRolls[hi].first = session.baseRolls[hi].first != null ? session.baseRolls[hi].first : rf.value;
       }
     }
-  } else if (scar.id==='penalty'){
-    session.ptsDelta = -(lv===1 ? 5 : 10);
-  } else if (scar.id==='shatter'){
-    // −highest from total; die keeps its face so you can reroll it and move the hit
+  } else if (hurt.id==='penalty'){
+    session.ptsDelta = (session.ptsDelta||0) - (lv===1 ? 5 : 10);
+  } else if (hurt.id==='shatter'){
     if (rolls.length){
       let hi=0; for (let i=1;i<rolls.length;i++) if ((rolls[i].v||0)>(rolls[hi].v||0)) hi=i;
       const lost = rolls[hi].v||0;
-      rolls[hi].scarNote = '−'+lost+' scar';
-      rolls[hi].scarZeroed = false;
+      rolls[hi].scarNote = (rolls[hi].scarNote ? rolls[hi].scarNote+' · ' : '') + '−'+lost+' '+kind;
     }
-    if (lv===2) session.ptsDelta = (session.ptsDelta||0) - 5;
+    if (lv===2 && kind==='scar') session.ptsDelta = (session.ptsDelta||0) - 5;
   }
+}
+function applyPoisonToSession(){
+  applyHurtFace(session.poisonRoll, 'poison');
+}
+
+function applyScarToSession(){
+  applyHurtFace(session.scarRoll, 'scar');
 }
 
 function clearDieCommit(){ if (session) session.dieCommit = null; }
@@ -3192,10 +3336,14 @@ function rollPhaseHTML(r, isHost){
 
   let scarLine = '';
   if (session.scarRoll){
-    scarLine = `<div class="warn-box">Scar: <b>${session.scarRoll.label}</b> — tap scar die to reroll</div>`;
+    scarLine += `<div class="warn-box">Scar: <b>${session.scarRoll.label}</b> — tap scar die to reroll</div>`;
+  }
+  if (session.poisonRoll){
+    scarLine += `<div class="warn-box" style="border-color:#c77dff66;color:#e0c0ff">Poison: <b>${session.poisonRoll.label}</b> — tap poison die to reroll</div>`;
   }
   let extraBits = '';
   if (live.scarLabel) extraBits += `<div class="small center" style="margin-top:4px;color:#ff8a9a">Scar ${esc(live.scarLabel)}</div>`;
+  if (live.poisonLabel) extraBits += `<div class="small center" style="margin-top:4px;color:#c77dff">Poison ${esc(live.poisonLabel)}</div>`;
   if (live.shatterSub) extraBits += `<div class="small center" style="color:#ff8a9a">Scar −${live.shatterSub} (strongest die — reroll it to move the hit)</div>`;
   if (live.pathNote) extraBits += `<div class="small center" style="color:var(--energy)">${esc(live.pathNote)}</div>`;
   if (live.scorePts) extraBits += `<div class="small center" style="color:var(--energy)">Score +${live.scorePts} pts (die out of combat)</div>`;
@@ -3234,8 +3382,13 @@ function rollPhaseHTML(r, isHost){
   let scarDie = '';
   if (humanRolled && session.scarRoll){
     const sel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='s';
-    scarDie = `<div class="die-wrap ${canPickHuman?`can-pick ${sel?'selected':''}" onclick="pickRoll('s',0)`:''}">${dieHTML('scar', session.scarRoll.label, shake)}
+    scarDie += `<div class="die-wrap ${canPickHuman?`can-pick ${sel?'selected':''}" onclick="pickRoll('s',0)`:''}">${dieHTML('scar', session.scarRoll.label, shake)}
       <div class="die-label" style="color:#ff8a9a">Scar</div></div>`;
+  }
+  if (humanRolled && session.poisonRoll){
+    const sel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='p';
+    scarDie += `<div class="die-wrap ${canPickHuman?`can-pick ${sel?'selected':''}" onclick="pickRoll('p',0)`:''}">${dieHTML('scar', session.poisonRoll.label, shake)}
+      <div class="die-label" style="color:#c77dff">${tip('poison','Poison')}</div></div>`;
   }
 
   const pathBit = live.pathBonus ? `<span class="op">+</span><span class="rf">Path <b>+${live.pathBonus}</b></span>` : '';
@@ -3331,6 +3484,7 @@ function rollPhaseHTML(r, isHost){
             <span class="rf tiny">Spec <b>${par.instinctAdd||0}</b></span>
             <span class="op">+</span>
             <span class="rf tiny">Aura <b>${par.aura||0}</b></span>
+            ${par.tonightFlat?`<span class="op">+</span><span class="rf tiny">Tonight <b>${par.tonightFlat}</b></span>`:''}
             <span class="op">=</span>
             <span class="rf total">Par <b>${parTotal}</b></span>
           </div>
@@ -3426,6 +3580,12 @@ function confirmReroll(){
     const si = rollIndex(faces.length);
     session.scarRoll = { index:si, id:faces[si].id, label:faces[si].label, level:lv };
     reapplyScarFromBase();
+  } else if (type==='p'){
+    const lv = G.players[me].poisonLv||1;
+    const faces = POISON_FACES[lv] || POISON_FACES[1];
+    const si = rollIndex(faces.length);
+    session.poisonRoll = { index:si, id:faces[si].id, label:faces[si].label, level:lv };
+    reapplyScarFromBase();
   }
   session.selectedRoll = null;
   session.shake = true;
@@ -3484,6 +3644,7 @@ function lockIn(){
     rolls: session.rolls,
     modRoll: session.modRoll,
     scarRoll: session.scarRoll,
+    poisonRoll: session.poisonRoll||null,
     ptsDelta: session.ptsDelta||0,
     scarEnergyLoss: session.scarEnergyLoss||0,
   };
