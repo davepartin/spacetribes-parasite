@@ -158,3 +158,23 @@ HP = **table base + (per-meter × Boss Meter)**. Clear it for hero bonuses. Fail
 **Copy link** at the bottom copies the game URL so you can text it anytime.
 
 Your phone remembers which seat you claimed.
+
+## Dictionary
+
+| Term | Meaning |
+|---|---|
+| **Energy (⚡)** | Spend bank. +5 each round. Forge, mod upgrade, extra die, heal, rerolls. |
+| **Attack dice** | Weapons / Strength / Agility. Main combat power. |
+| **Mod die** | Energy / % / Base / Points + 2× gain scar. |
+| **Points (Mod)** | Personal score if locked. No combat help. |
+| **Your Base** | Header starts +0. Lock Mod Base to raise it for the rest of the game. |
+| **Scar die** | 3 blanks + −2⚡ + −20% + − highest dice. Heal 2⚡. |
+| **Host** | Infected player. Human + parasite vs the crew. |
+| **Feed / Harden / Outbreak / Poison** | The four parasite moves (pick one). |
+| **Base Attack** | Flat parasite power (4p-tuned; seat bonus; grows when crew holds). |
+| **Human share** | Part of host human attack added to parasite. |
+| **Aura** | Permanent flat parasite add (Feed). |
+| **Specialty** | Extra parasite die. |
+| **Boss Meter** | Feeds Round 10 HP. |
+| **Category** | Best single color die among the crew that round. |
+| **MVP** | Highest crew total when the crew holds. |
