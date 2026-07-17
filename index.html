@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.4.2">
+<meta name="stp-build" content="v4.5.0">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -45,8 +45,15 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .btn.par-reroll{background:linear-gradient(135deg,#1a6a40,#6adf7a);color:#071018;margin-top:10px;
   font-weight:800;box-shadow:0 3px 12px #8dff6a33;}
 .btn.par-reroll:disabled,.btn.par-reroll.disabled{background:#243444;color:#8aa0ae;box-shadow:none;}
+.btn.lock-side{background:linear-gradient(135deg,#3a5a8a,#5a8ad4);color:#fff;margin-top:8px;font-weight:800;}
+.btn.lock-side.par{background:linear-gradient(135deg,#1a6a40,#3a9a58);color:#fff;}
+.btn.lock-side:disabled,.btn.lock-side.disabled{background:#243444;color:#8aa0ae;box-shadow:none;}
+.btn.lock-side.done{background:#1a2a20;border:1.5px solid var(--good);color:var(--good);box-shadow:none;}
 .par-energy{text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:14px;
   color:var(--bio);margin:8px 0 4px;}
+.panel.locked-side{opacity:.72;border-color:var(--good)!important;}
+.lock-badge{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:99px;font-size:10px;
+  font-weight:800;letter-spacing:.06em;background:#3ecf8e33;color:var(--good);vertical-align:middle;}
 .die-faces{font-size:10px;color:var(--dim);font-family:'IBM Plex Mono',monospace;margin-top:2px;
   letter-spacing:.02em;line-height:1.2;}
 @media (max-width:400px){
@@ -574,7 +581,7 @@ const CFG = {
   faceCap: 0,
   maxDicePerColor: 2,
   maxParAttack: 4,
-  hostParStipend: 7, // parasite energy on host turns (rerolls)
+  hostParStipend: 7, // baseline; actual stipend scales with table size
   parRerollCost: 1,
   // points
   trainRankPts: [6,4,2,1],
@@ -617,7 +624,18 @@ function parasiteTuning(n){
     faceBonus: n === 5 ? 1 : 0,                            // 5p: hotter starter faces
     hpBase: Math.round(CFG.hpBase * n / 4),                // 75 / 100 / 125 / 150
     hpPerMeter: Math.max(2, Math.round(CFG.hpPerMeter * n / 4)), // 2 / 3 / 4 / 5
+    // Parasite reroll budget — leaner at small tables (fewer crew to absorb host power)
+    parStipend: ({3:5, 4:6, 5:7, 6:7})[n] || 6,
   };
+}
+function hostParStipendNow(){
+  const t = parasiteTuning(tableSize(G));
+  let e = t.parStipend != null ? t.parStipend : (CFG.hostParStipend || 7);
+  // Already-grown parasites with many Attack dice get slightly fewer rerolls
+  const atk = parAttackCount(G && G.parasite);
+  if (atk >= 3) e = Math.max(3, e - 1);
+  if (atk >= 4) e = Math.max(3, e - 1);
+  return e;
 }
 function rankPtsFor(n, high, low){
   n = Math.max(1, n|0);
@@ -678,7 +696,7 @@ const TIPS = {
   aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn.' },
   boss: { title:'Boss meter / Round 10 HP', body:'Tracks how much the table fed the parasite. Round 10 HP = 100 + (3 x Boss Meter). Soft growth +1, heavy +3, host win +1.' },
   instinct: { title:'Specialty die', body:'Extra parasite die. Faces show the effect: +8, +25% atk, +lowest, +your high, blank, or +extra die.' },
-  host: { title:'Host turn', body:'You still roll your human dice + mod, AND the parasite package. You pick soft/heavy growth (heavy adds an Attack die when possible). Parasite gets ⚡7 for its own rerolls. Your total = human + parasite vs the rest of the crew.' },
+  host: { title:'Host turn', body:'Shop first, then roll human and parasite independently — reroll and Lock each side, then Submit both rolls. Soft/heavy growth (heavy adds an Attack die when possible). Parasite ⚡ scales with table size (leaner at 3p). Your total = human + parasite vs the rest of the crew.' },
   energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge +2 costs 1. Mod upgrade 2. Extra die 3. 1 free reroll per round, then 1 each.' },
   explode: { title:'Bonus re-roll', body:'If a parasite attack die hits its highest face, you get a bonus re-roll of that die and add it.' },
 };
@@ -1157,6 +1175,9 @@ function computeHumanTotal(rolls, modRoll, scarRoll, scarLv){
 
 /** Build display math from clean base dice + current mod/scar (for the big blue total). */
 function liveHumanBreakdown(){
+  if (!session || !session.rolls){
+    return { rawAttack:0, attack:0, modAdd:0, modLabel:'—', pendingEnergy:0, scarLabel:'', total:0, ptsDelta:0, energyLoss:0 };
+  }
   const base = session.baseRolls || session.rolls || [];
   const rawAttack = base.reduce((s,d)=>s+(d.v||0), 0);
   const scar = session.scarRoll;
@@ -1522,7 +1543,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.4.2';
+const APP_BUILD = 'v4.5.0';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2134,8 +2155,9 @@ function instructionsModalHTML(){
       <ul>
         <li>You = human dice + parasite package vs the rest of the crew.</li>
         <li>You pick parasite growth (soft or heavy). Heavy adds an Attack die when there’s room (max ${CFG.maxParAttack}).</li>
-        <li>Parasite gets <b>⚡ ${CFG.hostParStipend||7}</b> each host turn for its own rerolls (separate from your energy).</li>
-        <li>Human rerolls and parasite rerolls are separate buttons.</li>
+        <li>After shop: <b>Roll / Lock human</b> and <b>Roll / Lock parasite</b> separately, then <b>Submit both rolls</b>.</li>
+        <li>Parasite ⚡ scales with table size (3p:5 · 4p:6 · 5–6p:7; a bit less if it already has many Attack dice).</li>
+        <li>Human energy and parasite ⚡ are separate pools for rerolls.</li>
         <li>Specialty: +8, +25% atk, +lowest, +your high, +extra die. Attack max face = + bonus re-roll.</li>
       </ul>
       <h3>Round 10</h3>
@@ -2175,6 +2197,7 @@ function isHumanRollType(type){ return type==='h' || type==='hm' || type==='s'; 
 function canAffordReroll(){
   // Human pool only (crew dice / human mod / scar)
   if (!session || !session.selectedRoll || !isHumanRollType(session.selectedRoll.type)) return false;
+  if (session.humanLocked) return false;
   if (session.freeLeft > 0) return true;
   return energyLeft() >= CFG.rerollCost;
 }
@@ -2186,6 +2209,7 @@ function spendRerollCharge(){
 function parEnergyLeft(){ return (session && session.parEnergy != null) ? session.parEnergy : 0; }
 function canAffordParReroll(){
   if (!session || !session.selectedRoll || !isParasiteRollType(session.selectedRoll.type)) return false;
+  if (session.parLocked) return false;
   return parEnergyLeft() >= (CFG.parRerollCost || 1);
 }
 function spendParRerollCharge(){
@@ -2200,7 +2224,8 @@ function resetSessionForRound(r){
     session = { round:r, phase:'upgrade', rolls:null, modRoll:null, scarRoll:null,
       aRolls:null, pModRoll:null, instinctRoll:null, instinctExtra:0,
       paidRerolls:0, freeLeft:0, parEnergy:0, parRerolls:0,
-      shake:false, selectedRoll:null, ptsDelta:0 };
+      humanRolled:false, humanLocked:false, parRolled:false, parLocked:false,
+      _previewPar:null, shake:false, selectedRoll:null, ptsDelta:0 };
   }
   if (cartRound !== r || !cart){ cart = freshCart(); cartRound = r; }
 }
@@ -2368,12 +2393,13 @@ function topbarHTML(){
   const baseLab = myBaseAttackLabel(pl);
   const baseN = myBaseAttackValue(pl);
   const hostNow = iAmHostThisRound();
-  const hostRoll = !!(session && session.phase==='roll' && session.aRolls);
+  const hostRoll = !!(hostNow && session && session.phase==='roll');
   let parChip = '';
   if (hostRoll){
-    parChip = `<div class="stat-chip par-en" title="Parasite energy left for rerolls">Par ⚡${parEnergyLeft()}</div>`;
+    const pe = session.parEnergy != null ? session.parEnergy : hostParStipendNow();
+    parChip = `<div class="stat-chip par-en" title="Parasite energy left for rerolls">Par ⚡${pe}</div>`;
   } else if (hostNow && session && session.phase==='upgrade'){
-    parChip = `<div class="stat-chip par-en" title="Parasite gets this energy when you roll">Par ⚡${CFG.hostParStipend||7}</div>`;
+    parChip = `<div class="stat-chip par-en" title="Parasite energy this host turn (scales with table size)">Par ⚡${hostParStipendNow()}</div>`;
   }
   return `<div class="topbar">
     <button class="me-chip" onclick="switchChar()">${whoHTML(me)}</button>
@@ -2480,7 +2506,7 @@ function turnCoachHTML(r, isHost){
     how = `Collective fight vs <b>${bossHP(G)} HP</b> (scaled for ${n} players). Hero points on the line. Fail and it escapes.`;
   } else if (isHost){
     title = 'You are the HOST';
-    how = `Human dice + parasite vs the other <b>${n-1}</b>. Soft = safer. Heavy = <b>+1 Attack die</b> (if room) + ${tip('scar','Scar')} + fatter ${tip('boss','Round 10')}. Parasite gets <b>⚡${CFG.hostParStipend||7}</b> for its own rerolls.`;
+    how = `Roll &amp; <b>Lock</b> human and parasite <b>separately</b>, then Submit both. Soft = safer. Heavy = <b>+1 Attack die</b> (if room) + ${tip('scar','Scar')} + fatter ${tip('boss','Round 10')}. Parasite ⚡ <b>${hostParStipendNow()}</b> this table.`;
   } else {
     const hid = hostIdForRound(G, r);
     title = `${whoHTML(hid)} is infected`;
@@ -2570,7 +2596,7 @@ function shopHTML(r, isHost){
     growthBlock = `<div class="panel" style="border-color:#8dff6a44">
       <div class="lane-label" style="margin-top:0;color:var(--bio)">Parasite must grow</div>
       <div class="small">You pick the parasite’s growth. Soft = safer. Heavy = +1 Attack die (if room) + power now + ${tip('scar','Scar')} + fatter ${tip('boss','Round 10')}.</div>
-      <div class="spent-preview" style="color:var(--bio)">Attack dice now: <b>${atkN}</b> / ${CFG.maxParAttack} · Host turn parasite energy: ⚡ ${CFG.hostParStipend||7}</div>
+      <div class="spent-preview" style="color:var(--bio)">Attack dice now: <b>${atkN}</b> / ${CFG.maxParAttack} · Host turn parasite energy: ⚡ ${hostParStipendNow()}</div>
       <div class="growth-grid">${soft.map(o=>{
         const picked = cart.growth && cart.growth.key===o.key;
         return `<button class="growth-opt soft ${picked?'picked':''}" onclick="pickGrowth('${o.key}','soft')">
@@ -2587,14 +2613,19 @@ function shopHTML(r, isHost){
   }
 
   const canRoll = !isHost || (cart.growth && cart.growth.key);
+  const parStip = hostParStipendNow();
+  const startLabel = isHost
+    ? (!cart.growth ? 'Pick a growth first' : 'Continue to rolls')
+    : 'Roll dice';
+  const startFn = isHost ? 'startHostRollPhase()' : 'beginRoll()';
   return `${growthBlock}
-    <div class="spent-preview">Energy left after shop: ⚡ ${left}</div>
+    <div class="spent-preview">Energy left after shop: ⚡ ${left}${isHost?` · Parasite will get ⚡ ${parStip}`:''}</div>
     <div class="dice-row">${diceRow}</div>
     ${forgeBlock}${modBlock}${extras}
     <button class="btn ghost" style="margin-top:4px" onclick="resetChoices()">Reset choices</button>
     <div class="cta-spacer"></div>
     <div class="fixed-cta">
-      <button class="btn" onclick="beginRoll()" ${!canRoll || left<0?'disabled':''}>${isHost&&!cart.growth?'Pick a growth first':'Roll dice'}</button>
+      <button class="btn" onclick="${startFn}" ${!canRoll || left<0?'disabled':''}>${startLabel}</button>
     </div>`;
 }
 function resetChoices(){
@@ -2613,6 +2644,11 @@ function resetChoices(){
     session.freeLeft = 0;
     session.parEnergy = 0;
     session.parRerolls = 0;
+    session.humanRolled = false;
+    session.humanLocked = false;
+    session.parRolled = false;
+    session.parLocked = false;
+    session._previewPar = null;
     session.selectedRoll = null;
     session.ptsDelta = 0;
     session.scarEnergyLoss = 0;
@@ -2657,15 +2693,18 @@ function pickGrowth(key, lane){
 }
 
 /* ================= ROLL ================= */
-function beginRoll(){
-  const r = G.round;
-  const kind = roundKind(r);
-  const isHost = kind==='infection' && hostIdForRound(G,r)===me;
-  if (isHost && !(cart.growth && cart.growth.key)) return;
-
+function prepareHostGrowthPreview(){
+  const fake = deep(G.parasite);
+  if (cart && cart.growth && cart.growth.key){
+    if (cart.growth.lane==='soft') applySoftGrowth(fake, cart.growth.key);
+    else applyHeavyGrowth(fake, cart.growth.key, { scarLv: G.players[me].scarLv||0 });
+  }
+  session._previewPar = fake;
+  return fake;
+}
+function rollHumanBundle(){
   const preview = previewHumanDice(G.players[me]);
   const modPrev = previewModDie(G.players[me]);
-  // human rolls
   const rolls = preview.map(d=>{
     const rf = rollFace(d.faces);
     const bonus = isBonusDie(d);
@@ -2675,21 +2714,15 @@ function beginRoll(){
     const last = rolls[rolls.length-1];
     if (last && last.tempNew){ last.dieId = uid(cart.addDie[0]); last.bonus = true; }
   }
-  // mod roll
   const mi = rollIndex(modPrev.length);
-  let modRoll = { index:mi, kind:modPrev[mi].kind, level:modPrev[mi].level, value:modFaceValue(modPrev[mi]) };
-
-  // scar
+  const modRoll = { index:mi, kind:modPrev[mi].kind, level:modPrev[mi].level, value:modFaceValue(modPrev[mi]) };
   let scarRoll = null;
-  let ptsDelta = 0;
   const scarLv = G.players[me].scarLv||0;
   if (scarLv > 0){
     const faces = SCAR_FACES[scarLv];
     const si = rollIndex(faces.length);
     scarRoll = { index:si, id:faces[si].id, label:faces[si].label, level:scarLv };
   }
-
-  // Keep a clean pre-scar snapshot so scar rerolls never stack pain
   session.baseRolls = deep(rolls);
   session.baseModRoll = deep(modRoll);
   session.rolls = deep(rolls);
@@ -2698,39 +2731,99 @@ function beginRoll(){
   session.ptsDelta = 0;
   session.scarEnergyLoss = 0;
   reapplyScarFromBase();
-
-  // host parasite rolls
-  if (isHost){
-    let atkDice = deep(G.parasite.attack);
-    // preview growth locally for the roll
-    const fake = deep(G.parasite);
-    if (cart.growth.lane==='soft') applySoftGrowth(fake, cart.growth.key);
-    else applyHeavyGrowth(fake, cart.growth.key, { scarLv: G.players[me].scarLv||0 });
-    atkDice = fake.attack;
-    session.aRolls = atkDice.map(d=>{
-      const er = rollExplodingAttack(d.faces);
-      return { dieId:d.id, faces:d.faces, index:er.index, v:er.value, shown:er.shown, exploded:er.exploded, first:er.value, rerolled:false };
-    });
-    const pMod = fake.mod.faces;
-    const pi = rollIndex(pMod.length);
-    session.pModRoll = deep(pMod[pi]);
-    session.pModRoll.index = pi;
-    const inst = fake.instinct || INSTINCT_FACES.map(f=>f.id);
-    const ii = rollIndex(inst.length);
-    session.instinctRoll = inst[ii];
-    session.instinctExtra = 0;
-    if (session.instinctRoll==='explode'){
-      const er = rollExplodingAttack(hotFaces());
-      session.instinctExtra = er.value;
-    }
-    session._previewPar = fake;
-    session.parEnergy = CFG.hostParStipend || 7;
-    session.parRerolls = 0;
-  } else {
-    session.parEnergy = 0;
-    session.parRerolls = 0;
+  session.humanRolled = true;
+  session.humanLocked = false;
+}
+function rollParasiteBundle(){
+  const fake = session._previewPar || prepareHostGrowthPreview();
+  session.aRolls = (fake.attack||[]).map(d=>{
+    const er = rollExplodingAttack(d.faces);
+    return { dieId:d.id, faces:d.faces, index:er.index, v:er.value, shown:er.shown, exploded:er.exploded, first:er.value, rerolled:false };
+  });
+  const pMod = fake.mod.faces;
+  const pi = rollIndex(pMod.length);
+  session.pModRoll = deep(pMod[pi]);
+  session.pModRoll.index = pi;
+  const inst = fake.instinct || INSTINCT_FACES.map(f=>f.id);
+  const ii = rollIndex(inst.length);
+  session.instinctRoll = inst[ii];
+  session.instinctExtra = 0;
+  if (session.instinctRoll==='explode'){
+    session.instinctExtra = rollExplodingAttack(hotFaces()).value;
   }
+  session.parRolled = true;
+  session.parLocked = false;
+}
+/** Host: enter roll phase without rolling yet — human and parasite roll independently. */
+function startHostRollPhase(){
+  const r = G.round;
+  if (!(cart.growth && cart.growth.key)) return;
+  prepareHostGrowthPreview();
+  session.phase = 'roll';
+  session.humanRolled = false;
+  session.humanLocked = false;
+  session.parRolled = false;
+  session.parLocked = false;
+  session.rolls = null;
+  session.baseRolls = null;
+  session.modRoll = null;
+  session.scarRoll = null;
+  session.aRolls = null;
+  session.pModRoll = null;
+  session.instinctRoll = null;
+  session.instinctExtra = 0;
+  session.parEnergy = hostParStipendNow();
+  session.parRerolls = 0;
+  session.freeLeft = freeRerollThisRound();
+  session.paidRerolls = 0;
+  session.selectedRoll = null;
+  session.shake = false;
+  render();
+}
+function beginHumanRoll(){
+  if (!session || session.phase!=='roll' || session.humanLocked) return;
+  rollHumanBundle();
+  session.selectedRoll = null;
+  session.shake = true;
+  render();
+  setTimeout(()=>{ if(session) session.shake=false; render(); }, 550);
+}
+function beginParasiteRoll(){
+  if (!session || session.phase!=='roll' || session.parLocked) return;
+  if (!session._previewPar) prepareHostGrowthPreview();
+  if (session.parEnergy == null) session.parEnergy = hostParStipendNow();
+  rollParasiteBundle();
+  session.selectedRoll = null;
+  session.shake = true;
+  render();
+  setTimeout(()=>{ if(session) session.shake=false; render(); }, 550);
+}
+function lockHumanRoll(){
+  if (!session || !session.humanRolled || session.humanLocked) return;
+  session.humanLocked = true;
+  session.selectedRoll = null;
+  render();
+}
+function lockParasiteRoll(){
+  if (!session || !session.parRolled || session.parLocked) return;
+  session.parLocked = true;
+  session.selectedRoll = null;
+  render();
+}
+/** Non-host: classic single roll of everything. */
+function beginRoll(){
+  const r = G.round;
+  const kind = roundKind(r);
+  const isHost = kind==='infection' && hostIdForRound(G,r)===me;
+  if (isHost){ startHostRollPhase(); return; }
 
+  rollHumanBundle();
+  session.parEnergy = 0;
+  session.parRerolls = 0;
+  session.humanRolled = true;
+  session.humanLocked = false;
+  session.parRolled = false;
+  session.parLocked = false;
   session.freeLeft = freeRerollThisRound();
   session.paidRerolls = 0;
   session.phase = 'roll';
@@ -2795,6 +2888,13 @@ function applyScarToSession(){
 
 function rollPhaseHTML(r, isHost){
   const shake = session.shake ? 'rolling' : '';
+  const humanRolled = !isHost || !!session.humanRolled || !!(session.rolls && session.rolls.length);
+  const humanLocked = !!session.humanLocked;
+  const parRolled = !!session.parRolled || !!(session.aRolls && session.aRolls.length);
+  const parLocked = !!session.parLocked;
+  // Non-host always treats the single roll as the human bundle
+  if (!isHost && session.rolls && !session.humanRolled) session.humanRolled = true;
+
   const rolls = session.rolls||[];
   const live = liveHumanBreakdown();
   const humanSum = live.total;
@@ -2807,7 +2907,7 @@ function rollPhaseHTML(r, isHost){
   if (live.modAdd) modPart = '+'+live.modAdd;
   else if (live.pendingEnergy) modPart = '+'+live.pendingEnergy+'⚡';
   else if (modRoll && modRoll.kind==='base') modPart = '+0';
-  else if (!modRoll) modPart = 'off';
+  else if (!modRoll) modPart = humanRolled ? 'off' : '—';
 
   let scarLine = '';
   if (session.scarRoll){
@@ -2818,8 +2918,9 @@ function rollPhaseHTML(r, isHost){
   if (live.ptsDelta) extraBits += `<div class="small center" style="color:#ff8a9a">${live.ptsDelta} pts</div>`;
   if (live.energyLoss) extraBits += `<div class="small center" style="color:#ff8a9a">−${live.energyLoss}⚡</div>`;
 
-  const dice = rolls.map((d,i)=>{
-    const sel = session.selectedRoll && session.selectedRoll.type==='h' && session.selectedRoll.i===i;
+  const canPickHuman = humanRolled && !humanLocked;
+  const dice = humanRolled ? rolls.map((d,i)=>{
+    const sel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='h' && session.selectedRoll.i===i;
     const shown = d.scarZeroed ? 0 : d.v;
     const bonus = isBonusDie(d);
     const bits = [];
@@ -2827,93 +2928,28 @@ function rollPhaseHTML(r, isHost){
     else if (d.rerolled) bits.push('rerolled');
     if (bonus) bits.push('bonus');
     const faceLine = (d.faces||[]).join('·');
-    return `<div class="die-wrap can-pick ${sel?'selected':''}" onclick="pickRoll('h',${i})">${dieHTML(d.color, shown, shake, {bonus})}
+    const pick = canPickHuman ? `can-pick ${sel?'selected':''}" onclick="pickRoll('h',${i})` : '';
+    return `<div class="die-wrap ${pick}">${dieHTML(d.color, shown, shake, {bonus})}
       <div class="die-label ${d.color}">${COLOR_META[d.color].name}${bonus?' +':''}</div>
       <div class="die-sub">${bits.join(' · ')}</div>
       <div class="die-faces">${esc(faceLine)}</div></div>`;
-  }).join('');
+  }).join('') : '';
 
-  const modSel = session.selectedRoll && session.selectedRoll.type==='hm';
-  const modDie = `<div class="die-wrap can-pick ${modSel?'selected':''}" onclick="pickRoll('hm',0)">
+  const modSel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='hm';
+  const modDie = humanRolled ? `<div class="die-wrap ${canPickHuman?`can-pick ${modSel?'selected':''}" onclick="pickRoll('hm',0)`:''}">
       ${dieHTML('hmod', modFaceTxt, `${shake} ${modKindCls}`)}
       <div class="die-label hmod">${tip('mod','Mod')}</div>
       <div class="die-sub">${esc(live.modLabel)}</div>
-    </div>`;
-
-  let parBlock = '';
-  let hostCombined = humanSum;
-  let parTotal = 0;
-  if (isHost){
-    const aDice = (session.aRolls||[]).map((d,i)=>{
-      const sel = session.selectedRoll && session.selectedRoll.type==='a' && session.selectedRoll.i===i;
-      const faceLine = (d.faces||[]).join('·');
-      return `<div class="die-wrap can-pick ${sel?'selected':''}" onclick="pickRoll('a',${i})">${dieHTML('attack', d.v, shake)}
-        <div class="die-label" style="color:#ffb090">Attack</div>
-        <div class="die-sub">${d.exploded?'+ bonus re-roll':''}</div>
-        <div class="die-faces">${esc(faceLine)}</div></div>`;
-    }).join('');
-    const instSel = session.selectedRoll && session.selectedRoll.type==='i';
-    const pModSel = session.selectedRoll && session.selectedRoll.type==='m';
-    const pModTxt = pModLabel(session.pModRoll);
-    const instId = session.instinctRoll;
-    const instShort = instinctShortLabel(instId);
-    const instFull = instinctDesc(instId);
-    const instExtra = instId==='explode' && session.instinctExtra ? ` Extra die rolled: <b>+${session.instinctExtra}</b>.` : '';
-    const parEn = parEnergyLeft();
-    const canParRR = canAffordParReroll();
-    const parSel = session.selectedRoll && isParasiteRollType(session.selectedRoll.type);
-    const par = liveParasiteBreakdown(live.attack, session.rolls||[]);
-    parTotal = Math.round(par.total||0);
-    hostCombined = humanSum + parTotal;
-    const modBit = (par.flat||0) + (par.pctAdd||0);
-    const parFinal = `<div class="roll-final" style="border-color:#8dff6a44">
-        <div class="roll-eq par">
-          <span class="rf">Atk <b>${par.atk||0}</b></span>
-          <span class="op">+</span>
-          <span class="rf">Mod <b>${modBit}</b></span>
-          <span class="op">+</span>
-          <span class="rf tiny">Share <b>${par.fusion||0}</b></span>
-          <span class="op">+</span>
-          <span class="rf tiny">Spec <b>${par.instinctAdd||0}</b></span>
-          <span class="op">+</span>
-          <span class="rf tiny">Aura <b>${par.aura||0}</b></span>
-          <span class="op">=</span>
-          <span class="rf total">Par <b>${parTotal}</b></span>
-        </div>
-        <div class="small center" style="margin-top:6px">Host total = human <b>${humanSum}</b> + parasite <b>${parTotal}</b> = <b style="color:var(--bio)">${hostCombined}</b></div>
-      </div>`;
-    parBlock = `<div class="panel" style="border-color:#8dff6a44">
-      <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('host','Parasite package')}</div>
-      <div class="par-energy">Parasite ⚡ ${parEn} / ${CFG.hostParStipend||7}</div>
-      <div class="dice-row par-row">${aDice}
-        <div class="die-wrap can-pick ${pModSel?'selected':''}" onclick="pickRoll('m',0)">${dieHTML('mod', pModTxt, shake)}
-          <div class="die-label" style="color:var(--bio)">Mod</div>
-          <div class="die-sub">boost</div></div>
-        <div class="die-wrap can-pick ${instSel?'selected':''}" onclick="pickRoll('i',0)">${dieHTML('instinct', instShort, shake)}
-          <div class="die-label" style="color:var(--energy)">${tip('instinct','Specialty')}</div>
-          <div class="die-sub">${instId==='explode'&&session.instinctExtra?('+'+session.instinctExtra):''}</div></div>
-      </div>
-      ${parFinal}
-      <div class="hint">Tap a parasite die, then reroll with parasite energy (⚡${CFG.parRerollCost||1} each)</div>
-      <button class="btn par-reroll" onclick="confirmParReroll()" ${!parSel || !canParRR?'disabled':''}>Reroll parasite · ⚡${CFG.parRerollCost||1}</button>
-      <div class="explain-box">
-        <div class="ex-title">What these dice do</div>
-        <p><b>Attack</b> — hit power (faces under each die). Max face = ${tip('explode','+ bonus re-roll')}. Heavy growth adds Attack dice.</p>
-        <p><b>Mod</b> — flat or % boost. This roll: <span class="now">${esc(pModTxt)}</span>.</p>
-        <p><b>Specialty</b> — wild card. This roll: <span class="now">${esc(instFull)}</span>.${instExtra}</p>
-        <p>Share / aura also fold in. Parasite rerolls use <b>⚡ ${CFG.hostParStipend||7}</b> separate from your energy.</p>
-      </div>
-    </div>`;
-  }
+    </div>` : '';
 
   let scarDie = '';
-  if (session.scarRoll){
-    const sel = session.selectedRoll && session.selectedRoll.type==='s';
-    scarDie = `<div class="die-wrap can-pick ${sel?'selected':''}" onclick="pickRoll('s',0)">${dieHTML('scar', session.scarRoll.label, shake)}
+  if (humanRolled && session.scarRoll){
+    const sel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='s';
+    scarDie = `<div class="die-wrap ${canPickHuman?`can-pick ${sel?'selected':''}" onclick="pickRoll('s',0)`:''}">${dieHTML('scar', session.scarRoll.label, shake)}
       <div class="die-label" style="color:#ff8a9a">Scar</div></div>`;
   }
 
-  const finalBlock = `<div class="roll-final">
+  const finalBlock = humanRolled ? `<div class="roll-final">
       <div class="roll-eq">
         <span class="rf">Dice <b>${live.attack}</b></span>
         <span class="op">+</span>
@@ -2922,32 +2958,140 @@ function rollPhaseHTML(r, isHost){
         <span class="rf total">Total <b>${humanSum}</b></span>
       </div>
       ${extraBits}
-    </div>`;
+    </div>` : `<div class="hint">Roll your human dice when ready. You can roll the parasite separately.</div>`;
 
   const canRR = canAffordReroll();
-  const lockLabel = isHost ? `Lock in · ${hostCombined}` : `Lock in · ${humanSum}`;
-  return `<div class="panel">
-      <div class="lane-label" style="margin-top:0">Your roll</div>
-      <div class="dice-row">${dice}<span class="dice-plus" aria-hidden="true">+</span>${modDie}${scarDie}</div>
-      ${scarLine}
-      ${finalBlock}
-      <div class="hint">Tap a human die or mod, then reroll (${session.freeLeft?`<b>${session.freeLeft} free</b> · then `:''}⚡${CFG.rerollCost})</div>
+  let humanActions = '';
+  if (!humanRolled){
+    humanActions = `<button class="btn reroll" onclick="beginHumanRoll()">Roll human dice</button>`;
+  } else if (isHost && humanLocked){
+    humanActions = `<button class="btn lock-side done" disabled>Human roll locked · ${humanSum}</button>`;
+  } else {
+    humanActions = `<div class="hint">Tap a human die or mod, then reroll (${session.freeLeft?`<b>${session.freeLeft} free</b> · then `:''}⚡${CFG.rerollCost})</div>
       <button class="btn reroll" onclick="confirmReroll()" ${!session.selectedRoll || !isHumanRollType(session.selectedRoll.type) || !canRR?'disabled':''}>Reroll human die</button>
-    </div>
+      ${isHost?`<button class="btn lock-side" onclick="lockHumanRoll()">Lock human roll · ${humanSum}</button>`:''}`;
+  }
+
+  const humanPanel = `<div class="panel ${humanLocked?'locked-side':''}">
+      <div class="lane-label" style="margin-top:0">Your human roll${humanLocked?'<span class="lock-badge">LOCKED</span>':''}</div>
+      ${humanRolled?`<div class="dice-row">${dice}<span class="dice-plus" aria-hidden="true">+</span>${modDie}${scarDie}</div>${scarLine}${finalBlock}`:finalBlock}
+      ${humanActions}
+    </div>`;
+
+  let parBlock = '';
+  let hostCombined = humanSum;
+  let parTotal = 0;
+  const parStipMax = hostParStipendNow();
+  if (isHost){
+    const canPickPar = parRolled && !parLocked;
+    let aDice = '';
+    if (parRolled){
+      aDice = (session.aRolls||[]).map((d,i)=>{
+        const sel = canPickPar && session.selectedRoll && session.selectedRoll.type==='a' && session.selectedRoll.i===i;
+        const faceLine = (d.faces||[]).join('·');
+        return `<div class="die-wrap ${canPickPar?`can-pick ${sel?'selected':''}" onclick="pickRoll('a',${i})`:''}">${dieHTML('attack', d.v, shake)}
+          <div class="die-label" style="color:#ffb090">Attack</div>
+          <div class="die-sub">${d.exploded?'+ bonus re-roll':''}</div>
+          <div class="die-faces">${esc(faceLine)}</div></div>`;
+      }).join('');
+    }
+    const instSel = canPickPar && session.selectedRoll && session.selectedRoll.type==='i';
+    const pModSel = canPickPar && session.selectedRoll && session.selectedRoll.type==='m';
+    const pModTxt = pModLabel(session.pModRoll);
+    const instId = session.instinctRoll;
+    const instShort = instinctShortLabel(instId);
+    const instFull = instinctDesc(instId);
+    const instExtra = instId==='explode' && session.instinctExtra ? ` Extra die rolled: <b>+${session.instinctExtra}</b>.` : '';
+    const parEn = session.parEnergy != null ? session.parEnergy : parStipMax;
+    const canParRR = canAffordParReroll();
+    const parSel = session.selectedRoll && isParasiteRollType(session.selectedRoll.type);
+    let parFinal = '';
+    if (parRolled){
+      const par = liveParasiteBreakdown(live.attack, session.rolls||[]);
+      parTotal = Math.round(par.total||0);
+      hostCombined = humanSum + parTotal;
+      const modBit = (par.flat||0) + (par.pctAdd||0);
+      parFinal = `<div class="roll-final" style="border-color:#8dff6a44">
+          <div class="roll-eq par">
+            <span class="rf">Atk <b>${par.atk||0}</b></span>
+            <span class="op">+</span>
+            <span class="rf">Mod <b>${modBit}</b></span>
+            <span class="op">+</span>
+            <span class="rf tiny">Share <b>${par.fusion||0}</b></span>
+            <span class="op">+</span>
+            <span class="rf tiny">Spec <b>${par.instinctAdd||0}</b></span>
+            <span class="op">+</span>
+            <span class="rf tiny">Aura <b>${par.aura||0}</b></span>
+            <span class="op">=</span>
+            <span class="rf total">Par <b>${parTotal}</b></span>
+          </div>
+          <div class="small center" style="margin-top:6px">Host total = human <b>${humanSum}</b> + parasite <b>${parTotal}</b> = <b style="color:var(--bio)">${hostCombined}</b></div>
+        </div>`;
+    }
+    let parActions = '';
+    if (!parRolled){
+      parActions = `<button class="btn par-reroll" onclick="beginParasiteRoll()">Roll parasite dice</button>
+        <div class="explain-box"><div class="ex-title">Parasite roll</div>
+        <p>Roll Attack / Mod / Specialty separately from your human dice. Spend parasite ⚡ to reroll, then <b>Lock parasite roll</b>.</p></div>`;
+    } else if (!parLocked){
+      parActions = `${parFinal}
+        <div class="hint">Tap a parasite die, then reroll (⚡${CFG.parRerollCost||1} each from parasite energy)</div>
+        <button class="btn par-reroll" onclick="confirmParReroll()" ${!parSel || !canParRR?'disabled':''}>Reroll parasite · ⚡${CFG.parRerollCost||1}</button>
+        <button class="btn lock-side par" onclick="lockParasiteRoll()">Lock parasite roll · ${parTotal}</button>
+        <div class="explain-box">
+          <div class="ex-title">What these dice do</div>
+          <p><b>Attack</b> — hit power (faces under each die). Max face = ${tip('explode','+ bonus re-roll')}.</p>
+          <p><b>Mod</b> — flat or % boost. This roll: <span class="now">${esc(pModTxt)}</span>.</p>
+          <p><b>Specialty</b> — wild card. This roll: <span class="now">${esc(instFull)}</span>.${instExtra}</p>
+        </div>`;
+    } else {
+      parActions = `${parFinal}<button class="btn lock-side done" disabled>Parasite roll locked · ${parTotal}</button>`;
+    }
+    const diceRow = parRolled ? `<div class="dice-row par-row">${aDice}
+        <div class="die-wrap ${canPickPar?`can-pick ${pModSel?'selected':''}" onclick="pickRoll('m',0)`:''}">${dieHTML('mod', pModTxt, shake)}
+          <div class="die-label" style="color:var(--bio)">Mod</div>
+          <div class="die-sub">boost</div></div>
+        <div class="die-wrap ${canPickPar?`can-pick ${instSel?'selected':''}" onclick="pickRoll('i',0)`:''}">${dieHTML('instinct', instShort, shake)}
+          <div class="die-label" style="color:var(--energy)">${tip('instinct','Specialty')}</div>
+          <div class="die-sub">${instId==='explode'&&session.instinctExtra?('+'+session.instinctExtra):''}</div></div>
+      </div>` : '';
+    parBlock = `<div class="panel ${parLocked?'locked-side':''}" style="border-color:#8dff6a44">
+      <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('host','Parasite package')}${parLocked?'<span class="lock-badge">LOCKED</span>':''}</div>
+      <div class="par-energy">Parasite ⚡ ${parEn} / ${parStipMax}</div>
+      ${diceRow}
+      ${parActions}
+    </div>`;
+  }
+
+  let bottom = '';
+  if (!isHost){
+    bottom = `<button class="btn" onclick="lockIn()" ${!humanRolled?'disabled':''}>Lock in · ${humanSum}</button>`;
+  } else if (humanLocked && parLocked){
+    bottom = `<button class="btn" onclick="lockIn()">Submit both rolls · ${hostCombined}</button>`;
+  } else {
+    const need = [];
+    if (!humanLocked) need.push(humanRolled ? 'lock human' : 'roll + lock human');
+    if (!parLocked) need.push(parRolled ? 'lock parasite' : 'roll + lock parasite');
+    bottom = `<button class="btn" disabled>Submit both rolls</button>
+      <div class="hint" style="margin-top:6px">Still need to ${need.join(' and ')}.</div>`;
+  }
+
+  return `${humanPanel}
     ${parBlock}
     <div class="cta-spacer"></div>
-    <div class="fixed-cta">
-      <button class="btn" onclick="lockIn()">${lockLabel}</button>
-    </div>`;
+    <div class="fixed-cta">${bottom}</div>`;
 }
 
 function pickRoll(type, i){
   if (!session || session.phase!=='roll' || session.shake) return;
+  if (isHumanRollType(type) && session.humanLocked) return;
+  if (isParasiteRollType(type) && session.parLocked) return;
   session.selectedRoll = { type, i };
   render();
 }
 function confirmReroll(){
-  if (!session || !session.selectedRoll || !isHumanRollType(session.selectedRoll.type) || !canAffordReroll()) return;
+  if (!session || session.humanLocked) return;
+  if (!session.selectedRoll || !isHumanRollType(session.selectedRoll.type) || !canAffordReroll()) return;
   const { type, i } = session.selectedRoll;
   if (!spendRerollCharge()) return;
   if (type==='h'){
@@ -2977,7 +3121,8 @@ function confirmReroll(){
   setTimeout(()=>{ if(session) session.shake=false; render(); }, 450);
 }
 function confirmParReroll(){
-  if (!session || !session.selectedRoll || !isParasiteRollType(session.selectedRoll.type) || !canAffordParReroll()) return;
+  if (!session || session.parLocked) return;
+  if (!session.selectedRoll || !isParasiteRollType(session.selectedRoll.type) || !canAffordParReroll()) return;
   const { type, i } = session.selectedRoll;
   if (!spendParRerollCharge()) return;
   if (type==='a'){
@@ -3007,6 +3152,12 @@ function lockIn(){
   const r = G.round;
   const kind = roundKind(r);
   const isHost = kind==='infection' && hostIdForRound(G,r)===me;
+  if (isHost){
+    if (!session.humanLocked || !session.parLocked) return;
+    if (!session.rolls || !session.aRolls) return;
+  } else if (!session.rolls){
+    return;
+  }
   const action = {
     phase:'locked',
     role: isHost ? 'host' : 'human',

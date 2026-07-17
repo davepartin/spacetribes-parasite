@@ -1,8 +1,8 @@
-# Space Tribes: Parasite — Crew Manual (v4.3)
+# Space Tribes: Parasite — Crew Manual (v4.5)
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.3.4** — Full 4.0→4.3 stack. Variable table size (3–6). **Type in each player's name**. Parasite + boss HP scale with player count. Host seats are random (max 2 each, never 3). 3-player tables get two skirmish rounds. See [CHANGELOG.md](CHANGELOG.md).
+**v4.5.0** — Host turns lock human and parasite rolls independently; parasite ⚡ scales with table size. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Mission map
 
@@ -54,10 +54,16 @@ Your blue total = **dice + mod** (after Scar effects, if any).
 
 ## Host turn (you + the monster)
 
-When infected you still play your human upgrade → roll, **and** you must grow the parasite (soft or heavy), then roll the parasite package.
+When infected: shop + pick soft/heavy growth → **Continue to rolls**.
 
-- Parasite gets **⚡7** each host turn for **its own rerolls** (separate from human energy)
-- Human rerolls and parasite rerolls are separate
+1. **Roll / Lock human** (your dice + mod + scar) — use your energy / free reroll  
+2. **Roll / Lock parasite** (Attack / Mod / Specialty) — spend parasite ⚡  
+3. **Submit both rolls** when both sides are locked  
+
+Order doesn’t matter; you can finish either side first. You must lock each side before submit.
+
+- Parasite ⚡ stipend by table: **3p → 5 · 4p → 6 · 5–6p → 7** (a bit less if it already has 3–4 Attack dice)
+- Human energy and parasite ⚡ are separate
 - **Heavy** growth adds **+1 Attack die** when under the cap (max 4)
 
 **Host total** = human total + parasite portion  
@@ -68,12 +74,12 @@ Ties go to the **crew**.
 
 Baseline is **4 players**. Bigger tables get a stronger bug; smaller tables a leaner one.
 
-| Players | Start share | Start aura | Attack dice | Boss HP base | +HP / meter |
-|---|---|---|---|---|---|
-| 3 | 55% | +2 | 2 | 75 | +2 |
-| 4 | 60% | +3 | 2 | 100 | +3 |
-| 5 | 65% | +4 | 2 (+1 face bump) | 125 | +4 |
-| 6 | 70% | +5 | 3 | 150 | +5 |
+| Players | Start share | Start aura | Attack dice | Par ⚡ | Boss HP base | +HP / meter |
+|---|---|---|---|---|---|---|
+| 3 | 55% | +2 | 2 | 5 | 75 | +2 |
+| 4 | 60% | +3 | 2 | 6 | 100 | +3 |
+| 5 | 65% | +4 | 2 (+1 face bump) | 7 | 125 | +4 |
+| 6 | 70% | +5 | 3 | 7 | 150 | +5 |
 
 Also on the package:
 

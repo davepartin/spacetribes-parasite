@@ -1,10 +1,16 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.4.2** · Schema **v6**
+Current build: **v4.5.0** · Schema **v6**
 
 Everything from **v4.0 through v4.3** is in this build.
 
 ---
+
+## v4.5.0 — Independent host locks + table-scaled parasite ⚡
+- Host turns: after growth shop, **Continue to rolls** — then **Roll / Lock human** and **Roll / Lock parasite** independently
+- Bottom CTA is **Submit both rolls** only after both sides are locked (you can reroll each side freely before locking)
+- Parasite ⚡ stipend scales with table size: **3p:5 · 4p:6 · 5–6p:7** (slightly less if the bug already has 3–4 Attack dice)
+- Coach, help, and Par chip show the live stipend for this table
 
 ## v4.4.2 — Host polish pass
 - Review screen parasite dice match the roll screen (labels, faces, specialty)
@@ -78,65 +84,8 @@ Everything from **v4.0 through v4.3** is in this build.
 - Standings and full mod-die face list **scroll** with the page
 
 ## v4.3.5 — Solo start with all seats blank
-- **Who’s playing?** no longer blocks when every name field is empty
-- All blank → **P1 = You** (human), other seats = computers
-- Clearer placeholders / confirm copy for phone solo tests
-
-## v4.3.4 — Computer opponents (solo test)
-- Leave a seat **blank** at New game → it becomes a **Comp** that auto-shops, rolls, and locks
-- Type only your name to solo-play against computers
-
-## v4.3.3 — Color + shape seat icons
-- Each seat is a distinct **color + shape** (circle, triangle, square, diamond, star, hex)
-- Typed **name always sits next to the symbol** (standings, top bar, review, awards, wait list)
-
-## v4.3.1 — Typed names
-- Type each player’s name at **New game**
-- Join your seat; names show in standings, host labels, review, awards
-- No fixed Dave / Brian / Joel / Chris character list
-
-## v4.3 — 3–6 players
-- Table size **3–6**
-- Parasite + boss HP **scale with player count**
-- Host seats random, **max 2 each**, never 3
-- **3-player tables:** 2 skirmish rounds (no host) so the seat math fits
-
-| Players | Share | Aura | Atk dice | Boss HP base |
-|---|---|---|---|---|
-| 3 | 55% | +2 | 2 | 75 |
-| 4 | 60% | +3 | 2 | 100 |
-| 5 | 65% | +4 | 2 (hotter faces) | 125 |
-| 6 | 70% | +5 | 3 | 150 |
-
-## v4.2 — Clearer UI
-- Plain die labels (`+8`, `+25% atk`, `−2⚡`, etc.)
-- Tap-to-explain tip links on jargon
-- Round **Log**
-- Parasite options in plain English (human share, specialty, Scar)
-- Review screen without fusion/instinct code words
-- Mod shop labels match real faces (`2⚡ / 20% / Base+3`)
-
-## v4.1 — Playability
-- Live **Energy countdown** at the top
-- **Reset choices** (clear shop / bail out of a roll)
-- **1 free reroll every round**
-- Between-round **dice review** (mod + scar + parasite math)
-- Combat total with mod/scar before Lock in
-- Crypto-backed fair rolls
-- Scar reroll / shatter fixes
-- Connecting stuck fix (empty Firebase `rounds`)
-- Sticky standings bar
-
-## v4.0 — Core game
-- 10 rounds: Training → Infection → Boss
-- Host = you + the parasite vs the rest of the crew
-- Soft / heavy growth + Scar die
-- Exploding parasite attack dice
-- Specialty die
-- Human share + aura on host turns
-- Fog of war on future hosts
-- Boss HP from Boss Meter
+- Blank seats become computers; P1 blank = You
 
 ---
 
-After updating: hard-refresh the site and start a **New game**.
+Earlier notes live in git history.
