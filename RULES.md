@@ -78,11 +78,11 @@ You **grab them into your pool**. Sources:
 - **Outbreak** (on the host)
 - **Poison** (on the chosen crewmate)
 
-Every Scar die is identical: **3 blanks** + **3 hurts** (−2⚡, −10%, −highest). Each Scar die in your pool rolls every turn. Cap **6**.
+Every Scar die is identical: **3 blanks** + **3 hurts** (−2⚡, −10%, − highest dice). Each Scar die in your pool rolls every turn. Cap **6**.
 
 **Heal** one for **2⚡** in the shop (healed dice don’t roll that round).
 
-**−highest** subtracts your strongest die from the combat total but **keeps the die showing**. Reroll the Attack or Scar section to move the hit.
+**− highest dice** subtracts your strongest Attack die from the combat total but **keeps the die showing**. Reroll the Attack or Scar section to move the hit.
 
 ## Host turn (you + the monster)
 
