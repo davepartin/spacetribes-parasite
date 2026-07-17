@@ -1,8 +1,13 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.7.0** · Schema **v8**
+Current build: **v4.7.1** · Schema **v8**
 
 ---
+
+## v4.7.1 — Tooltips on hard words
+- Dotted gold tips for Feed / Harden / Outbreak / Poison, paths, Strike / Charge / Brace, Mint / Score / Commit, Forge, Scar, Lock in, and more
+- Tips work inside cards (no nested-button bugs)
+- Tap any gold dotted word for a short explainer
 
 ## v4.7.0 — Four parasite moves (Feed / Harden / Outbreak / Poison)
 - **Schema v8** — start a new game

@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.7.0">
+<meta name="stp-build" content="v4.7.1">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -446,9 +446,12 @@ code{background:#00000055;padding:2px 5px;border-radius:5px;font-size:12px;word-
 
 
 .tip-link{background:none;border:none;padding:0;margin:0;color:var(--energy);font:inherit;font-weight:700;
-  text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;cursor:pointer;}
+  text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;cursor:pointer;
+  display:inline;line-height:inherit;}
 .tip-sheet h2{margin:0 0 8px;font-size:18px;}
 .tip-sheet p{font-size:14px;line-height:1.45;color:var(--text);margin:0 0 10px;}
+/* tip inside cards/buttons — keep dotted gold readable */
+.growth-opt .tip-link,.path-card .tip-link,.btn.commit .tip-link,.btn .tip-link{color:var(--energy);}
 .log-round{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;background:var(--panel2);}
 .log-round h4{margin:0 0 6px;font-size:13px;color:var(--energy);}
 
@@ -772,24 +775,38 @@ const INSTINCT_FACES = [
 
 const TIPS = {
   mod: { title:'Human mod die', body:'Always rolls with you. Faces: +2⚡ next (→3/4), +20% attack (→30/40), or Base +0 (→3/5). Sticky header Base starts at +0 and rises as you upgrade Base faces. Base only adds to your total when that face rolls. Upgrade a face for 2 Energy (max level 3).' },
-  scar: { title:'Scar die', body:'You get this after a heavy parasite growth. All 6 faces hurt. Labels show the real effect. You can reroll it. −highest keeps the die showing — it subtracts from your total, and rerolling that die can move which face is hit.' },
-  fusion: { title:'Human share', body:'On host turns, part of your human attack is added into the parasite total. Soft growth raises this percent; heavy can make it 100% for one round.' },
-  aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn.' },
-  boss: { title:'Boss meter / Round 10 HP', body:'Tracks how much the table fed the parasite. Round 10 HP = 100 + (3 x Boss Meter). Soft growth +1, heavy +3, host win +1.' },
+  scar: { title:'Scar die', body:'You get this from Outbreak (on the host). All 6 faces hurt. Labels show the real effect. You can reroll it. −highest keeps the die showing — it subtracts from your total, and rerolling that die can move which face is hit. Caps at L2.' },
+  fusion: { title:'Human share', body:'On host turns, part of your human attack is added into the parasite total. Feed grows aura instead; share starts from the table size and can rise with older growth effects.' },
+  aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn. Feed raises it.' },
+  boss: { title:'Boss meter / Round 10 HP', body:'Tracks how much the table fed the parasite. Round 10 HP scales with table size + Boss Meter. Feed/Harden +1, Poison +2, Outbreak +3, host win +1.' },
   instinct: { title:'Specialty die', body:'Extra parasite die. Faces show the effect: +8, +25% atk, +lowest, +your high, blank, or +extra die.' },
-  host: { title:'Host turn', body:'Pick one of 4 parasite moves (Feed / Harden / Outbreak / Poison), then roll human + parasite separately and Submit both. Parasite ⚡ scales with table size.' },
-  poison: { title:'Poison', body:'Host move: pick a crewmate. They gain a Poison die (like Scar) that rolls with them until L2. Person-to-person parasite attack.' },
-  moves: { title:'Parasite moves', body:'Every host turn pick exactly one: Feed (safe aura), Harden (+1 all Attack faces), Outbreak (+Attack die +10 tonight + Scar on you), or Poison (give a crewmate a Poison die).' },
-
-  path: { title:'Crew path', body:'Pick Gunner, Engineer, or Warden once. Each path has a passive and a color action. Every roll you must Commit one die: Path action, Mint +1 on that face (die out of combat — grow forever), or Score half the die as points.' },
+  host: { title:'Host turn', body:'You are infected. Pick one of 4 parasite moves, then roll your human dice and the parasite package separately, lock each, and Submit both. Your total = human + parasite vs the crew.' },
+  poison: { title:'Poison', body:'Host move: pick a crewmate. They gain a Poison die (like Scar) that rolls with them. Stacks to L2. This is the person-to-person parasite attack.' },
+  moves: { title:'Parasite moves', body:'Every host turn pick exactly one move. Tap a dotted gold move name for details.' },
+  feed: { title:'Feed', body:'Safer move. Permanently adds aura to the parasite. Round-10 boss meter +1. No Scar on you.' },
+  harden: { title:'Harden', body:'Safer move. +1 on every face of all parasite Attack dice (lasting). Round-10 boss meter +1. No Scar on you.' },
+  outbreak: { title:'Outbreak', body:'Big swing. +1 Attack die if there is room, +10 to the parasite total tonight, and you take a Scar. Round-10 boss meter +3.' },
+  path: { title:'Crew path', body:'Pick Gunner, Engineer, or Warden once. Each path has a passive bonus and a color action. Every roll you Commit one die.' },
+  gunner: { title:'Gunner', body:'Weapons path (red). Always: +1 on every red die in combat. Commit a red die to Strike (+4 to your total; die still counts).' },
+  engineer: { title:'Engineer', body:'Power path (blue). Always: +1⚡ every round. Commit a blue die to Charge (+2⚡ next round; die still counts).' },
+  warden: { title:'Warden', body:'Defense path (green). Always: Scar/Poison ⚡ drain is −1 (min 0). Commit a green die to Brace (+3 to your total; die still counts).' },
+  strike: { title:'Strike', body:'Gunner path action. Commit a Weapons (red) die: +4 to your combat total. The die still counts.' },
+  charge: { title:'Charge', body:'Engineer path action. Commit a Strength (blue) die: +2⚡ next round. The die still counts in combat.' },
+  brace: { title:'Brace', body:'Warden path action. Commit an Agility (green) die: +3 to your combat total. The die still counts.' },
   mint: { title:'Mint +1', body:'Reroll until the face you want is up, then Commit → Mint. That face permanently +1, but the die scores 0 combat this round. Strong long-term build choice.' },
-  commit: { title:'Commit a die', body:'After rolling, tap a die and choose: Path action (color match), Mint +1 on that face, or Score points. One commit per turn before Lock in.' },
-
-  energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge +2 costs 1. Mod upgrade 2. Extra die 3. 1 free reroll per round, then 1 each.' },
-  explode: { title:'Bonus re-roll', body:'If a parasite attack die hits its highest face, you get a bonus re-roll of that die and add it.' },
+  score: { title:'Score', body:'Commit a die to bank points now: you gain half its value (min 1). That die is 0 combat this round.' },
+  commit: { title:'Commit a die', body:'After rolling, tap a crew die and choose one: Path action (color match), Mint +1 on that face, or Score points. Required before Lock in. Rerolling clears your commit.' },
+  forge: { title:'Forge', body:'Spend 1⚡ to permanently +2 the selected face on one of your dice. This is how you build bigger numbers over the game.' },
+  energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge face +2 costs 1. Mod upgrade 2. Extra die 3. 1 free reroll per round, then 1⚡ each.' },
+  explode: { title:'Bonus re-roll', body:'If a parasite attack die hits its highest face, you get a bonus re-roll of that die and add it once.' },
+  lock: { title:'Lock in', body:'Confirms your roll for the round. On host turns you lock human and parasite separately, then Submit both. You can’t change dice after locking.' },
 };
 function tip(key, label){
-  return `<button type="button" class="tip-link" onclick="showTip('${key}')">${label}</button>`;
+  // span (not button) so tips work inside cards/buttons without nested-button bugs
+  return `<span class="tip-link" role="button" tabindex="0" onclick="event.stopPropagation();showTip('${key}')">${label}</span>`;
+}
+function tipOr(key, label){
+  return TIPS[key] ? tip(key, label) : esc(label);
 }
 function showTip(key){ ui.tipKey = key; render(); }
 function closeTip(){ ui.tipKey = null; render(); }
@@ -1808,7 +1825,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.7.0';
+const APP_BUILD = 'v4.7.1';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2453,14 +2470,14 @@ function instructionsModalHTML(){
       </ul>
       <h3>Crew path + commit</h3>
       <ul>
-        <li>Pick <b>Gunner / Engineer / Warden</b> once when you join.</li>
-        <li>Each roll: tap a die and <b>Commit</b> — Path action, <b>Mint +1</b> on that face (die out of combat; grows forever), or <b>Score</b> half the die as points.</li>
+        <li>Pick ${tip('gunner','Gunner')} / ${tip('engineer','Engineer')} / ${tip('warden','Warden')} once when you join.</li>
+        <li>Each roll: tap a die and ${tip('commit','Commit')} — path action, ${tip('mint','Mint +1')} (die out of combat; grows forever), or ${tip('score','Score')} half the die as points.</li>
         <li>Reroll first to land the face you want to Mint — that’s the strong build choice.</li>
       </ul>
       <h3>Host turns (R2–9)</h3>
       <ul>
         <li>You = human dice + parasite package vs the rest of the crew.</li>
-        <li>Pick <b>one of 4 moves</b>: Feed (aura) · Harden (+1 all faces) · Outbreak (+die +10 tonight + Scar on you) · Poison (give a crewmate a Poison die).</li>
+        <li>Pick one of 4 ${tip('moves','moves')}: ${tip('feed','Feed')} · ${tip('harden','Harden')} · ${tip('outbreak','Outbreak')} · ${tip('poison','Poison')}.</li>
         <li>After shop: <b>Roll / Lock human</b> and <b>Roll / Lock parasite</b>, then <b>Submit both rolls</b>.</li>
         <li>Parasite ⚡ scales with table size (3p:5 · 4p:6 · 5–6p:7).</li>
         <li>Specialty: +8, +25% atk, +lowest, +your high, +extra die. Attack max face = + bonus re-roll.</li>
@@ -2639,7 +2656,7 @@ function charSelectScreen(){
     : `This table is <b>${pool.length} players</b>. Type <b>your</b> name on your seat, then Join.`;
   const pathBlock = `<div class="panel" style="text-align:left;margin-top:12px">
     <div class="lane-label" style="margin-top:0">${tip('path','Choose your path')}</div>
-    <div class="small">Pick once. Every roll you’ll commit one die for a path action, Mint, or Score.</div>
+    <div class="small">Pick once. Every roll you’ll ${tip('commit','commit')} one die — path action, ${tip('mint','Mint')}, or ${tip('score','Score')}. Tap gold words for tips.</div>
     ${pathPickHTML(ui.claimPath, 'pickClaimPath')}
   </div>`;
   return `<div class="center" style="padding-top:4vh">
@@ -2696,10 +2713,11 @@ function pathPickHTML(selected, onclickPrefix){
   return `<div class="path-grid">${PATH_IDS.map(id=>{
     const p = PATHS[id];
     const on = selected===id ? 'picked' : '';
+    const actionTip = ({Strike:'strike',Charge:'charge',Brace:'brace'})[p.action] || id;
     return `<button type="button" class="path-card ${id} ${on}" onclick="${onclickPrefix}('${id}')">
-      <div class="pn">${p.name} · ${COLOR_META[p.color].name}</div>
+      <div class="pn">${tip(id, p.name)} · ${COLOR_META[p.color].name}</div>
       <div class="pt"><b>Always:</b> ${p.passive}</div>
-      <div class="pt"><b>${p.action}:</b> ${p.actionDesc}</div>
+      <div class="pt"><b>${tip(actionTip, p.action)}:</b> ${p.actionDesc}</div>
     </button>`;
   }).join('')}</div>`;
 }
@@ -2852,12 +2870,12 @@ function turnCoachHTML(r, isHost){
   const n = tableSize(G);
   const pinfo = pathInfo((G.players[me]||{}).path);
   const pathBit = pinfo
-    ? ` You’re a <b>${pinfo.name}</b> — ${tip('commit','Commit')} one die (${pinfo.action} / ${tip('mint','Mint')} / Score).`
+    ? ` You’re a ${tip(pinfo.id, pinfo.name)} — ${tip('commit','Commit')} one die (${tip(({Strike:'strike',Charge:'charge',Brace:'brace'})[pinfo.action]||'commit', pinfo.action)} / ${tip('mint','Mint')} / ${tip('score','Score')}).`
     : ` ${tip('commit','Commit')} one die each roll.`;
   let title, how;
   if (kind==='training'){
     title = 'Training day';
-    how = `No parasite. Forge, roll, then commit.${pathBit}`;
+    how = `No parasite. ${tip('forge','Forge')}, roll, then ${tip('commit','commit')}.${pathBit}`;
   } else if (kind==='skirmish'){
     title = 'Crew skirmish';
     how = `No host this round. Score like training.${pathBit}`;
@@ -2866,7 +2884,7 @@ function turnCoachHTML(r, isHost){
     how = `Crew vs <b>${bossHP(G)} HP</b>.${pathBit}`;
   } else if (isHost){
     title = 'You are the HOST';
-    how = `Pick one ${tip('moves','move')}: Feed / Harden / Outbreak / ${tip('poison','Poison')}. Then roll &amp; lock human + parasite.${pathBit} Par ⚡ <b>${hostParStipendNow()}</b>.`;
+    how = `Pick one ${tip('moves','move')}: ${tip('feed','Feed')} / ${tip('harden','Harden')} / ${tip('outbreak','Outbreak')} / ${tip('poison','Poison')}. Then roll &amp; lock human + parasite.${pathBit} Par ⚡ <b>${hostParStipendNow()}</b>.`;
   } else {
     const hid = hostIdForRound(G, r);
     title = `${whoHTML(hid)} is infected`;
@@ -2879,7 +2897,7 @@ function turnCoachHTML(r, isHost){
 function pathGateHTML(){
   return `<div class="panel">
     <div class="lane-label" style="margin-top:0">${tip('path','Choose your crew path')}</div>
-    <div class="small">This locks for the whole game. Every roll you’ll commit one die.</div>
+    <div class="small">This locks for the whole game. Every roll you’ll ${tip('commit','commit')} one die. Tap gold names for tips.</div>
     ${pathPickHTML(ui.claimPath || (G.players[me]&&G.players[me].path) || null, 'setMyPath')}
   </div>`;
 }
@@ -2928,7 +2946,7 @@ function shopHTML(r, isHost){
 
   let forgeBlock = '';
   if (sel){
-    forgeBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">Forge a face</div>
+    forgeBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('forge','Forge')} a face</div>
       <div class="si-desc">Spend 1⚡ to bump a face <b>+2</b>.</div></div><div class="si-cost">1⚡ → +2</div></div>
       ${facesStripHTML(sel.faces, { dieId:sel.id, selectable:true, picked: ui.selectedFace, forgedSet: forged })}
       <button class="buy-btn primary" onclick="queueForge()" ${!ui.selectedFace || left < CFG.forgeCost?'disabled':''}>Forge +2</button>
@@ -2970,15 +2988,15 @@ function shopHTML(r, isHost){
       }).join('')}</div>` : '';
     growthBlock = `<div class="panel" style="border-color:#8dff6a44">
       <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('moves','Parasite move')} — pick one</div>
-      <div class="small">Four attacks. Feed/Harden are safer. Outbreak is big power + ${tip('scar','Scar')} on you. ${tip('poison','Poison')} hits a crewmate.</div>
+      <div class="small">Four attacks. ${tip('feed','Feed')}/${tip('harden','Harden')} are safer. ${tip('outbreak','Outbreak')} is big power + ${tip('scar','Scar')} on you. ${tip('poison','Poison')} hits a crewmate. Tap gold words for tips.</div>
       <div class="spent-preview" style="color:var(--bio)">Attack dice: <b>${atkN}</b> / ${CFG.maxParAttack} · Par ⚡ ${hostParStipendNow()}</div>
       <div class="move-grid">${moves.map(o=>{
         const picked = cart.growth && cart.growth.key===o.key;
         return `<button class="growth-opt move ${o.key} ${picked?'picked':''}" onclick="pickGrowth('${o.key}','${o.lane}')">
-          <div class="go-title">${o.title}</div><div class="go-desc">${o.desc}</div></button>`;
+          <div class="go-title">${tip(o.key, o.title)}</div><div class="go-desc">${o.desc}</div></button>`;
       }).join('')}</div>
       ${targetRow}
-      ${pl.scarLv?`<div class="warn-box">You carry Scar L${pl.scarLv}. Outbreak bumps toward L2 (cap).</div>`:''}
+      ${pl.scarLv?`<div class="warn-box">You carry ${tip('scar','Scar')} L${pl.scarLv}. ${tip('outbreak','Outbreak')} bumps toward L2 (cap).</div>`:''}
     </div>`;
   }
 
@@ -3336,18 +3354,18 @@ function rollPhaseHTML(r, isHost){
 
   let scarLine = '';
   if (session.scarRoll){
-    scarLine += `<div class="warn-box">Scar: <b>${session.scarRoll.label}</b> — tap scar die to reroll</div>`;
+    scarLine += `<div class="warn-box">${tip('scar','Scar')}: <b>${session.scarRoll.label}</b> — tap scar die to reroll</div>`;
   }
   if (session.poisonRoll){
-    scarLine += `<div class="warn-box" style="border-color:#c77dff66;color:#e0c0ff">Poison: <b>${session.poisonRoll.label}</b> — tap poison die to reroll</div>`;
+    scarLine += `<div class="warn-box" style="border-color:#c77dff66;color:#e0c0ff">${tip('poison','Poison')}: <b>${session.poisonRoll.label}</b> — tap poison die to reroll</div>`;
   }
   let extraBits = '';
   if (live.scarLabel) extraBits += `<div class="small center" style="margin-top:4px;color:#ff8a9a">Scar ${esc(live.scarLabel)}</div>`;
   if (live.poisonLabel) extraBits += `<div class="small center" style="margin-top:4px;color:#c77dff">Poison ${esc(live.poisonLabel)}</div>`;
   if (live.shatterSub) extraBits += `<div class="small center" style="color:#ff8a9a">Scar −${live.shatterSub} (strongest die — reroll it to move the hit)</div>`;
   if (live.pathNote) extraBits += `<div class="small center" style="color:var(--energy)">${esc(live.pathNote)}</div>`;
-  if (live.scorePts) extraBits += `<div class="small center" style="color:var(--energy)">Score +${live.scorePts} pts (die out of combat)</div>`;
-  if (session.dieCommit && session.dieCommit.type==='mint') extraBits += `<div class="small center" style="color:var(--energy)">Mint: face +1 forever · die out of combat this round</div>`;
+  if (live.scorePts) extraBits += `<div class="small center" style="color:var(--energy)">${tip('score','Score')} +${live.scorePts} pts (die out of combat)</div>`;
+  if (session.dieCommit && session.dieCommit.type==='mint') extraBits += `<div class="small center" style="color:var(--energy)">${tip('mint','Mint')}: face +1 forever · die out of combat this round</div>`;
   if (live.ptsDelta && !live.scorePts) extraBits += `<div class="small center" style="color:#ff8a9a">${live.ptsDelta} pts</div>`;
   else if (live.ptsDelta && live.scorePts && (session.ptsDelta||0)) extraBits += `<div class="small center" style="color:#ff8a9a">Scar ${(session.ptsDelta||0)} pts</div>`;
   if (live.energyLoss) extraBits += `<div class="small center" style="color:#ff8a9a">−${live.energyLoss}⚡</div>`;
@@ -3383,7 +3401,7 @@ function rollPhaseHTML(r, isHost){
   if (humanRolled && session.scarRoll){
     const sel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='s';
     scarDie += `<div class="die-wrap ${canPickHuman?`can-pick ${sel?'selected':''}" onclick="pickRoll('s',0)`:''}">${dieHTML('scar', session.scarRoll.label, shake)}
-      <div class="die-label" style="color:#ff8a9a">Scar</div></div>`;
+      <div class="die-label" style="color:#ff8a9a">${tip('scar','Scar')}</div></div>`;
   }
   if (humanRolled && session.poisonRoll){
     const sel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='p';
@@ -3415,9 +3433,9 @@ function rollPhaseHTML(r, isHost){
       <div class="lane-label" style="margin-top:0">${tip('commit','Commit one die')}</div>
       <div class="small">${selH?`Selected <b>${COLOR_META[selH.color].name}</b> showing <b>${selH.v}</b>. Choose:`:'Tap a crew die (not mod/scar), then choose:'}</div>
       <div class="commit-grid">
-        <button class="btn commit ${commit&&commit.type==='path'?'on':''}" onclick="commitDie('path')" ${!canPath?'disabled':''}>${plPath?`${plPath.action} (${COLOR_META[plPath.color].name})`:'Path action'}</button>
+        <button class="btn commit ${commit&&commit.type==='path'?'on':''}" onclick="commitDie('path')" ${!canPath?'disabled':''}>${plPath?`${tip(({Strike:'strike',Charge:'charge',Brace:'brace'})[plPath.action]||'path', plPath.action)} (${COLOR_META[plPath.color].name})`:'Path action'}</button>
         <button class="btn commit ${commit&&commit.type==='mint'?'on':''}" onclick="commitDie('mint')" ${!selH?'disabled':''}>${tip('mint','Mint +1')} on this face · 0 combat</button>
-        <button class="btn commit ${commit&&commit.type==='score'?'on':''}" onclick="commitDie('score')" ${!selH?'disabled':''}>Score +${scorePreview||'?'} pts · 0 combat</button>
+        <button class="btn commit ${commit&&commit.type==='score'?'on':''}" onclick="commitDie('score')" ${!selH?'disabled':''}>${tip('score','Score')} +${scorePreview||'?'} pts · 0 combat</button>
       </div>
       ${dieCommitReady()?`<div class="hint" style="margin-top:6px">Committed. Reroll clears it — commit again before lock.</div>`:`<div class="hint" style="margin-top:6px;color:#ff8a9a">Commit required before Lock in.</div>`}
     </div>`;
@@ -3529,8 +3547,8 @@ function rollPhaseHTML(r, isHost){
   let bottom = '';
   if (!isHost){
     const ready = humanRolled && dieCommitReady();
-    bottom = `<button class="btn" onclick="lockIn()" ${!ready?'disabled':''}>Lock in · ${humanSum}</button>
-      ${humanRolled && !dieCommitReady()?`<div class="hint" style="margin-top:6px">Commit one die first.</div>`:''}`;
+    bottom = `<button class="btn" onclick="lockIn()" ${!ready?'disabled':''}>${tip('lock','Lock in')} · ${humanSum}</button>
+      ${humanRolled && !dieCommitReady()?`<div class="hint" style="margin-top:6px">${tip('commit','Commit')} one die first.</div>`:''}`;
   } else if (humanLocked && parLocked){
     bottom = `<button class="btn" onclick="lockIn()">Submit both rolls · ${hostCombined}</button>`;
   } else {
