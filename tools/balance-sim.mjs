@@ -20,10 +20,10 @@ let code = m[1].replace(/\/\* ================= BOOT ================= \*\/[\s\S
 code += `
 ;globalThis.__STP = {
   ALL_PIDS, CFG, TOTAL_ROUNDS, SCHEMA, COLORS, SCAR_DIE_FACES, MOD_LEVELS,
-  newGameData, normalizeGame, resolveRound, buildBotAction,
+  newGameData, normalizeGame, resolveRound,
   hostIdForRound, roundKind, rosterOf, tableSize, deep, findDie, applyForge,
   rollFace, rollIndex, rollExplodingAttack, starterDice, starterModDie,
-  scarCount, addScarDie, healOneScar, modFaceValue, applyScarToBundle,
+  scarCount, addScarDie, healOneScar, modFaceValue,
   applyParasiteMove, parasiteMoveOptions, computeHumanTotal, canAddColor,
   uid, stdFaces, hotFaces, bossHP, parasiteTuning, parasiteBaseAttackNow, randInt,
   get G(){ return G; }, set G(v){ G = v; },
@@ -84,10 +84,31 @@ const {
   newGameData, normalizeGame, resolveRound,
   hostIdForRound, roundKind, rosterOf, deep, findDie, applyForge,
   rollFace, rollIndex, rollExplodingAttack,
-  scarCount, modFaceValue, applyScarToBundle, applyParasiteMove, parasiteMoveOptions,
+  scarCount, modFaceValue, applyParasiteMove, parasiteMoveOptions,
   canAddColor, uid, stdFaces, hotFaces, bossHP, parasiteTuning, parasiteBaseAttackNow, randInt,
 } = S;
 function setG(g) { S.G = g; }
+
+/** Mirror in-game scar apply for sim rolls (bleed / drain / shatter). */
+function applyScarToBundle(rollsIn, modRollIn, scarRoll) {
+  const rolls = deep(rollsIn || []);
+  let modRoll = modRollIn ? deep(modRollIn) : null;
+  let ptsDelta = 0, scarEnergyLoss = 0;
+  if (!scarRoll || scarRoll.id === 'blank') return { rolls, modRoll, ptsDelta, scarEnergyLoss };
+  if (scarRoll.id === 'drain') {
+    scarEnergyLoss = 2;
+  } else if (scarRoll.id === 'bleed') {
+    rolls.forEach(d => { d.v = Math.max(0, Math.floor((d.v || 0) * 0.8)); });
+  } else if (scarRoll.id === 'shatter') {
+    if (rolls.length) {
+      let hi = 0;
+      for (let i = 1; i < rolls.length; i++) if ((rolls[i].v || 0) > (rolls[hi].v || 0)) hi = i;
+      const lost = rolls[hi].v || 0;
+      rolls[hi].scarNote = '−' + lost + ' scar';
+    }
+  }
+  return { rolls, modRoll, ptsDelta, scarEnergyLoss };
+}
 
 function mean(arr) {
   if (!arr.length) return 0;
@@ -272,8 +293,7 @@ function simShopAndRoll(pid, g) {
 function playGame(nPlayers) {
   const ids = ALL_PIDS.slice(0, nPlayers);
   const names = ids.map((_, i) => 'Bot' + (i + 1));
-  const bots = ids.map(() => true);
-  let g = normalizeGame(newGameData(ids, names, bots));
+  let g = normalizeGame(newGameData(ids, names));
   setG(g);
 
   const rounds = [];

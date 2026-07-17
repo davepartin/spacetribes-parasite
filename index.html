@@ -670,15 +670,18 @@ const CFG = {
   fusionCap: 0.80,
   fusionStep: 0.10,
   startAura: 0,
-  auraGain: 2,
+  auraGain: 1,
   // Base Attack: flat power tuned for 4p. Extra seats add this round. Losses bump it forever.
   parBaseAttack: -4,      // lean 4p start; losses climb back
-  parBasePerSeat: 14,     // 3p −14 · 4p 0 · 5p +14 · 6p +28 this round
-  parBaseLossBump: 6,     // when crew holds, parasite Base Attack +6
+  // Asymmetric seat dial (tuned so host infection wins ~45% at 3–6p)
+  parBasePerSeatUp: 22,   // 5p +22 · 6p +44 this round
+  parBasePerSeatDown: 18, // 3p −18 this round
+  parBasePerSeat: 22,     // legacy alias (= up)
+  parBaseLossBump: 2,     // when crew holds, parasite Base Attack +2
   softMeter: 1,
   heavyMeter: 3,
   poisonMeter: 2,
-  outbreakTonight: 6,
+  outbreakTonight: 4,
   winMeter: 1,
   hpBase: 80,
   hpPerMeter: 1,
@@ -698,7 +701,9 @@ function parasiteTuning(n){
     startAura: CFG.startAura,
     auraGain: CFG.auraGain,
     startBaseAttack: CFG.parBaseAttack|0,
-    basePerSeat: CFG.parBasePerSeat|0,
+    basePerSeatUp: CFG.parBasePerSeatUp != null ? (CFG.parBasePerSeatUp|0) : (CFG.parBasePerSeat|0),
+    basePerSeatDown: CFG.parBasePerSeatDown != null ? (CFG.parBasePerSeatDown|0) : (CFG.parBasePerSeat|0),
+    basePerSeat: CFG.parBasePerSeatUp != null ? (CFG.parBasePerSeatUp|0) : (CFG.parBasePerSeat|0),
     baseLossBump: CFG.parBaseLossBump|0,
     atkDice: 2,
     faceBonus: 0,
@@ -711,7 +716,11 @@ function parasiteTuning(n){
 function parasiteBaseAttackNow(parasite, n){
   const t = parasiteTuning(n || (parasite && parasite.balanceN) || 4);
   const stored = (parasite && parasite.baseAttack != null) ? (parasite.baseAttack|0) : (t.startBaseAttack|0);
-  const seatBonus = ((t.n|0) - 4) * (t.basePerSeat|0);
+  const seats = (t.n|0) - 4;
+  const per = seats >= 0
+    ? ((t.basePerSeatUp != null ? t.basePerSeatUp : t.basePerSeat)|0)
+    : ((t.basePerSeatDown != null ? t.basePerSeatDown : t.basePerSeat)|0);
+  const seatBonus = seats * per;
   return { stored, seatBonus, total: stored + seatBonus };
 }
 function hostParStipendNow(){
@@ -780,15 +789,15 @@ const TIPS = {
   healScar: { title:'Heal scar', body:'Spend 3⚡ in the shop to remove one Scar die from your pool.' },
   fusion: { title:'Human share', body:'On host turns, part of your human attack is added into the parasite total.' },
   aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn. Feed raises it.' },
-  baseAtk: { title:'Base Attack', body:'Flat parasite power tuned for 4 players (starts lean). Extra seats add to it this round only (+14 per seat above 4, −14 below). When the crew holds, Base Attack +6 forever — early losses make the bug catch up.' },
+  baseAtk: { title:'Base Attack', body:'Flat parasite power tuned for 4 players (starts lean). Extra seats add this round only (+22 per seat above 4, −18 below). When the crew holds, Base Attack +2 forever — early losses make the bug catch up without snowballing.' },
   boss: { title:'Boss meter / Round 10 HP', body:'Tracks how much the table fed the parasite. Round 10 HP scales with table size + Boss Meter. Feed/Harden +1, Poison +2, Outbreak +3, host win +1.' },
   instinct: { title:'Specialty die', body:'Extra parasite die. Faces: +8, +25% atk, +lowest, +your high, blank, or +extra die.' },
   host: { title:'Host turn', body:'You are infected. Pick one of 4 parasite moves, then roll human + parasite separately, lock each, and Submit both.' },
   poison: { title:'Poison', body:'Host move: pick a crewmate. They add one Scar die to their pool (same Scar dice as everyone else).' },
   moves: { title:'Parasite moves', body:'Every host turn pick exactly one: Feed, Harden, Outbreak, or Poison.' },
-  feed: { title:'Feed', body:'Safer. Permanent +aura. Boss +1. No Scar.' },
+  feed: { title:'Feed', body:'Safer. Permanent +1 aura. Boss +1. No Scar.' },
   harden: { title:'Harden', body:'Safer. +1 on every Attack face. Boss +1. No Scar.' },
-  outbreak: { title:'Outbreak', body:'+1 Attack die (if room), +6 tonight, and you take a Scar die. Boss +3.' },
+  outbreak: { title:'Outbreak', body:'+1 Attack die (if room), +4 tonight, and you take a Scar die. Boss +3.' },
   forge: { title:'Forge', body:'Spend 1⚡ to permanently +2 a face on an Attack die.' },
   heal: { title:'Heal scar', body:'Spend 3⚡ in the shop to remove one Scar die from your pool.' },
   energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge 1 · Mod upgrade 2 · Extra die 3 · Heal scar 3. Reroll a section 1⚡ (1 free section reroll each round). Reroll all dice 2⚡.' },
@@ -1853,7 +1862,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.12.9';
+const APP_BUILD = 'v4.12.10';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2203,6 +2212,10 @@ function rosterPickModalHTML(){
   if (!ui.showRosterPick) return '';
   const n = ui.pendingCount || loadSavedCount();
   const t = parasiteTuning(n);
+  const baseNow = parasiteBaseAttackNow({ baseAttack: t.startBaseAttack }, n);
+  const seatBit = baseNow.seatBonus
+    ? ` · seat ${baseNow.seatBonus>=0?'+':''}${baseNow.seatBonus} this round`
+    : '';
   const countBtns = [3,4,5,6].map(c =>
     `<button type="button" class="${c===n?'on':''}" onclick="setPendingCount(${c})">${c}</button>`
   ).join('');
@@ -2222,7 +2235,7 @@ function rosterPickModalHTML(){
       <p class="small">Pick <b>3–6</b> human players and type <b>every</b> name. Then <b>Copy link</b> so each phone can Join their seat. Host seats stay random (max 2 each).</p>
       <div class="roster-count">${countBtns}</div>
       <div class="roster-names">${rows.join('')}</div>
-      <div class="roster-meta"><b>${n}</b> players · Base Atk ${t.startBaseAttack}${(n-4)*(t.basePerSeat||0)?` · seat ${(n-4)>=0?'+':''}${(n-4)*(t.basePerSeat||0)} this round`:''} · loss bump +${t.baseLossBump} · boss HP ${t.hpBase}+${t.hpPerMeter}/meter</div>
+      <div class="roster-meta"><b>${n}</b> players · Base Atk ${baseNow.total}${seatBit} · loss bump +${t.baseLossBump} · boss HP ${t.hpBase}+${t.hpPerMeter}/meter</div>
       <button class="btn" onclick="confirmRosterAndStart()">Start ${n}-player game</button>
       <button class="btn ghost modal-close" onclick="cancelRosterPick()">Cancel</button>
     </div>

@@ -1,8 +1,16 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.12.9** · Schema **v12**
+Current build: **v4.12.10** · Schema **v12**
 
 ---
+
+## v4.12.10 — Parasite ~45% host wins
+- Retuned host infection power after Monte Carlo sims (aggressive shop bots)
+- Crew hold Base Attack bump **+6 → +2**
+- Feed aura **+2 → +1**
+- Outbreak tonight **+6 → +4**
+- Seat Base Attack dial: **+22 / seat above 4**, **−18 on 3p** (was ±14)
+- Target: ~45% host win rate across infection rounds at 3–6p (4p was ~67% and late-heavy)
 
 ## v4.12.9 — Forge faces match die color
 - The six forge face chips turn red / blue / green with the selected Attack die

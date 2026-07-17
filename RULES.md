@@ -2,7 +2,7 @@
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.12.8** — Heal scar costs **3⚡**. Schema **v12**. See [CHANGELOG.md](CHANGELOG.md).
+**v4.12.10** — Parasite retune toward ~45% host wins. Schema **v12**. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Goal
 
@@ -104,9 +104,9 @@ When infected: shop + pick **one parasite move** → **Continue to rolls**.
 
 | Move | Effect | Cost | Boss |
 |---|---|---|---|
-| **Feed** | Permanent +2 aura | Safe | +1 |
+| **Feed** | Permanent +1 aura | Safe | +1 |
 | **Harden** | +1 on every face of all Attack dice | Safe | +1 |
-| **Outbreak** | +1 Attack die (if room) · **+6 tonight** | **Scar die on you** | +3 |
+| **Outbreak** | +1 Attack die (if room) · **+4 tonight** | **Scar die on you** | +3 |
 | **Poison** | Chosen crewmate grabs a **Scar die** | Hits them | +2 |
 
 Then:
@@ -128,21 +128,21 @@ Combat package is the **same at every table size**. Seat count and losses dial *
 
 | Piece | Role |
 |---|---|
-| **Base Attack** | Flat power. Tuned for **4p** (starts at −4). **+14 per seat above 4** this round only (−14 on 3p). If the **crew holds**, Base Attack **+6 forever**. |
+| **Base Attack** | Flat power. Tuned for **4p** (starts at −4). **+22 per seat above 4** this round only (−18 on 3p). If the **crew holds**, Base Attack **+2 forever**. |
 | **Attack dice** | 2 to start (max 4). On **max** face, **+ bonus re-roll**. |
 | **Mod die** | Flat or % of parasite attack |
 | **Human share** | 50% of host human attack (grows via legacy fusion keys only) |
-| **Aura** | Starts 0. **Feed** adds +2 forever |
+| **Aura** | Starts 0. **Feed** adds +1 forever |
 | **Specialty** | +8, +25% atk, +lowest, +your high, —, +extra die |
 
 | Players | Base this round (if never lost) | Par ⚡ | Boss HP base | +HP / meter |
 |---|---|---|---|---|
-| 3 | −4 − 14 = **−18** | 5 | 60 | +1 |
+| 3 | −4 − 18 = **−22** | 5 | 60 | +1 |
 | 4 | **−4** | 6 | 80 | +1 |
-| 5 | −4 + 14 = **+10** | 7 | 100 | +1 |
-| 6 | −4 + 28 = **+24** | 7 | 120 | +2 |
+| 5 | −4 + 22 = **+18** | 7 | 100 | +1 |
+| 6 | −4 + 44 = **+40** | 7 | 120 | +2 |
 
-Ties go to the **crew**. Crew holds → parasite Base Attack grows (catch-up).
+Ties go to the **crew**. Crew holds → parasite Base Attack **+2** (catch-up).
 
 ## Round 10 boss
 
