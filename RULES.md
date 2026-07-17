@@ -134,7 +134,9 @@ HP = **table base + (per-meter × Boss Meter)**. Clear it for hero bonuses. Fail
 
 1. Tap **New game**
 2. Pick **3–6** players
-3. **Type each player's name** (what the game will show everywhere)
-4. Start — each phone opens the seat list, taps **Join** on their name
+3. **Type each player's name** (blank seats = computers; all blank → you + comps)
+4. **Start** — each phone opens the same link, taps **Join** on their seat
+
+**Copy link** at the bottom copies the game URL so you can text it anytime.
 
 Your phone remembers which seat you claimed.

@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.9.0">
+<meta name="stp-build" content="v4.9.1">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -360,11 +360,13 @@ button{font-family:inherit;border:none;cursor:pointer;}
   display:flex;justify-content:space-between;align-items:center;gap:10px;
   padding:8px 12px calc(8px + env(safe-area-inset-bottom));
   background:linear-gradient(transparent,#081018 55%);}
-.dock-btn{width:auto;min-width:96px;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:700;
+.dock-btn{width:auto;min-width:0;flex:1;padding:10px 8px;border-radius:10px;font-size:12px;font-weight:700;
   background:var(--panel);border:1.5px solid var(--line);color:var(--text);box-shadow:0 2px 10px #0006;}
 .dock-btn:active{transform:scale(.97);}
 .dock-btn.reset{border-color:#ff5a4e55;color:#ffb0a8;}
 .dock-btn.help{border-color:#4da3ff55;color:#a8d4ff;}
+.dock-btn.link{border-color:#3ecf8e55;color:#9aefc4;}
+.dock-btn.link.copied{border-color:#3ecf8e;color:var(--good);}
 .modal-back{position:fixed;inset:0;z-index:80;background:#041018cc;display:flex;align-items:flex-end;justify-content:center;
   padding:12px;backdrop-filter:blur(4px);}
 .modal-sheet{width:100%;max-width:520px;max-height:min(78vh,640px);overflow:auto;background:var(--panel);
@@ -1743,7 +1745,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.9.0';
+const APP_BUILD = 'v4.9.1';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2313,9 +2315,65 @@ function rosterPickModalHTML(){
 }
 function openInstructions(){ ui.showHelp = true; render(); }
 function closeInstructions(){ ui.showHelp = false; render(); }
+function gameShareURL(){
+  try{
+    const u = new URL(location.href);
+    // Share the clean page URL (same Firebase table for everyone)
+    return u.origin + u.pathname.replace(/\/index\.html$/i, '/');
+  }catch(e){
+    return location.href;
+  }
+}
+function copyGameLink(){
+  const url = gameShareURL();
+  const done = ()=>{
+    const btn = document.getElementById('copy-link-btn');
+    if (btn){
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(()=>{
+        if (btn){ btn.textContent = 'Copy link'; btn.classList.remove('copied'); }
+      }, 1600);
+    }
+  };
+  const fail = ()=>{
+    // Last resort: prompt so they can still long-press copy
+    window.prompt('Copy this game link:', url);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(done).catch(()=>{
+      try{
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.setAttribute('readonly','');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (ok) done(); else fail();
+      }catch(e){ fail(); }
+    });
+    return;
+  }
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    ta.setAttribute('readonly','');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (ok) done(); else fail();
+  }catch(e){ fail(); }
+}
 function bottomDockHTML(){
   return `<div class="bottom-dock">
     <button type="button" class="dock-btn reset" onclick="confirmResetGame()">New game</button>
+    <button type="button" id="copy-link-btn" class="dock-btn link" onclick="copyGameLink()">Copy link</button>
     <button type="button" class="dock-btn help" onclick="openLog()">Log</button>
     <button type="button" class="dock-btn help" onclick="openInstructions()">Help</button>
   </div>${rosterPickModalHTML()}`;
@@ -2364,7 +2422,7 @@ function instructionsModalHTML(){
     <div class="modal-sheet" role="dialog" aria-label="Instructions">
       <h2>How to play</h2>
       <p>3–6 players. 10 rounds. Training → Infection → Boss. Highest points wins — unless Round 10 fails and the parasite escapes.</p>
-      <p class="small">Tap <b>New game</b>, set 3–6. Type your name, or leave <b>all blank</b> (P1 = You). Blank seats = computers. Host seats are random (nobody hosts 3 times). Parasite scales with table size. Tap dotted gold words for tips.</p>
+      <p class="small">Tap <b>New game</b>, set 3–6. Type names, then Start. Use <b>Copy link</b> at the bottom anytime to text friends the game URL. Blank seats = computers. Host seats are random. Tap dotted gold words for tips.</p>
       <h3>Energy</h3>
       <ul>
         <li><b>+5</b> every round (banks). Top bar counts down as you spend.</li>

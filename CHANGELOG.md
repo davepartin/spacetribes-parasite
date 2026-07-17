@@ -1,8 +1,11 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.9.0** · Schema **v10**
+Current build: **v4.9.1** · Schema **v10**
 
 ---
+
+## v4.9.1 — Copy game link
+- Bottom dock **Copy link** button — copies the game URL so you can text it anytime
 
 ## v4.9.0 — Parasite Base Attack
 - **Schema v10** — start a new game
