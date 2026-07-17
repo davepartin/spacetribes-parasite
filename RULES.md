@@ -1,8 +1,8 @@
-# Space Tribes: Parasite — Crew Manual (v4.5)
+# Space Tribes: Parasite — Crew Manual (v4.6)
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.5.0** — Host turns lock human and parasite rolls independently; parasite ⚡ scales with table size. See [CHANGELOG.md](CHANGELOG.md).
+**v4.6.0** — Crew paths + commit a die (Mint / Score / Path). Schema **v7** (new game). See [CHANGELOG.md](CHANGELOG.md).
 
 ## Mission map
 
@@ -41,6 +41,24 @@
 | **Extra reroll** | 1 | Any further reroll |
 
 **Reset choices** clears your upgrade picks before you lock a roll.
+
+## Crew path (pick once)
+
+| Path | Color | Always | Commit that color |
+|---|---|---|---|
+| **Gunner** | Weapons (red) | +1 on every red die in combat | **Strike** — +4 to your total |
+| **Engineer** | Strength (blue) | +1⚡ every round | **Charge** — +2⚡ next round |
+| **Warden** | Agility (green) | Scar ⚡ drain −1 | **Brace** — +3 to your total |
+
+## Commit one die (every roll)
+
+After you roll (and reroll), tap a crew die and choose **one**:
+
+1. **Path action** — color must match your path; die still counts in combat  
+2. **Mint +1** — the face showing permanently +1; die is **0 combat** this round (reroll first to land the face you want to grow)  
+3. **Score** — gain points = half the die (min 1); die is **0 combat** this round  
+
+Lock in is blocked until you commit.
 
 ## Human modifier die (2-2-2)
 
