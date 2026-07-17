@@ -3547,8 +3547,8 @@ function rollPhaseHTML(r, isHost){
   let bottom = '';
   if (!isHost){
     const ready = humanRolled && dieCommitReady();
-    bottom = `<button class="btn" onclick="lockIn()" ${!ready?'disabled':''}>${tip('lock','Lock in')} · ${humanSum}</button>
-      ${humanRolled && !dieCommitReady()?`<div class="hint" style="margin-top:6px">${tip('commit','Commit')} one die first.</div>`:''}`;
+    bottom = `<button class="btn" onclick="lockIn()" ${!ready?'disabled':''}>Lock in · ${humanSum}</button>
+      ${humanRolled && !dieCommitReady()?`<div class="hint" style="margin-top:6px">${tip('commit','Commit')} one die first.</div>`:`<div class="hint" style="margin-top:6px">${tip('lock','Lock in')} sends your roll.</div>`}`;
   } else if (humanLocked && parLocked){
     bottom = `<button class="btn" onclick="lockIn()">Submit both rolls · ${hostCombined}</button>`;
   } else {
