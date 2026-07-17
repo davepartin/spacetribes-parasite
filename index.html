@@ -42,9 +42,19 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .btn.reroll{background:linear-gradient(135deg,#1a6a9a,#2a9ad4);color:#fff;margin-top:10px;
   font-weight:800;box-shadow:0 3px 12px #1a6a9a55;}
 .btn.reroll:disabled,.btn.reroll.disabled{background:#243444;color:#8aa0ae;box-shadow:none;}
+.btn.reroll.sec{width:auto;display:inline-flex;align-items:center;justify-content:center;
+  padding:8px 12px;font-size:12px;margin:0;border-radius:10px;white-space:nowrap;}
+.btn.reroll.all{margin-top:0;margin-bottom:8px;}
 .btn.par-reroll{background:linear-gradient(135deg,#1a6a40,#6adf7a);color:#071018;margin-top:10px;
   font-weight:800;box-shadow:0 3px 12px #8dff6a33;}
 .btn.par-reroll:disabled,.btn.par-reroll.disabled{background:#243444;color:#8aa0ae;box-shadow:none;}
+.btn.par-reroll.sec{width:auto;display:inline-flex;align-items:center;justify-content:center;
+  padding:8px 12px;font-size:12px;margin:0;border-radius:10px;white-space:nowrap;}
+.btn.par-reroll.all{margin-top:0;margin-bottom:8px;}
+.roll-sec{margin:10px 0 6px;padding:8px 8px 4px;border:1px solid var(--line);border-radius:12px;background:#0c1218aa;}
+.roll-sec-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;}
+.roll-sec-head .lane-label{margin:0;flex:1;}
+.roll-top-actions{display:flex;flex-direction:column;gap:6px;margin:8px 0;}
 .btn.lock-side{background:linear-gradient(135deg,#3a5a8a,#5a8ad4);color:#fff;margin-top:8px;font-weight:800;}
 .btn.lock-side.par{background:linear-gradient(135deg,#1a6a40,#3a9a58);color:#fff;}
 .btn.lock-side:disabled,.btn.lock-side.disabled{background:#243444;color:#8aa0ae;box-shadow:none;}
@@ -606,6 +616,7 @@ const CFG = {
   forgeBump: 2,
   addDieCost: 3,
   rerollCost: 1,
+  rerollAllCost: 2,
   freeRerollPerkCost: 0, // removed — everyone gets 1 free reroll each round
   freeRerollsPerRound: 1,
   modUpgradeCost: 2,
@@ -754,7 +765,9 @@ const TIPS = {
   outbreak: { title:'Outbreak', body:'+1 Attack die (if room), +6 tonight, and you take a Scar die. Boss +3.' },
   forge: { title:'Forge', body:'Spend 1⚡ to permanently +2 a face on an Attack die.' },
   heal: { title:'Heal scar', body:'Spend 2⚡ in the shop to remove one Scar die from your pool.' },
-  energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge 1 · Mod upgrade 2 · Extra die 3 · Heal scar 2. 1 free reroll, then 1⚡ each. Reroll any die.' },
+  energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge 1 · Mod upgrade 2 · Extra die 3 · Heal scar 2. Reroll a section 1⚡ (1 free section reroll each round). Reroll all dice 2⚡.' },
+  rerollSec: { title:'Reroll section', body:'Rerolls every die in that section (Attack, Mod, or Scar) for 1⚡. Your first section reroll each round is free.' },
+  rerollAll: { title:'Reroll all', body:'Rerolls Attack + Mod + Scar (or the whole parasite package) for 2⚡. Cheaper than rerolling each section separately if you want a full redo.' },
   explode: { title:'Bonus re-roll', body:'If a parasite attack die hits its highest face, bonus re-roll and add once.' },
   lock: { title:'Lock in', body:'Confirms your roll. If your Mod shows Scar and you lock it, you gain a Scar die. On host turns lock human + parasite, then Submit both.' },
   attack: { title:'Attack dice', body:'Your colored crew dice (Weapons / Strength / Agility). Forge faces, buy extras. They make your combat total.' },
@@ -1803,7 +1816,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.11.1';
+const APP_BUILD = 'v4.12.0';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2489,7 +2502,7 @@ function instructionsModalHTML(){
         <li><b>+5</b> every round (banks). Top bar counts down as you spend.</li>
         <li>Win +2 · Category +1 · Loss: no bonus</li>
         <li>Forge face <b>+2</b> = 1 · Mod upgrade = 2 · Extra die = 3 · ${tip('heal','Heal scar')} = 2</li>
-        <li><b>1 free reroll</b> each round; more cost 1. Reroll any die (Attack / Mod / Scar).</li>
+        <li><b>1 free section reroll</b> each round. Section reroll = 1⚡ · ${tip('rerollAll','Reroll all')} = 2⚡.</li>
       </ul>
       <h3>Three die types</h3>
       <ul>
@@ -2543,30 +2556,48 @@ function freeRerollThisRound(){
 }
 function isParasiteRollType(type){ return type==='a' || type==='m' || type==='i'; }
 function isHumanRollType(type){ return type==='h' || type==='hm' || type==='s'; }
+/** Can pay `cost` human reroll energy (freeLeft covers 1 each). */
+function canAffordHumanRerollCost(cost){
+  if (!session || session.humanLocked || session.phase!=='roll') return false;
+  cost = Math.max(0, cost|0);
+  const free = session.freeLeft||0;
+  const needPaid = Math.max(0, cost - free);
+  return energyLeft() >= needPaid;
+}
+function spendHumanRerollCost(cost){
+  if (!canAffordHumanRerollCost(cost)) return false;
+  cost = Math.max(0, cost|0);
+  let remaining = cost;
+  while (remaining > 0 && (session.freeLeft||0) > 0){
+    session.freeLeft--;
+    remaining--;
+  }
+  if (remaining > 0) session.paidRerolls = (session.paidRerolls||0) + remaining;
+  return true;
+}
+function canAffordParRerollCost(cost){
+  if (!session || session.parLocked || session.phase!=='roll') return false;
+  return parEnergyLeft() >= Math.max(0, cost|0);
+}
+function spendParRerollCost(cost){
+  cost = Math.max(0, cost|0);
+  if (!canAffordParRerollCost(cost)) return false;
+  session.parEnergy = parEnergyLeft() - cost;
+  session.parRerolls = (session.parRerolls || 0) + cost;
+  return true;
+}
 function canAffordReroll(){
-  // Human pool only (crew dice / human mod / scar)
-  if (!session || !session.selectedRoll || !isHumanRollType(session.selectedRoll.type)) return false;
-  if (session.humanLocked) return false;
-  if (session.freeLeft > 0) return true;
-  return energyLeft() >= CFG.rerollCost;
+  return canAffordHumanRerollCost(CFG.rerollCost||1);
 }
 function spendRerollCharge(){
-  if (session.freeLeft > 0){ session.freeLeft--; return true; }
-  if (energyLeft() >= CFG.rerollCost){ session.paidRerolls++; return true; }
-  return false;
+  return spendHumanRerollCost(CFG.rerollCost||1);
 }
 function parEnergyLeft(){ return (session && session.parEnergy != null) ? session.parEnergy : 0; }
 function canAffordParReroll(){
-  if (!session || !session.selectedRoll || !isParasiteRollType(session.selectedRoll.type)) return false;
-  if (session.parLocked) return false;
-  return parEnergyLeft() >= (CFG.parRerollCost || 1);
+  return canAffordParRerollCost(CFG.parRerollCost || 1);
 }
 function spendParRerollCharge(){
-  const cost = CFG.parRerollCost || 1;
-  if (parEnergyLeft() < cost) return false;
-  session.parEnergy = parEnergyLeft() - cost;
-  session.parRerolls = (session.parRerolls || 0) + 1;
-  return true;
+  return spendParRerollCost(CFG.parRerollCost || 1);
 }
 function resetSessionForRound(r){
   if (!session || session.round !== r){
@@ -3303,10 +3334,6 @@ function rollPhaseHTML(r, isHost){
 
   const scarList = session.scarRolls || [];
   let scarLine = '';
-  if (scarList.length){
-    const labs = scarList.map(s => s && s.label ? s.label : '—').join(' · ');
-    scarLine = `<div class="warn-box">${tip('scar','Scar')} pool (${scarList.length}): <b>${esc(labs)}</b> — tap a Scar die to reroll</div>`;
-  }
   if (modRoll && modRoll.kind==='scar' && !humanLocked){
     scarLine += `<div class="warn-box">Mod shows <b>gain scar</b> — ${tip('lock','lock in')} and you grab a permanent ${tip('scar','Scar')} die</div>`;
   }
@@ -3319,18 +3346,23 @@ function rollPhaseHTML(r, isHost){
   }
   if (modRoll && modRoll.kind==='points' && !humanLocked){
     const pts = modRoll.value|0;
-    scarLine += `<div class="warn-box" style="border-color:#c9a0ff66;color:#d8b4fe">${tip('modPoints','Points')} — ${tip('lock','lock in')} for <b>+${pts} score</b> (no combat help). Reroll if the team needs your total.</div>`;
+    scarLine += `<div class="warn-box" style="border-color:#c9a0ff66;color:#d8b4fe">${tip('modPoints','Points')} — ${tip('lock','lock in')} for <b>+${pts} score</b> (no combat help). ${tip('rerollSec','Reroll')} Mod if the team needs your total.</div>`;
   }
   let extraBits = '';
   if (live.scarLabel) extraBits += `<div class="small center" style="margin-top:4px;color:#ff8a9a">Scar ${esc(live.scarLabel)}</div>`;
-  if (live.shatterSub) extraBits += `<div class="small center" style="color:#ff8a9a">Scar −${live.shatterSub} (strongest die — reroll it to move the hit)</div>`;
+  if (live.shatterSub) extraBits += `<div class="small center" style="color:#ff8a9a">Scar −${live.shatterSub} (strongest die — reroll Attack or Scar to move the hit)</div>`;
   if (live.scorePts) extraBits += `<div class="small center" style="color:#d8b4fe">${tip('modPoints','Score')} +${live.scorePts} if you lock (no combat help)</div>`;
   if (live.ptsDelta) extraBits += `<div class="small center" style="color:#ff8a9a">${live.ptsDelta} pts</div>`;
   if (live.energyLoss) extraBits += `<div class="small center" style="color:#ff8a9a">−${live.energyLoss}⚡</div>`;
 
-  const canPickHuman = humanRolled && !humanLocked;
-  const dice = humanRolled ? rolls.map((d,i)=>{
-    const sel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='h' && session.selectedRoll.i===i;
+  const secCost = CFG.rerollCost||1;
+  const allCost = CFG.rerollAllCost||2;
+  const canSec = canAffordHumanRerollCost(secCost);
+  const canAll = canAffordHumanRerollCost(allCost);
+  const freeNote = session.freeLeft ? ` · <b>${session.freeLeft} free</b>` : '';
+  const secLabel = (session.freeLeft>0) ? 'Reroll · free' : `Reroll · ⚡${secCost}`;
+
+  const dice = humanRolled ? rolls.map((d)=>{
     const shown = d.v;
     const bonus = isBonusDie(d);
     const bits = [];
@@ -3338,15 +3370,13 @@ function rollPhaseHTML(r, isHost){
     else if (d.rerolled) bits.push('rerolled');
     if (bonus) bits.push('bonus');
     const faceLine = (d.faces||[]).join('·');
-    const pick = canPickHuman ? `can-pick ${sel?'selected':''}" onclick="pickRoll('h',${i})` : '';
-    return `<div class="die-wrap ${pick}">${dieHTML(d.color, shown, shake, {bonus})}
+    return `<div class="die-wrap">${dieHTML(d.color, shown, shake, {bonus})}
       <div class="die-label ${d.color}">${COLOR_META[d.color].name}${bonus?' +':''}</div>
       <div class="die-sub">${bits.join(' · ')}</div>
       <div class="die-faces">${esc(faceLine)}</div></div>`;
   }).join('') : '';
 
-  const modSel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='hm';
-  const modDie = humanRolled ? `<div class="die-wrap ${canPickHuman?`can-pick ${modSel?'selected':''}" onclick="pickRoll('hm',0)`:''}">
+  const modDie = humanRolled ? `<div class="die-wrap">
       ${dieHTML('hmod', modFaceTxt, `${shake} ${modKindCls}`)}
       <div class="die-label hmod">${tip('mod','Mod')}</div>
       <div class="die-sub">${esc(live.modLabel)}</div>
@@ -3355,8 +3385,7 @@ function rollPhaseHTML(r, isHost){
   let scarDie = '';
   if (humanRolled){
     scarList.forEach((sr, si)=>{
-      const sel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='s' && session.selectedRoll.i===si;
-      scarDie += `<div class="die-wrap ${canPickHuman?`can-pick ${sel?'selected':''}" onclick="pickRoll('s',${si})`:''}">${dieHTML('scar', sr.label, shake)}
+      scarDie += `<div class="die-wrap">${dieHTML('scar', sr.label, shake)}
         <div class="die-label" style="color:#ff8a9a">${tip('scar','Scar')} ${si+1}</div></div>`;
     });
   }
@@ -3374,21 +3403,45 @@ function rollPhaseHTML(r, isHost){
       ${extraBits}
     </div>` : `<div class="hint">Roll your human dice when ready. You can roll the parasite separately.</div>`;
 
-  const canRR = canAffordReroll();
+  let humanBody = finalBlock;
+  if (humanRolled){
+    const atkSec = `<div class="roll-sec">
+      <div class="roll-sec-head"><div class="lane-label">${tip('attack','Attack')}</div>
+        ${!humanLocked?`<button class="btn reroll sec" onclick="rerollHumanSection('attack')" ${!canSec?'disabled':''}>${secLabel}</button>`:''}
+      </div>
+      <div class="dice-row">${dice}</div>
+    </div>`;
+    const modSec = `<div class="roll-sec">
+      <div class="roll-sec-head"><div class="lane-label">${tip('mod','Mod')}</div>
+        ${!humanLocked?`<button class="btn reroll sec" onclick="rerollHumanSection('mod')" ${!canSec?'disabled':''}>${secLabel}</button>`:''}
+      </div>
+      <div class="dice-row">${modDie}</div>
+    </div>`;
+    const scarSec = scarList.length ? `<div class="roll-sec">
+      <div class="roll-sec-head"><div class="lane-label">${tip('scar','Scar')}</div>
+        ${!humanLocked?`<button class="btn reroll sec" onclick="rerollHumanSection('scar')" ${!canSec?'disabled':''}>${secLabel}</button>`:''}
+      </div>
+      <div class="dice-row">${scarDie}</div>
+    </div>` : '';
+    const topAll = !humanLocked ? `<div class="roll-top-actions">
+      <button class="btn reroll all" onclick="rerollHumanSection('all')" ${!canAll?'disabled':''}>${tip('rerollAll','Reroll all')} · ⚡${allCost}${freeNote}</button>
+      <div class="hint" style="margin:0">Section ${tip('rerollSec','reroll')} = ⚡${secCost} (1 free). All = ⚡${allCost}.</div>
+    </div>` : '';
+    humanBody = `${topAll}${atkSec}${modSec}${scarSec}${scarLine}${finalBlock}`;
+  }
+
   let humanActions = '';
   if (!humanRolled){
     humanActions = `<button class="btn reroll" onclick="beginHumanRoll()">Roll human dice</button>`;
   } else if (isHost && humanLocked){
     humanActions = `<button class="btn lock-side done" disabled>Human roll locked · ${humanSum}</button>`;
-  } else {
-    humanActions = `<div class="hint">Tap any die to reroll (${session.freeLeft?`<b>${session.freeLeft} free</b> · then `:''}⚡${CFG.rerollCost})</div>
-      <button class="btn reroll" onclick="confirmReroll()" ${!session.selectedRoll || !isHumanRollType(session.selectedRoll.type) || !canRR?'disabled':''}>Reroll selected</button>
-      ${isHost?`<button class="btn lock-side" onclick="lockHumanRoll()">Lock human roll · ${humanSum}</button>`:''}`;
+  } else if (isHost){
+    humanActions = `<button class="btn lock-side" onclick="lockHumanRoll()">Lock human roll · ${humanSum}</button>`;
   }
 
   const humanPanel = `<div class="panel ${humanLocked?'locked-side':''}">
       <div class="lane-label" style="margin-top:0">Your human roll${humanLocked?'<span class="lock-badge">LOCKED</span>':''}</div>
-      ${humanRolled?`<div class="dice-row">${dice}<span class="dice-plus" aria-hidden="true">+</span>${modDie}${scarDie}</div>${scarLine}${finalBlock}`:finalBlock}
+      ${humanBody}
       ${humanActions}
     </div>`;
 
@@ -3397,28 +3450,25 @@ function rollPhaseHTML(r, isHost){
   let parTotal = 0;
   const parStipMax = hostParStipendNow();
   if (isHost){
-    const canPickPar = parRolled && !parLocked;
     let aDice = '';
     if (parRolled){
-      aDice = (session.aRolls||[]).map((d,i)=>{
-        const sel = canPickPar && session.selectedRoll && session.selectedRoll.type==='a' && session.selectedRoll.i===i;
+      aDice = (session.aRolls||[]).map((d)=>{
         const faceLine = (d.faces||[]).join('·');
-        return `<div class="die-wrap ${canPickPar?`can-pick ${sel?'selected':''}" onclick="pickRoll('a',${i})`:''}">${dieHTML('attack', d.v, shake)}
+        return `<div class="die-wrap">${dieHTML('attack', d.v, shake)}
           <div class="die-label" style="color:#ffb090">Attack</div>
           <div class="die-sub">${d.exploded?'+ bonus re-roll':''}</div>
           <div class="die-faces">${esc(faceLine)}</div></div>`;
       }).join('');
     }
-    const instSel = canPickPar && session.selectedRoll && session.selectedRoll.type==='i';
-    const pModSel = canPickPar && session.selectedRoll && session.selectedRoll.type==='m';
     const pModTxt = pModLabel(session.pModRoll);
     const instId = session.instinctRoll;
     const instShort = instinctShortLabel(instId);
     const instFull = instinctDesc(instId);
     const instExtra = instId==='explode' && session.instinctExtra ? ` Extra die rolled: <b>+${session.instinctExtra}</b>.` : '';
     const parEn = session.parEnergy != null ? session.parEnergy : parStipMax;
-    const canParRR = canAffordParReroll();
-    const parSel = session.selectedRoll && isParasiteRollType(session.selectedRoll.type);
+    const canParSec = canAffordParRerollCost(CFG.parRerollCost||1);
+    const canParAll = canAffordParRerollCost(CFG.rerollAllCost||2);
+    const parSecLab = `Reroll · ⚡${CFG.parRerollCost||1}`;
     let parFinal = '';
     if (parRolled){
       const par = liveParasiteBreakdown(live.attack, session.rolls||[]);
@@ -3449,11 +3499,36 @@ function rollPhaseHTML(r, isHost){
     if (!parRolled){
       parActions = `<button class="btn par-reroll" onclick="beginParasiteRoll()">Roll parasite dice</button>
         <div class="explain-box"><div class="ex-title">Parasite roll</div>
-        <p>Roll Attack / Mod / Specialty separately from your human dice. Spend parasite ⚡ to reroll, then <b>Lock parasite roll</b>.</p></div>`;
+        <p>Roll Attack / Mod / Specialty separately from your human dice. Spend parasite ⚡ to reroll sections, then <b>Lock parasite roll</b>.</p></div>`;
     } else if (!parLocked){
-      parActions = `${parFinal}
-        <div class="hint">Tap a parasite die, then reroll (⚡${CFG.parRerollCost||1} each from parasite energy)</div>
-        <button class="btn par-reroll" onclick="confirmParReroll()" ${!parSel || !canParRR?'disabled':''}>Reroll parasite · ⚡${CFG.parRerollCost||1}</button>
+      const atkSec = `<div class="roll-sec">
+        <div class="roll-sec-head"><div class="lane-label">Attack</div>
+          <button class="btn par-reroll sec" onclick="rerollParSection('attack')" ${!canParSec?'disabled':''}>${parSecLab}</button>
+        </div>
+        <div class="dice-row par-row">${aDice}</div>
+      </div>`;
+      const modSec = `<div class="roll-sec">
+        <div class="roll-sec-head"><div class="lane-label">Mod</div>
+          <button class="btn par-reroll sec" onclick="rerollParSection('mod')" ${!canParSec?'disabled':''}>${parSecLab}</button>
+        </div>
+        <div class="dice-row par-row"><div class="die-wrap">${dieHTML('mod', pModTxt, shake)}
+          <div class="die-label" style="color:var(--bio)">Mod</div>
+          <div class="die-sub">boost</div></div></div>
+      </div>`;
+      const instSec = `<div class="roll-sec">
+        <div class="roll-sec-head"><div class="lane-label">${tip('instinct','Specialty')}</div>
+          <button class="btn par-reroll sec" onclick="rerollParSection('instinct')" ${!canParSec?'disabled':''}>${parSecLab}</button>
+        </div>
+        <div class="dice-row par-row"><div class="die-wrap">${dieHTML('instinct', instShort, shake)}
+          <div class="die-label" style="color:var(--energy)">Specialty</div>
+          <div class="die-sub">${instId==='explode'&&session.instinctExtra?('+'+session.instinctExtra):''}</div></div></div>
+      </div>`;
+      parActions = `<div class="roll-top-actions">
+          <button class="btn par-reroll all" onclick="rerollParSection('all')" ${!canParAll?'disabled':''}>${tip('rerollAll','Reroll all')} · ⚡${CFG.rerollAllCost||2}</button>
+          <div class="hint" style="margin:0">Section = ⚡${CFG.parRerollCost||1} from parasite energy. All = ⚡${CFG.rerollAllCost||2}.</div>
+        </div>
+        ${atkSec}${modSec}${instSec}
+        ${parFinal}
         <button class="btn lock-side par" onclick="lockParasiteRoll()">Lock parasite roll · ${parTotal}</button>
         <div class="explain-box">
           <div class="ex-title">What these dice do</div>
@@ -3464,18 +3539,18 @@ function rollPhaseHTML(r, isHost){
     } else {
       parActions = `${parFinal}<button class="btn lock-side done" disabled>Parasite roll locked · ${parTotal}</button>`;
     }
-    const diceRow = parRolled ? `<div class="dice-row par-row">${aDice}
-        <div class="die-wrap ${canPickPar?`can-pick ${pModSel?'selected':''}" onclick="pickRoll('m',0)`:''}">${dieHTML('mod', pModTxt, shake)}
+    const diceRowLocked = (parRolled && parLocked) ? `<div class="dice-row par-row">${aDice}
+        <div class="die-wrap">${dieHTML('mod', pModTxt, shake)}
           <div class="die-label" style="color:var(--bio)">Mod</div>
           <div class="die-sub">boost</div></div>
-        <div class="die-wrap ${canPickPar?`can-pick ${instSel?'selected':''}" onclick="pickRoll('i',0)`:''}">${dieHTML('instinct', instShort, shake)}
+        <div class="die-wrap">${dieHTML('instinct', instShort, shake)}
           <div class="die-label" style="color:var(--energy)">${tip('instinct','Specialty')}</div>
           <div class="die-sub">${instId==='explode'&&session.instinctExtra?('+'+session.instinctExtra):''}</div></div>
       </div>` : '';
     parBlock = `<div class="panel ${parLocked?'locked-side':''}" style="border-color:#8dff6a44">
       <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('host','Parasite package')}${parLocked?'<span class="lock-badge">LOCKED</span>':''}</div>
       <div class="par-energy">Parasite ⚡ ${parEn} / ${parStipMax}</div>
-      ${diceRow}
+      ${diceRowLocked}
       ${parActions}
     </div>`;
   }
@@ -3502,70 +3577,99 @@ function rollPhaseHTML(r, isHost){
 }
 
 function pickRoll(type, i){
+  // Legacy single-die pick — section reroll buttons replaced this UX
   if (!session || session.phase!=='roll' || session.shake) return;
   if (isHumanRollType(type) && session.humanLocked) return;
   if (isParasiteRollType(type) && session.parLocked) return;
   session.selectedRoll = { type, i };
   render();
 }
-function confirmReroll(){
-  if (!session || session.humanLocked) return;
-  if (!session.selectedRoll || !isHumanRollType(session.selectedRoll.type) || !canAffordReroll()) return;
-  const { type, i } = session.selectedRoll;
-  if (!spendRerollCharge()) return;
-  if (type==='h'){
-    if (!session.baseRolls || !session.baseRolls[i]) return;
-    const d = session.baseRolls[i];
-    const rf = rollFace(d.faces);
-    d.index=rf.index; d.v=rf.value; d.first=rf.value; d.rerolled=true;
-    d.scarZeroed=false; d.scarNote='';
-    reapplyScarFromBase();
-  } else if (type==='hm'){
-    const faces = previewModDie(G.players[me]);
-    const mi = rollIndex(faces.length);
-    const modRoll = { index:mi, kind:faces[mi].kind, level:faces[mi].level, value:modFaceValue(faces[mi]) };
-    session.baseModRoll = deep(modRoll);
-    session.modRoll = deep(modRoll);
-    reapplyScarFromBase();
-  } else if (type==='s'){
-    if (!session.scarRolls || !session.scarRolls[i]) return;
-    const si = rollIndex(SCAR_DIE_FACES.length);
-    const f = SCAR_DIE_FACES[si];
-    session.scarRolls[i] = { index:si, id:f.id, label:f.label, level:1 };
-    session.scarRoll = session.scarRolls[0] || null;
-    reapplyScarFromBase();
-  }
+function flashRoll(){
   session.selectedRoll = null;
   session.shake = true;
   render();
   setTimeout(()=>{ if(session) session.shake=false; render(); }, 450);
 }
-function confirmParReroll(){
-  if (!session || session.parLocked) return;
-  if (!session.selectedRoll || !isParasiteRollType(session.selectedRoll.type) || !canAffordParReroll()) return;
-  const { type, i } = session.selectedRoll;
-  if (!spendParRerollCharge()) return;
-  if (type==='a'){
-    const d = session.aRolls[i];
+function rerollHumanAttackDice(){
+  (session.baseRolls||[]).forEach(d=>{
+    const rf = rollFace(d.faces);
+    d.index=rf.index; d.v=rf.value; d.first=rf.value; d.rerolled=true;
+    d.scarZeroed=false; d.scarNote='';
+  });
+}
+function rerollHumanModDie(){
+  const faces = previewModDie(G.players[me]);
+  const mi = rollIndex(faces.length);
+  const modRoll = { index:mi, kind:faces[mi].kind, level:faces[mi].level, value:modFaceValue(faces[mi]) };
+  session.baseModRoll = deep(modRoll);
+  session.modRoll = deep(modRoll);
+}
+function rerollHumanScarDice(){
+  (session.scarRolls||[]).forEach((_, i)=>{
+    const si = rollIndex(SCAR_DIE_FACES.length);
+    const f = SCAR_DIE_FACES[si];
+    session.scarRolls[i] = { index:si, id:f.id, label:f.label, level:1 };
+  });
+  session.scarRoll = (session.scarRolls && session.scarRolls[0]) || null;
+}
+function rerollHumanSection(section){
+  if (!session || session.humanLocked || session.phase!=='roll' || session.shake) return;
+  if (!session.humanRolled && !(session.rolls && session.rolls.length)) return;
+  const all = section==='all';
+  const cost = all ? (CFG.rerollAllCost||2) : (CFG.rerollCost||1);
+  if (section==='scar' && !(session.scarRolls||[]).length) return;
+  if (!spendHumanRerollCost(cost)) return;
+  if (all || section==='attack') rerollHumanAttackDice();
+  if (all || section==='mod') rerollHumanModDie();
+  if (all || section==='scar') rerollHumanScarDice();
+  reapplyScarFromBase();
+  flashRoll();
+}
+function rerollParAttackDice(){
+  (session.aRolls||[]).forEach(d=>{
     const er = rollExplodingAttack(d.faces);
     Object.assign(d, { index:er.index, v:er.value, shown:er.shown, exploded:er.exploded, rerolled:true });
-  } else if (type==='m'){
-    const faces = (session._previewPar || G.parasite).mod.faces;
-    const pi = rollIndex(faces.length);
-    session.pModRoll = deep(faces[pi]);
-    session.pModRoll.index = pi;
-  } else if (type==='i'){
-    const inst = (session._previewPar || G.parasite).instinct || INSTINCT_FACES.map(f=>f.id);
-    session.instinctRoll = inst[rollIndex(inst.length)];
-    session.instinctExtra = 0;
-    if (session.instinctRoll==='explode'){
-      session.instinctExtra = rollExplodingAttack(hotFaces()).value;
-    }
+  });
+}
+function rerollParModDie(){
+  const faces = (session._previewPar || G.parasite).mod.faces;
+  const pi = rollIndex(faces.length);
+  session.pModRoll = deep(faces[pi]);
+  session.pModRoll.index = pi;
+}
+function rerollParInstinct(){
+  const inst = (session._previewPar || G.parasite).instinct || INSTINCT_FACES.map(f=>f.id);
+  session.instinctRoll = inst[rollIndex(inst.length)];
+  session.instinctExtra = 0;
+  if (session.instinctRoll==='explode'){
+    session.instinctExtra = rollExplodingAttack(hotFaces()).value;
   }
-  session.selectedRoll = null;
-  session.shake = true;
-  render();
-  setTimeout(()=>{ if(session) session.shake=false; render(); }, 450);
+}
+function rerollParSection(section){
+  if (!session || session.parLocked || session.phase!=='roll' || session.shake) return;
+  if (!session.parRolled && !(session.aRolls && session.aRolls.length)) return;
+  const all = section==='all';
+  const cost = all ? (CFG.rerollAllCost||2) : (CFG.parRerollCost||1);
+  if (!spendParRerollCost(cost)) return;
+  if (all || section==='attack') rerollParAttackDice();
+  if (all || section==='mod') rerollParModDie();
+  if (all || section==='instinct') rerollParInstinct();
+  flashRoll();
+}
+function confirmReroll(){
+  // Back-compat: treat as section based on selected type
+  if (!session || !session.selectedRoll) return;
+  const t = session.selectedRoll.type;
+  if (t==='h') rerollHumanSection('attack');
+  else if (t==='hm') rerollHumanSection('mod');
+  else if (t==='s') rerollHumanSection('scar');
+}
+function confirmParReroll(){
+  if (!session || !session.selectedRoll) return;
+  const t = session.selectedRoll.type;
+  if (t==='a') rerollParSection('attack');
+  else if (t==='m') rerollParSection('mod');
+  else if (t==='i') rerollParSection('instinct');
 }
 
 function lockIn(){

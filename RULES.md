@@ -1,8 +1,8 @@
-# Space Tribes: Parasite — Crew Manual (v4.11)
+# Space Tribes: Parasite — Crew Manual (v4.12)
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.11.0** — Mod **Points** = personal score (greed vs team). Schema **v12** (new game). See [CHANGELOG.md](CHANGELOG.md).
+**v4.12.0** — Section rerolls (1⚡) + Reroll all (2⚡). Schema still **v12**. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Mission map
 
@@ -38,8 +38,9 @@
 | **Mod upgrade** | 2 | Bump one helpful mod face one level (max L3). Scar faces can’t be upgraded |
 | **Extra die** | 3 | +1 Attack die in a category (max 2 per color) |
 | **Heal scar** | 2 | Remove one Scar die from your pool |
-| **Free reroll** | 0 | **1 free reroll every round** |
-| **Extra reroll** | 1 | Any further reroll (Attack / Mod / Scar) |
+| **Free section reroll** | 0 | **1 free section reroll** every round |
+| **Section reroll** | 1 | Reroll all dice in Attack, Mod, or Scar |
+| **Reroll all** | 2 | Reroll Attack + Mod + Scar together |
 
 **Reset choices** clears your upgrade picks before you lock a roll.
 
@@ -81,7 +82,7 @@ Every Scar die is identical: **3 blanks** + **3 hurts** (−2⚡, −10%, −hig
 
 **Heal** one for **2⚡** in the shop (healed dice don’t roll that round).
 
-**−highest** subtracts your strongest die from the combat total but **keeps the die showing**. Reroll that die to move the hit.
+**−highest** subtracts your strongest die from the combat total but **keeps the die showing**. Reroll the Attack or Scar section to move the hit.
 
 ## Host turn (you + the monster)
 
