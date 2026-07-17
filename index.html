@@ -598,7 +598,7 @@ const COLOR_META = {
 
 
 const TOTAL_ROUNDS = 10;
-const SCHEMA = 11;
+const SCHEMA = 12;
 
 const CFG = {
   roundStipend: 5,
@@ -705,7 +705,7 @@ const MOD_LEVELS = {
   energy: [2, 3, 4],       // +2⚡ → +3⚡ → +4⚡
   pct:    [10, 20, 25],    // +10% → +20% → +25%
   base:   [3, 4, 5],       // claim permanent Base to 3 → 4 → 5
-  points: [3, 4, 5],       // +3 / +4 / +5 that round
+  points: [3, 4, 5],       // +3 / +4 / +5 personal score (no combat help)
 };
 
 /** One shared Scar die — grab from the table into your pool. 3 blanks + 3 hurts. */
@@ -734,8 +734,9 @@ const INSTINCT_FACES = [
 
 
 const TIPS = {
-  mod: { title:'Mod die', body:'Always rolls with you: Energy (+2/3/4⚡), % (+10/20/25), Base (claim permanent Base to +3/4/5), Points (+3/4/5 this round), and 2 Scar faces. Your header Base starts at 0 — roll Base to raise it for the rest of the game. Lock a Scar face → grab a Scar die. Upgrade helpful faces for 2⚡.' },
-  modDie: { title:'Mod die', body:'Always rolls with you: Energy (+2/3/4⚡), % (+10/20/25), Base (claim permanent Base to +3/4/5), Points (+3/4/5 this round), and 2 Scar faces. Your header Base starts at 0 — roll Base to raise it for the rest of the game. Lock a Scar face → grab a Scar die. Upgrade helpful faces for 2⚡.' },
+  mod: { title:'Mod die', body:'Energy (+2/3/4⚡), % (+10/20/25), Base (claim permanent Base to +3/4/5), Points (+3/4/5 personal score — no combat help), and 2 Scar faces. Points = greed: take score instead of helping the fight. Header Base starts at 0 — roll Base to raise it. Lock a Scar face → grab a Scar die. Upgrade helpful faces for 2⚡.' },
+  modDie: { title:'Mod die', body:'Energy (+2/3/4⚡), % (+10/20/25), Base (claim permanent Base to +3/4/5), Points (+3/4/5 personal score — no combat help), and 2 Scar faces. Points = greed: take score instead of helping the fight. Header Base starts at 0 — roll Base to raise it. Lock a Scar face → grab a Scar die. Upgrade helpful faces for 2⚡.' },
+  modPoints: { title:'Points face', body:'Lock this face for personal score (+3 → +4 → +5 as upgraded). It does not add to your combat total — you’re taking points instead of helping the team fight. Reroll if you need combat more.' },
   baseAtkHuman: { title:'Your Base', body:'Starts at 0. When you lock a Base face on your Mod die, your permanent Base rises to that face’s value (3 → 4 → 5 as you upgrade). It adds to every combat total after that.' },
   scar: { title:'Scar die', body:'All Scar dice are the same: 3 blanks + 3 hurts (−2⚡, −10%, −highest). You pick them up into your pool (from Mod Scar faces, Outbreak, or Poison). Each Scar die rolls every turn. Heal one for 2⚡ in the shop.' },
   scarDie: { title:'Scar die', body:'All Scar dice are the same: 3 blanks + 3 hurts (−2⚡, −10%, −highest). You pick them up into your pool (from Mod Scar faces, Outbreak, or Poison). Each Scar die rolls every turn. Heal one for 2⚡ in the shop.' },
@@ -967,7 +968,7 @@ function modFaceLabel(face){
   if (face.kind==='energy') return '+'+v+'⚡';
   if (face.kind==='pct') return '+'+v+'%';
   if (face.kind==='base') return 'B'+v;
-  if (face.kind==='points') return '+'+v;
+  if (face.kind==='points') return '+'+v+' pts';
   return '?';
 }
 function modFaceClass(face){
@@ -1320,6 +1321,7 @@ function computeHumanTotal(rolls, modRoll, scarRollOrList, _unused, opts){
   let total = attack;
   let pendingEnergy = 0;
   let modAdd = 0;
+  let scorePts = 0; // Mod Points face → personal score, not combat
   let modLabel = 'no mod';
   // Permanent Base (header) — starts 0; Base face claims a higher floor
   let permBase = Math.max(0, opts.baseAtk|0);
@@ -1343,9 +1345,8 @@ function computeHumanTotal(rolls, modRoll, scarRollOrList, _unused, opts){
       ? ('Base → +'+claimedBase)
       : ('Base +'+permBase);
   } else if (modRoll && modRoll.kind==='points'){
-    modAdd = modRoll.value|0;
-    total += modAdd;
-    modLabel = 'Points +'+modAdd;
+    scorePts = modRoll.value|0;
+    modLabel = '+'+scorePts+' pts (no combat)';
   } else if (!modRoll){
     modLabel = 'scar / off';
   } else if (permBase && modLabel==='no mod'){
@@ -1353,7 +1354,7 @@ function computeHumanTotal(rolls, modRoll, scarRollOrList, _unused, opts){
   }
   const scarLabels = scarRolls.filter(s=>s && s.id!=='blank').map(s=>s.label).filter(Boolean);
   return {
-    attack, total, pendingEnergy, modAdd, modLabel,
+    attack, total, pendingEnergy, modAdd, scorePts, modLabel,
     permBase, claimedBase,
     scarLabel: scarLabels.join(' · '),
     shatterSub, scarRolls,
@@ -1363,7 +1364,7 @@ function computeHumanTotal(rolls, modRoll, scarRollOrList, _unused, opts){
 /** Build display math from clean base dice + current mod/scar (for the big blue total). */
 function liveHumanBreakdown(){
   if (!session || !session.rolls){
-    return { rawAttack:0, attack:0, modAdd:0, modLabel:'—', pendingEnergy:0, scarLabel:'', total:0, ptsDelta:0, energyLoss:0, shatterSub:0, permBase:0 };
+    return { rawAttack:0, attack:0, modAdd:0, modLabel:'—', pendingEnergy:0, scorePts:0, scarLabel:'', total:0, ptsDelta:0, energyLoss:0, shatterSub:0, permBase:0 };
   }
   const base = session.baseRolls || session.rolls || [];
   const rawAttack = base.reduce((s,d)=>s+(d.v||0), 0);
@@ -1375,6 +1376,7 @@ function liveHumanBreakdown(){
     modAdd: br.modAdd,
     modLabel: br.modLabel,
     pendingEnergy: br.pendingEnergy,
+    scorePts: br.scorePts||0,
     scarLabel: br.scarLabel,
     total: br.total,
     permBase: br.permBase||0,
@@ -1477,7 +1479,8 @@ function resolvePlayerBundle(g, pid, action){
   const scarLoss = a.scarEnergyLoss||0;
   const pending = Math.max(0, (br.pendingEnergy||0) - scarLoss);
   const ptsDelta = a.ptsDelta||0;
-  return { br, pending, ptsDelta, scarLoss };
+  const scorePts = br.scorePts||0;
+  return { br, pending, ptsDelta, scorePts, scarLoss };
 }
 
 /* ================= ROUND RESOLUTION ================= */
@@ -1575,13 +1578,14 @@ function resolveRound(g){
       totals[pid] = br.total;
       breakdown[pid] = {
         attack: br.attack, total: br.total, modAdd: br.modAdd, modLabel: br.modLabel,
-        permBase: br.permBase||0, claimedBase: br.claimedBase||0,
+        permBase: br.permBase||0, claimedBase: br.claimedBase||0, scorePts: pack.scorePts||0,
         modRoll: deep(a.modRoll||null), scarRoll: deep(a.scarRoll||null),
         pendingEnergy: pack.pending, ptsDelta: pack.ptsDelta,
         scars: scarCount(g.players[pid]), scarRolls: deep(a.scarRolls||[]),
       };
       awards[pid].pendingEnergy = pack.pending;
       if (pack.ptsDelta) awards[pid].pts += pack.ptsDelta;
+      if (pack.scorePts){ awards[pid].pts += pack.scorePts; awards[pid].tags.push('mod-pts'); }
     });
     const order = roster.slice().sort((a,b)=> totals[b]-totals[a]);
     const trainPts = rankPtsFor(roster.length, 6, 1);
@@ -1627,7 +1631,7 @@ function resolveRound(g){
       humanTotals[h] = { attack: br.attack, total: br.total };
       breakdown[h] = {
         attack: br.attack, total: br.total, modAdd: br.modAdd, modLabel: br.modLabel,
-        permBase: br.permBase||0, claimedBase: br.claimedBase||0,
+        permBase: br.permBase||0, claimedBase: br.claimedBase||0, scorePts: pack.scorePts||0,
         modRoll: deep(a.modRoll||null), scarRoll: deep(a.scarRoll||null),
         pendingEnergy: pack.pending, ptsDelta: pack.ptsDelta,
         scars: scarCount(g.players[h]), scarRolls: deep(a.scarRolls||[]),
@@ -1635,6 +1639,7 @@ function resolveRound(g){
       crewTotal += br.total;
       awards[h].pendingEnergy = pack.pending;
       if (pack.ptsDelta) awards[h].pts += pack.ptsDelta;
+      if (pack.scorePts){ awards[h].pts += pack.scorePts; awards[h].tags.push('mod-pts'); }
     });
 
     const hAct = actions[hostId];
@@ -1643,7 +1648,7 @@ function resolveRound(g){
     const hostHuman = hostPack.br;
     breakdown[hostId] = {
       attack: hostHuman.attack, total: hostHuman.total, modAdd: hostHuman.modAdd, modLabel: hostHuman.modLabel,
-      permBase: hostHuman.permBase||0, claimedBase: hostHuman.claimedBase||0,
+      permBase: hostHuman.permBase||0, claimedBase: hostHuman.claimedBase||0, scorePts: hostPack.scorePts||0,
       modRoll: deep(hAct.modRoll||null), scarRoll: deep(hAct.scarRoll||null),
       pendingEnergy: hostPack.pending, ptsDelta: hostPack.ptsDelta,
       scars: scarCount(g.players[hostId]), scarRolls: deep(hAct.scarRolls||[]),
@@ -1652,6 +1657,7 @@ function resolveRound(g){
     };
     awards[hostId].pendingEnergy = hostPack.pending;
     if (hostPack.ptsDelta) awards[hostId].pts += hostPack.ptsDelta;
+    if (hostPack.scorePts){ awards[hostId].pts += hostPack.scorePts; awards[hostId].tags.push('mod-pts'); }
 
     const highestHumanDie = Math.max(0, ...(hAct.rolls||[]).map(d=>d.v||0));
     let instinctPayload = hAct.instinctRoll;
@@ -1756,7 +1762,7 @@ function resolveRound(g){
       totals[pid] = br.total;
       breakdown[pid] = {
         attack: br.attack, total: br.total, modAdd: br.modAdd, modLabel: br.modLabel,
-        permBase: br.permBase||0, claimedBase: br.claimedBase||0,
+        permBase: br.permBase||0, claimedBase: br.claimedBase||0, scorePts: pack.scorePts||0,
         modRoll: deep(a.modRoll||null), scarRoll: deep(a.scarRoll||null),
         pendingEnergy: pack.pending, ptsDelta: pack.ptsDelta,
         scars: scarCount(g.players[pid]), scarRolls: deep(a.scarRolls||[]),
@@ -1764,6 +1770,7 @@ function resolveRound(g){
       crewTotal += br.total;
       awards[pid].pendingEnergy = pack.pending;
       if (pack.ptsDelta) awards[pid].pts += pack.ptsDelta;
+      if (pack.scorePts){ awards[pid].pts += pack.scorePts; awards[pid].tags.push('mod-pts'); }
     });
     const hp = bossHP(g);
     const cleared = crewTotal >= hp;
@@ -1796,7 +1803,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.10.0';
+const APP_BUILD = 'v4.11.0';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2487,7 +2494,7 @@ function instructionsModalHTML(){
       <h3>Three die types</h3>
       <ul>
         <li>${tip('attack','Attack')} — Weapons / Strength / Agility. Forge faces, buy extras.</li>
-        <li>${tip('mod','Mod')} — Energy (+2/3/4⚡), % (+10/20/25), Base (claim permanent Base to +3/4/5), Points (+3/4/5 this round), + 2 Scar faces. Header ${tip('baseAtkHuman','Base')} starts at 0. Lock a Scar face → grab a Scar die. Upgrade positive faces for 2⚡.</li>
+        <li>${tip('mod','Mod')} — Energy / % / Base help the fight. ${tip('modPoints','Points')} = personal score (+3/4/5) with no combat help — greed vs team. Header ${tip('baseAtkHuman','Base')} starts at 0. Lock a Scar face → grab a Scar die.</li>
         <li>${tip('scar','Scar')} — all the same: 3 blanks + 3 hurts (−2⚡, −10%, −highest). From Mod, Outbreak, or Poison. Heal one for 2⚡.</li>
       </ul>
       <h3>Host turns (R2–9)</h3>
@@ -2930,7 +2937,7 @@ function shopHTML(r, isHost){
   }
 
   const modBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('mod','Mod die')} — 4 help · 2 Scar</div>
-    <div class="si-desc">Upgrade a helpful face for 2⚡ (two upgrades each). Energy <b>+2→+3→+4⚡</b> · % <b>+10→+20→+25</b> · Base claim <b>B3→B4→B5</b> · Points <b>+3→+4→+5</b> this round. Header ${tip('baseAtkHuman','Base')} starts at <b>0</b> — lock a Base face to raise it. Scar faces can’t be upgraded — lock one and you grab a ${tip('scar','Scar')} die.</div></div><div class="si-cost">2⚡</div></div>
+    <div class="si-desc">Upgrade a helpful face for 2⚡ (two upgrades each). Energy <b>+2→+3→+4⚡</b> · % <b>+10→+20→+25</b> · Base claim <b>B3→B4→B5</b> · ${tip('modPoints','Points')} <b>+3→+4→+5 score</b> (greed — no combat). Header ${tip('baseAtkHuman','Base')} starts at <b>0</b>. Scar faces can’t be upgraded — lock one and you grab a ${tip('scar','Scar')} die.</div></div><div class="si-cost">2⚡</div></div>
     <div class="face-strip">${modPrev.map((f,i)=>{
       const queued = (cart.modUps||[]).filter(x=>x===i).length;
       const pick = ui.selectedModFace===i;
@@ -3282,6 +3289,7 @@ function rollPhaseHTML(r, isHost){
   let modPart = '0';
   if (live.modAdd) modPart = '+'+live.modAdd;
   else if (live.pendingEnergy) modPart = '+'+live.pendingEnergy+'⚡';
+  else if (live.scorePts) modPart = '+'+live.scorePts+' pts';
   else if (modRoll && modRoll.kind==='base') modPart = '—';
   else if (modRoll && modRoll.kind==='scar') modPart = 'Scar';
   else if (!modRoll) modPart = humanRolled ? 'off' : '—';
@@ -3303,9 +3311,14 @@ function rollPhaseHTML(r, isHost){
       scarLine += `<div class="warn-box" style="border-color:#f0c04066;color:#f0c040">${tip('baseAtkHuman','Base')} claim — ${tip('lock','lock in')} and your header Base becomes <b>+${claim}</b></div>`;
     }
   }
+  if (modRoll && modRoll.kind==='points' && !humanLocked){
+    const pts = modRoll.value|0;
+    scarLine += `<div class="warn-box" style="border-color:#c9a0ff66;color:#d8b4fe">${tip('modPoints','Points')} — ${tip('lock','lock in')} for <b>+${pts} score</b> (no combat help). Reroll if the team needs your total.</div>`;
+  }
   let extraBits = '';
   if (live.scarLabel) extraBits += `<div class="small center" style="margin-top:4px;color:#ff8a9a">Scar ${esc(live.scarLabel)}</div>`;
   if (live.shatterSub) extraBits += `<div class="small center" style="color:#ff8a9a">Scar −${live.shatterSub} (strongest die — reroll it to move the hit)</div>`;
+  if (live.scorePts) extraBits += `<div class="small center" style="color:#d8b4fe">${tip('modPoints','Score')} +${live.scorePts} if you lock (no combat help)</div>`;
   if (live.ptsDelta) extraBits += `<div class="small center" style="color:#ff8a9a">${live.ptsDelta} pts</div>`;
   if (live.energyLoss) extraBits += `<div class="small center" style="color:#ff8a9a">−${live.energyLoss}⚡</div>`;
 
@@ -3651,7 +3664,7 @@ function playerReviewCardHTML(pid, res){
       <span class="total-big crew" style="font-size:22px;margin:0">${Math.round(total)}</span>
     </div>
     ${diceRowMiniHTML(rolls)}
-    <div class="small">Dice <b>${attack}</b>${(br && br.permBase)?` + ${tip('baseAtkHuman','Base')} <b>+${br.permBase}</b>`:''}${modAdd?` + Mod <b>+${modAdd}</b>`:''} (${esc(modLabel)})${pending?` · +${pending}⚡ next`:''}${scarLab?` · Scar ${esc(scarLab)}`:''}</div>
+    <div class="small">Dice <b>${attack}</b>${(br && br.permBase)?` + ${tip('baseAtkHuman','Base')} <b>+${br.permBase}</b>`:''}${modAdd?` + Mod <b>+${modAdd}</b>`:''} (${esc(modLabel)})${(br && br.scorePts)?` · ${tip('modPoints','score')} +${br.scorePts}`:''}${pending?` · +${pending}⚡ next`:''}${scarLab?` · Scar ${esc(scarLab)}`:''}</div>
     ${hostExtra}
   </div>`;
 }
@@ -3703,13 +3716,15 @@ function verdictHTML(r){
     const a = awards[p] || {pts:0,energy:0,tags:[]};
     const badges = (a.tags||[]).map(t=>{
       if (t==='mvp') return '<span class="badge mvp">MVP</span>';
+      if (t==='mod-pts') return '<span class="badge" style="background:#7a4fc455;color:#e9d5ff">PTS</span>';
       if (t.startsWith('cat-')) return `<span class="badge ${t}">${t.slice(4)}</span>`;
       if (t==='kill') return '<span class="badge mvp">KILL</span>';
       return '';
     }).join('');
     const pend = (res.breakdown && res.breakdown[p] && res.breakdown[p].pendingEnergy) ? ` · mod +${res.breakdown[p].pendingEnergy}⚡` : '';
+    const modScore = (res.breakdown && res.breakdown[p] && res.breakdown[p].scorePts) ? ` · mod score +${res.breakdown[p].scorePts}` : '';
     return `<div class="award-row"><span class="who">${whoHTML(p,{bold:false})}${badges}</span>
-      <span>+${a.pts}pts · +${a.energy}⚡${pend}</span></div>`;
+      <span>+${a.pts}pts · +${a.energy}⚡${pend}${modScore}</span></div>`;
   }).join('');
 
   return `<div class="panel">${banner}${body}</div>

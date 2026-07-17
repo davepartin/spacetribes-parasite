@@ -1,8 +1,8 @@
-# Space Tribes: Parasite — Crew Manual (v4.10)
+# Space Tribes: Parasite — Crew Manual (v4.11)
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.10.0** — Human **Base** starts at **0**; Mod ladders Energy / % / Base / Points. Schema **v11** (new game). See [CHANGELOG.md](CHANGELOG.md).
+**v4.11.0** — Mod **Points** = personal score (greed vs team). Schema **v12** (new game). See [CHANGELOG.md](CHANGELOG.md).
 
 ## Mission map
 
@@ -58,14 +58,16 @@ Always rolls with you. Messing with chemicals can scar you. Each helpful face ha
 | **Energy** (×1) | +2 / +3 / +4⚡ next round |
 | **%** (×1) | +10% / +20% / +25% of your attack |
 | **Base** (×1) | Claim permanent **Base** to **+3 / +4 / +5** (header starts at **+0**) |
-| **Points** (×1) | +3 / +4 / +5 **this round only** |
+| **Points** (×1) | **+3 / +4 / +5 personal score** — **no combat help** (greed vs team) |
 | **Scar** (×2) | No combat help. If you **lock in** on this face, grab a Scar die into your pool |
 
 Upgrade helpful faces for **2⚡**. Max **level 3**.
 
 **Your Base** (top bar) starts at **+0**. When you lock a **Base** face, your permanent Base rises to that face’s value and adds to every combat after that.
 
-Your total = **Attack dice + permanent Base + Mod** (after Scar effects, if any).
+**Points face decision:** lock for personal score, or reroll toward Energy / % / Base to help the fight.
+
+Your total = **Attack dice + permanent Base + Mod combat** (Points does not add to combat).
 
 ### Scar dice (all the same)
 
