@@ -111,9 +111,9 @@ function simShopAndRoll(pid, g) {
   let healScars = 0;
 
   // Heal scars first if any (keeps human power readable)
-  while ((pl.scars || 0) - healScars > 0 && energy >= (CFG.healScarCost || 2) && healScars < 2) {
+  while ((pl.scars || 0) - healScars > 0 && energy >= (CFG.healScarCost || 3) && healScars < 2) {
     healScars++;
-    energy -= CFG.healScarCost || 2;
+    energy -= CFG.healScarCost || 3;
   }
 
   // Extra die mid-game if behind on dice count

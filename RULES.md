@@ -2,7 +2,7 @@
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.12.6** — Humans only (no computer seats). Schema **v12**. See [CHANGELOG.md](CHANGELOG.md).
+**v4.12.8** — Heal scar costs **3⚡**. Schema **v12**. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Goal
 
@@ -49,7 +49,7 @@ Score the most **points**. If Round 10 fails, the parasite escapes (hollow win o
 | **Forge a face** | 1 | That Attack face **+2** |
 | **Mod upgrade** | 2 | Bump one helpful mod face one level (max L3). Scar faces can’t be upgraded |
 | **Extra die** | 3 | +1 Attack die in a category (max 2 per color) |
-| **Heal scar** | 2 | Remove one Scar die from your pool |
+| **Heal scar** | 3 | Remove one Scar die from your pool |
 | **Free section reroll** | 0 | **1 free section reroll** every round (not All) |
 | **Section reroll** | 1 | Reroll all dice in Attack, Mod, or Scar |
 | **Reroll all** | 2 | Reroll Attack + Mod + Scar together (always paid) |
@@ -92,7 +92,7 @@ You **grab them into your pool**. Sources:
 
 Every Scar die is identical: **3 blanks** + **3 hurts** (−2⚡, −20%, − highest dice). Each Scar die in your pool rolls every turn. Cap **6**.
 
-**Heal** one for **2⚡** in the shop (healed dice don’t roll that round).
+**Heal** one for **3⚡** in the shop (healed dice don’t roll that round).
 
 **− highest dice** subtracts your strongest Attack die from the combat total but **keeps the die showing**. Reroll the Attack or Scar section to move the hit.
 
@@ -168,7 +168,7 @@ Your phone remembers which seat you claimed.
 | **Mod die** | Energy / % / Base / Points + 2× gain scar. |
 | **Points (Mod)** | Personal score if locked. No combat help. |
 | **Your Base** | Header starts +0. Lock Mod Base to raise it for the rest of the game. |
-| **Scar die** | 3 blanks + −2⚡ + −20% + − highest dice. Heal 2⚡. |
+| **Scar die** | 3 blanks + −2⚡ + −20% + − highest dice. Heal 3⚡. |
 | **Host** | Infected player. Human + parasite vs the crew. |
 | **Feed / Harden / Outbreak / Poison** | The four parasite moves (pick one). |
 | **Base Attack** | Flat parasite power (4p-tuned; seat bonus; grows when crew holds). |

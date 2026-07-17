@@ -636,7 +636,7 @@ const CFG = {
   maxParAttack: 4,
   hostParStipend: 7, // baseline; actual stipend scales with table size
   parRerollCost: 1,
-  healScarCost: 2,
+  healScarCost: 3,
   maxScars: 6,
   // points
   trainRankPts: [6,4,2,1],
@@ -760,9 +760,9 @@ const TIPS = {
   modDie: { title:'Mod die', body:'Energy (+2/3/4⚡), % (+10/20/25), Base (claim permanent Base to +3/4/5), Points (+3/4/5 personal score — no combat help), and 2 Scar faces. Points = greed: take score instead of helping the fight. Header Base starts at 0 — roll Base to raise it. Lock a Scar face → grab a Scar die. Upgrade helpful faces for 2⚡.' },
   modPoints: { title:'Points face', body:'Lock this face for personal score (+3 → +4 → +5 as upgraded). It does not add to your combat total — you’re taking points instead of helping the team fight. Reroll if you need combat more.' },
   baseAtkHuman: { title:'Your Base', body:'Starts at 0. When you lock a Base face on your Mod die, your permanent Base rises to that face’s value (3 → 4 → 5 as you upgrade). It adds to every combat total after that.' },
-  scar: { title:'Scar die', body:'All Scar dice are the same: 3 blanks + 3 hurts (−2⚡, −20%, − highest dice). You pick them up into your pool (from Mod Scar faces, Outbreak, or Poison). Each Scar die rolls every turn. Heal one for 2⚡ in the shop.' },
-  scarDie: { title:'Scar die', body:'All Scar dice are the same: 3 blanks + 3 hurts (−2⚡, −20%, − highest dice). You pick them up into your pool (from Mod Scar faces, Outbreak, or Poison). Each Scar die rolls every turn. Heal one for 2⚡ in the shop.' },
-  healScar: { title:'Heal scar', body:'Spend 2⚡ in the shop to remove one Scar die from your pool.' },
+  scar: { title:'Scar die', body:'All Scar dice are the same: 3 blanks + 3 hurts (−2⚡, −20%, − highest dice). You pick them up into your pool (from Mod Scar faces, Outbreak, or Poison). Each Scar die rolls every turn. Heal one for 3⚡ in the shop.' },
+  scarDie: { title:'Scar die', body:'All Scar dice are the same: 3 blanks + 3 hurts (−2⚡, −20%, − highest dice). You pick them up into your pool (from Mod Scar faces, Outbreak, or Poison). Each Scar die rolls every turn. Heal one for 3⚡ in the shop.' },
+  healScar: { title:'Heal scar', body:'Spend 3⚡ in the shop to remove one Scar die from your pool.' },
   fusion: { title:'Human share', body:'On host turns, part of your human attack is added into the parasite total.' },
   aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn. Feed raises it.' },
   baseAtk: { title:'Base Attack', body:'Flat parasite power tuned for 4 players (starts lean). Extra seats add to it this round only (+14 per seat above 4, −14 below). When the crew holds, Base Attack +6 forever — early losses make the bug catch up.' },
@@ -775,8 +775,8 @@ const TIPS = {
   harden: { title:'Harden', body:'Safer. +1 on every Attack face. Boss +1. No Scar.' },
   outbreak: { title:'Outbreak', body:'+1 Attack die (if room), +6 tonight, and you take a Scar die. Boss +3.' },
   forge: { title:'Forge', body:'Spend 1⚡ to permanently +2 a face on an Attack die.' },
-  heal: { title:'Heal scar', body:'Spend 2⚡ in the shop to remove one Scar die from your pool.' },
-  energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge 1 · Mod upgrade 2 · Extra die 3 · Heal scar 2. Reroll a section 1⚡ (1 free section reroll each round). Reroll all dice 2⚡.' },
+  heal: { title:'Heal scar', body:'Spend 3⚡ in the shop to remove one Scar die from your pool.' },
+  energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge 1 · Mod upgrade 2 · Extra die 3 · Heal scar 3. Reroll a section 1⚡ (1 free section reroll each round). Reroll all dice 2⚡.' },
   rerollSec: { title:'Reroll section', body:'Rerolls every die in that section (Attack, Mod, or Scar) for 1⚡. Your first section reroll each round is free.' },
   rerollAll: { title:'Reroll all', body:'Rerolls Attack + Mod + Scar (or the whole parasite package) for 2⚡. Free section reroll does not apply — All always costs 2⚡.' },
   explode: { title:'Bonus re-roll', body:'If a parasite attack die hits its highest face, bonus re-roll and add once.' },
@@ -1546,7 +1546,7 @@ function resolveRound(g){
     }
     spent += Math.max(0, a.rerollBuys||0) * CFG.rerollCost;
     const healN = Math.max(0, a.healScars||0);
-    spent += healN * (CFG.healScarCost||2);
+    spent += healN * (CFG.healScarCost||3);
     for (let h=0; h<healN; h++) healOneScar(pl);
     // free-reroll perk purchase removed — everyone gets CFG.freeRerollsPerRound each round
     pl.energy = Math.max(0, (pl.energy||0) - spent);
@@ -1837,7 +1837,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.12.7';
+const APP_BUILD = 'v4.12.8';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2377,7 +2377,7 @@ function instructionsModalHTML(){
         <dd>Header number starting at <b>+0</b>. Locking a Mod Base face raises it (B3→B4→B5). Adds to every fight after that.</dd>
 
         <dt>${tip('scar','Scar die')}</dt>
-        <dd>Bad die in your pool. Same for everyone: 3 blanks + −2⚡ + −20% + − highest dice. From Mod gain scar, Outbreak, or Poison. Heal for 2⚡.</dd>
+        <dd>Bad die in your pool. Same for everyone: 3 blanks + −2⚡ + −20% + − highest dice. From Mod gain scar, Outbreak, or Poison. Heal for 3⚡.</dd>
 
         <dt>${tip('forge','Forge')}</dt>
         <dd>Spend 1⚡ to permanently +2 one face on an Attack die.</dd>
@@ -2436,7 +2436,7 @@ function cartCost(){
   c += (cart.forges||[]).length * CFG.forgeCost;
   c += (cart.modUps||[]).length * CFG.modUpgradeCost;
   if (cart.addDie) c += CFG.addDieCost;
-  c += Math.max(0, cart.healScars||0) * (CFG.healScarCost||2);
+  c += Math.max(0, cart.healScars||0) * (CFG.healScarCost||3);
   return c;
 }
 function myBudget(){ return (G.players[me].energy||0); }
@@ -2914,8 +2914,9 @@ function shopHTML(r, isHost){
     return `<div class="face-chip scar" title="${esc(f.desc||f.label)}">${lab}</div>`;
   }).join('')}</div>
   <div class="si-desc" style="margin-top:6px">Scar die faces (all the same): <b>3 blanks</b> · −2⚡ · −20% · − highest dice</div>`;
+  const healCost = CFG.healScarCost||3;
   const healBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('heal','Heal scar')} / ${tip('scar','Scar')} die</div>
-    <div class="si-desc">You have <b>${myScars}</b> Scar die${myScars===1?'':'s'} in your pool. Heal one for 2⚡. Lock a Mod <b>gain scar</b> face (or Outbreak / Poison) and you pick up a die with these faces:</div></div><div class="si-cost">2⚡</div></div>
+    <div class="si-desc">You have <b>${myScars}</b> Scar die${myScars===1?'':'s'} in your pool. Heal one for ${healCost}⚡. Lock a Mod <b>gain scar</b> face (or Outbreak / Poison) and you pick up a die with these faces:</div></div><div class="si-cost">${healCost}⚡</div></div>
     ${scarFacesStrip}
     <div class="row" style="gap:8px;margin-top:10px">
       <button class="buy-btn" onclick="queueHealScar(-1)" ${healQueued<1?'disabled':''}>−</button>
@@ -3035,7 +3036,7 @@ function queueHealScar(delta){
   let n = Math.max(0, (cart.healScars||0) + (delta|0));
   n = Math.min(n, max);
   const baseSpend = (cart.forges||[]).length*CFG.forgeCost + (cart.modUps||[]).length*CFG.modUpgradeCost + (cart.addDie?CFG.addDieCost:0);
-  while (n > 0 && (myBudget() - baseSpend - n*(CFG.healScarCost||2)) < 0) n--;
+  while (n > 0 && (myBudget() - baseSpend - n*(CFG.healScarCost||3)) < 0) n--;
   cart.healScars = n;
   render();
 }
