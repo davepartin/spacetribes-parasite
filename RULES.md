@@ -38,9 +38,9 @@
 | **Mod upgrade** | 2 | Bump one helpful mod face one level (max L3). Scar faces can’t be upgraded |
 | **Extra die** | 3 | +1 Attack die in a category (max 2 per color) |
 | **Heal scar** | 2 | Remove one Scar die from your pool |
-| **Free section reroll** | 0 | **1 free section reroll** every round |
+| **Free section reroll** | 0 | **1 free section reroll** every round (not All) |
 | **Section reroll** | 1 | Reroll all dice in Attack, Mod, or Scar |
-| **Reroll all** | 2 | Reroll Attack + Mod + Scar together |
+| **Reroll all** | 2 | Reroll Attack + Mod + Scar together (always paid) |
 
 **Reset choices** clears your upgrade picks before you lock a roll.
 

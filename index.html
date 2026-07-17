@@ -772,7 +772,7 @@ const TIPS = {
   heal: { title:'Heal scar', body:'Spend 2⚡ in the shop to remove one Scar die from your pool.' },
   energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge 1 · Mod upgrade 2 · Extra die 3 · Heal scar 2. Reroll a section 1⚡ (1 free section reroll each round). Reroll all dice 2⚡.' },
   rerollSec: { title:'Reroll section', body:'Rerolls every die in that section (Attack, Mod, or Scar) for 1⚡. Your first section reroll each round is free.' },
-  rerollAll: { title:'Reroll all', body:'Rerolls Attack + Mod + Scar (or the whole parasite package) for 2⚡. Cheaper than rerolling each section separately if you want a full redo.' },
+  rerollAll: { title:'Reroll all', body:'Rerolls Attack + Mod + Scar (or the whole parasite package) for 2⚡. Free section reroll does not apply — All always costs 2⚡.' },
   explode: { title:'Bonus re-roll', body:'If a parasite attack die hits its highest face, bonus re-roll and add once.' },
   lock: { title:'Lock in', body:'Confirms your roll. If your Mod shows Scar and you lock it, you gain a Scar die. On host turns lock human + parasite, then Submit both.' },
   attack: { title:'Attack dice', body:'Your colored crew dice (Weapons / Strength / Agility). Forge faces, buy extras. They make your combat total.' },
@@ -1332,10 +1332,11 @@ function computeHumanTotal(rolls, modRoll, scarRollOrList, _unused, opts){
   modRoll = normalizeModRoll(modRoll);
   // Scar face on mod ignores helpful mod
   if (modRoll && modRoll.kind==='scar') modRoll = null;
+  // Attack sum (die faces may already include bleed). Shatter comes off the final total
+  // so Mod % is based on dice, not dice-after-shatter.
   let attack = (rolls||[]).reduce((s,d)=>s+(d.v||0), 0);
   const vals = (rolls||[]).map(d=>d.v||0);
   const shatterSub = shatterSubFromScarRolls(rolls, scarRolls, vals);
-  if (shatterSub) attack = Math.max(0, attack - shatterSub);
   let total = attack;
   let pendingEnergy = 0;
   let modAdd = 0;
@@ -1370,6 +1371,7 @@ function computeHumanTotal(rolls, modRoll, scarRollOrList, _unused, opts){
   } else if (permBase && modLabel==='no mod'){
     modLabel = 'Base +'+permBase;
   }
+  if (shatterSub) total = Math.max(0, total - shatterSub);
   const scarLabels = scarRolls.filter(s=>s && s.id!=='blank').map(s=>s.label).filter(Boolean);
   return {
     attack, total, pendingEnergy, modAdd, scorePts, modLabel,
@@ -1495,10 +1497,13 @@ function resolvePlayerBundle(g, pid, action){
   const scarRolls = a.scarRolls || (a.scarRoll ? [a.scarRoll] : []);
   const br = computeHumanTotal(a.rolls, a.modRoll||null, scarRolls, 0, { baseAtk: pl.baseAtk|0 });
   const scarLoss = a.scarEnergyLoss||0;
-  const pending = Math.max(0, (br.pendingEnergy||0) - scarLoss);
+  const pendingRaw = br.pendingEnergy||0;
+  // Drain eats Mod Energy first; leftover hits the banked energy pool
+  const pending = Math.max(0, pendingRaw - scarLoss);
+  const drainDebt = Math.max(0, scarLoss - pendingRaw);
   const ptsDelta = a.ptsDelta||0;
   const scorePts = br.scorePts||0;
-  return { br, pending, ptsDelta, scorePts, scarLoss };
+  return { br, pending, ptsDelta, scorePts, scarLoss, drainDebt };
 }
 
 /* ================= ROUND RESOLUTION ================= */
@@ -1602,6 +1607,7 @@ function resolveRound(g){
         scars: scarCount(g.players[pid]), scarRolls: deep(a.scarRolls||[]),
       };
       awards[pid].pendingEnergy = pack.pending;
+      awards[pid].drainDebt = pack.drainDebt||0;
       if (pack.ptsDelta) awards[pid].pts += pack.ptsDelta;
       if (pack.scorePts){ awards[pid].pts += pack.scorePts; awards[pid].tags.push('mod-pts'); }
     });
@@ -1626,6 +1632,7 @@ function resolveRound(g){
       awards[p].energy += CFG.roundStipend;
       g.players[p].pts = Math.max(0, g.players[p].pts + awards[p].pts);
       g.players[p].energy += awards[p].energy + (awards[p].pendingEnergy||0);
+      if (awards[p].drainDebt) g.players[p].energy = Math.max(0, g.players[p].energy - awards[p].drainDebt);
     });
     g.rounds[r].result = {
       kind, rolls, totals, breakdown, cats, awards,
@@ -1656,6 +1663,7 @@ function resolveRound(g){
       };
       crewTotal += br.total;
       awards[h].pendingEnergy = pack.pending;
+      awards[h].drainDebt = pack.drainDebt||0;
       if (pack.ptsDelta) awards[h].pts += pack.ptsDelta;
       if (pack.scorePts){ awards[h].pts += pack.scorePts; awards[h].tags.push('mod-pts'); }
     });
@@ -1674,6 +1682,7 @@ function resolveRound(g){
       instinctRoll: hAct.instinctRoll, instinctExtra: hAct.instinctExtra||0,
     };
     awards[hostId].pendingEnergy = hostPack.pending;
+    awards[hostId].drainDebt = hostPack.drainDebt||0;
     if (hostPack.ptsDelta) awards[hostId].pts += hostPack.ptsDelta;
     if (hostPack.scorePts){ awards[hostId].pts += hostPack.scorePts; awards[hostId].tags.push('mod-pts'); }
 
@@ -1749,6 +1758,7 @@ function resolveRound(g){
       awards[p].energy += CFG.roundStipend;
       g.players[p].pts = Math.max(0, g.players[p].pts + awards[p].pts);
       g.players[p].energy += awards[p].energy + (awards[p].pendingEnergy||0);
+      if (awards[p].drainDebt) g.players[p].energy = Math.max(0, g.players[p].energy - awards[p].drainDebt);
     });
 
     g.rounds[r].result = {
@@ -1787,6 +1797,7 @@ function resolveRound(g){
       };
       crewTotal += br.total;
       awards[pid].pendingEnergy = pack.pending;
+      awards[pid].drainDebt = pack.drainDebt||0;
       if (pack.ptsDelta) awards[pid].pts += pack.ptsDelta;
       if (pack.scorePts){ awards[pid].pts += pack.scorePts; awards[pid].tags.push('mod-pts'); }
     });
@@ -1807,6 +1818,7 @@ function resolveRound(g){
       // no next-round stipend
       g.players[p].pts = Math.max(0, g.players[p].pts + awards[p].pts);
       g.players[p].energy += (awards[p].pendingEnergy||0);
+      if (awards[p].drainDebt) g.players[p].energy = Math.max(0, g.players[p].energy - awards[p].drainDebt);
     });
     g.rounds[r].result = {
       kind, rolls, totals, breakdown, crewTotal, hp, cleared, escaped: !cleared,
@@ -1821,7 +1833,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.12.2';
+const APP_BUILD = 'v4.12.3';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2069,7 +2081,7 @@ function applyScarToBundle(rollsIn, modRollIn, scarRoll){
     scarEnergyLoss = lv===1 ? 2 : 4;
   } else if (scarRoll.id==='bleed'){
     const mult = lv===1 ? 0.8 : 0.7;
-    rolls.forEach(d=>{ d.v = Math.max(0, Math.round(d.v * mult)); });
+    rolls.forEach(d=>{ d.v = Math.max(0, Math.floor((d.v||0) * mult)); });
   } else if (scarRoll.id==='static'){
     modRoll = null;
     if (lv===2) scarEnergyLoss += 1;
@@ -2527,7 +2539,7 @@ function instructionsModalHTML(){
       </ul>
       <h3>Round 10</h3>
       <ul>
-        <li>Boss HP scales with player count (4p baseline: 100 + 3×Boss Meter).</li>
+        <li>Boss HP scales with table size (4p baseline: <b>80 + 1×Boss Meter</b>). 3p:60 · 5p:100 · 6p:120.</li>
       </ul>
       <button class="btn modal-close" onclick="closeInstructions()">Got it</button>
     </div>
@@ -2561,21 +2573,25 @@ function freeRerollThisRound(){
 }
 function isParasiteRollType(type){ return type==='a' || type==='m' || type==='i'; }
 function isHumanRollType(type){ return type==='h' || type==='hm' || type==='s'; }
-/** Can pay `cost` human reroll energy (freeLeft covers 1 each). */
-function canAffordHumanRerollCost(cost){
+/** Can pay `cost` human reroll energy. Free covers section rerolls only (not "all"). */
+function canAffordHumanRerollCost(cost, opts){
   if (!session || session.humanLocked || session.phase!=='roll') return false;
+  opts = opts || {};
   cost = Math.max(0, cost|0);
-  const free = session.freeLeft||0;
+  const free = (opts.allowFree === false) ? 0 : (session.freeLeft||0);
   const needPaid = Math.max(0, cost - free);
   return energyLeft() >= needPaid;
 }
-function spendHumanRerollCost(cost){
-  if (!canAffordHumanRerollCost(cost)) return false;
+function spendHumanRerollCost(cost, opts){
+  opts = opts || {};
+  if (!canAffordHumanRerollCost(cost, opts)) return false;
   cost = Math.max(0, cost|0);
   let remaining = cost;
-  while (remaining > 0 && (session.freeLeft||0) > 0){
-    session.freeLeft--;
-    remaining--;
+  if (opts.allowFree !== false){
+    while (remaining > 0 && (session.freeLeft||0) > 0){
+      session.freeLeft--;
+      remaining--;
+    }
   }
   if (remaining > 0) session.paidRerolls = (session.paidRerolls||0) + remaining;
   return true;
@@ -3302,7 +3318,7 @@ function applyHurtFace(hurt, kind){
   if (hurt.id==='drain'){
     session.scarEnergyLoss = (session.scarEnergyLoss||0) + 2;
   } else if (hurt.id==='bleed'){
-    rolls.forEach(d=>{ d.v = Math.max(0, Math.round(d.v * 0.8)); });
+    rolls.forEach(d=>{ d.v = Math.max(0, Math.floor((d.v||0) * 0.8)); });
   } else if (hurt.id==='shatter'){
     if (rolls.length){
       let hi=0; for (let i=1;i<rolls.length;i++) if ((rolls[i].v||0)>(rolls[hi].v||0)) hi=i;
@@ -3331,7 +3347,7 @@ function rollPhaseHTML(r, isHost){
   let modPart = '0';
   if (live.modAdd) modPart = '+'+live.modAdd;
   else if (live.pendingEnergy) modPart = '+'+live.pendingEnergy+'⚡';
-  else if (live.scorePts) modPart = '+'+live.scorePts+' pts';
+  else if (live.scorePts) modPart = '—';
   else if (modRoll && modRoll.kind==='base') modPart = '—';
   else if (modRoll && modRoll.kind==='scar') modPart = 'gain scar';
   else if (!modRoll) modPart = humanRolled ? 'off' : '—';
@@ -3363,8 +3379,8 @@ function rollPhaseHTML(r, isHost){
   const secCost = CFG.rerollCost||1;
   const allCost = CFG.rerollAllCost||2;
   const canSec = canAffordHumanRerollCost(secCost);
-  const canAll = canAffordHumanRerollCost(allCost);
-  const freeNote = session.freeLeft ? ` · <b>${session.freeLeft} free</b>` : '';
+  const canAll = canAffordHumanRerollCost(allCost, { allowFree: false });
+  const freeNote = session.freeLeft ? ` · <b>${session.freeLeft} free section</b>` : '';
   const secLabel = (session.freeLeft>0) ? 'Reroll · free' : `Reroll · ⚡${secCost}`;
 
   const dice = humanRolled ? rolls.map((d)=>{
@@ -3430,7 +3446,7 @@ function rollPhaseHTML(r, isHost){
     </div>` : '';
     const topAll = !humanLocked ? `<div class="roll-top-actions">
       <button class="btn reroll all" onclick="rerollHumanSection('all')" ${!canAll?'disabled':''}>Reroll all · ⚡${allCost}${freeNote}</button>
-      <div class="hint" style="margin:0">Section ${tip('rerollSec','reroll')} = ⚡${secCost} (1 free). ${tip('rerollAll','All')} = ⚡${allCost}.</div>
+      <div class="hint" style="margin:0">Section ${tip('rerollSec','reroll')} = ⚡${secCost} (1 free). ${tip('rerollAll','All')} = ⚡${allCost} (no free).</div>
     </div>` : '';
     humanBody = `${topAll}${atkSec}${modSec}${scarSec}${scarLine}${finalBlock}`;
   }
@@ -3623,7 +3639,8 @@ function rerollHumanSection(section){
   const all = section==='all';
   const cost = all ? (CFG.rerollAllCost||2) : (CFG.rerollCost||1);
   if (section==='scar' && !(session.scarRolls||[]).length) return;
-  if (!spendHumanRerollCost(cost)) return;
+  // Free covers a section reroll only — "all" always costs full energy
+  if (!spendHumanRerollCost(cost, { allowFree: !all })) return;
   if (all || section==='attack') rerollHumanAttackDice();
   if (all || section==='mod') rerollHumanModDie();
   if (all || section==='scar') rerollHumanScarDice();
