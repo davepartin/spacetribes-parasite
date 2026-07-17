@@ -1,49 +1,49 @@
-# Balance sim — 6p × 400 games
-Tuning: fusion 0.7→cap 0.92, aura 5/+7, atkDice 3, Par⚡ 7, HP 150+5×meter
+# Balance sim — 6p × 200 games
+Tuning: fusion 0.5→cap 0.8, aura 0/+2, atkDice 2, Par⚡ 7, HP 120+2×meter
 
-| R | Kind | Crew Σ | Host Σ | Δ (H−C) | Host win% | Par Σ | Aura | Atk# | Boss | Scars |
+| R | Kind | Crew Σ | Host Σ | Δ (H−C) | Host win% | Par Σ | Base | Aura | Atk# | Boss |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | training | avgHum 11.7 | — | — | — | — | 5 | 3 | 0 | 0.03 |
-| 2 | infect | 68.9 | 62.2 | -6.6 | 28% | 48.5 | 7 | 3.1 | 1.8 | 0.1 |
-| 3 | infect | 72.8 | 68.1 | -4.7 | 33.5% | 53.2 | 9.2 | 3.3 | 3.6 | 0.1 |
-| 4 | infect | 95.4 | 78.4 | -17.1 | 12.3% | 59.6 | 11.4 | 3.4 | 5.3 | 0.1 |
-| 5 | infect | 101.2 | 85.9 | -15.3 | 14.3% | 65.7 | 13.5 | 3.5 | 7 | 0.1 |
-| 6 | infect | 106.3 | 93 | -13.3 | 18.8% | 71.6 | 15.2 | 3.6 | 8.9 | 0.12 |
-| 7 | infect | 112.3 | 99.3 | -13.1 | 18.5% | 76.8 | 16.8 | 3.7 | 10.8 | 0.12 |
-| 8 | infect | 117.7 | 104 | -13.6 | 18.3% | 80.3 | 18.1 | 3.8 | 12.8 | 0.12 |
-| 9 | infect | 122.6 | 108.2 | -14.4 | 15% | 83.3 | 19.5 | 3.8 | 14.7 | 0.11 |
-| 10 | boss | 153.7 | HP 223.3 | margin -69.7 | clear 0% | — | 19.5 | 3.8 | 14.7 | 0.03 |
+| 1 | training | avgHum 11.7 | — | — | — | — | 24 | 0 | 2 | 0 |
+| 2 | infect | 68.8 | 69.9 | 1 | 51.5% | 56 | 26.9 | 0.7 | 2.2 | 2.1 |
+| 3 | infect | 74.1 | 76.6 | 2.5 | 56% | 62.1 | 29.6 | 1.3 | 2.4 | 4.3 |
+| 4 | infect | 94.5 | 88.3 | -6.2 | 31.5% | 69.5 | 33.7 | 2 | 2.6 | 6.2 |
+| 5 | infect | 100.8 | 96.2 | -4.6 | 33% | 76.9 | 37.7 | 2.6 | 2.8 | 8.1 |
+| 6 | infect | 105.6 | 105.3 | -0.3 | 44.5% | 84.1 | 41 | 3 | 3 | 10.4 |
+| 7 | infect | 110.8 | 114.6 | 3.8 | 56.5% | 92.6 | 43.6 | 3.5 | 3.2 | 12.6 |
+| 8 | infect | 117.6 | 121.4 | 3.7 | 58.5% | 98.2 | 46.1 | 3.9 | 3.4 | 15 |
+| 9 | infect | 122.6 | 128.9 | 6.3 | 59.5% | 104.1 | 48.5 | 4.4 | 3.5 | 17.3 |
+| 10 | boss | 153.6 | HP 154.6 | margin -1 | clear 50.5% | — | 48.5 | 4.4 | 3.5 | 17.3 |
 
 ## Infection parasite package (avg parts)
 | R | Atk | Flat/% | Fusion | Instinct | Aura | Tonight |
 |---|---:|---:|---:|---:|---:|---:|
-| 2 | 21.6 | 5.8 | 7.8 | 5 | 7 | 1.3 |
-| 3 | 23.6 | 5.8 | 8.3 | 5 | 9.2 | 1.4 |
-| 4 | 24.5 | 5.9 | 11 | 5.3 | 11.4 | 1.5 |
-| 5 | 27.4 | 6 | 11.7 | 5.3 | 13.5 | 1.7 |
-| 6 | 29.5 | 6.1 | 12.6 | 5.5 | 15.2 | 2.8 |
-| 7 | 32.1 | 6.3 | 13.2 | 5.6 | 16.8 | 2.8 |
-| 8 | 33.4 | 6.4 | 14 | 5.5 | 18.1 | 3 |
-| 9 | 34.4 | 6.5 | 14.6 | 5.7 | 19.5 | 2.6 |
+| 2 | 14.9 | 5.2 | 5.6 | 4.4 | 0.7 | 1.2 |
+| 3 | 16.4 | 5.4 | 6 | 4.9 | 1.3 | 1.2 |
+| 4 | 18.6 | 5.3 | 7.9 | 5 | 2 | 1 |
+| 5 | 20.5 | 5.5 | 8.4 | 5 | 2.6 | 1.2 |
+| 6 | 22.2 | 5.7 | 8.8 | 4.9 | 3 | 1.7 |
+| 7 | 26 | 5.8 | 9.5 | 5.2 | 3.5 | 1.6 |
+| 8 | 27.5 | 6.2 | 10 | 5.3 | 3.9 | 1.7 |
+| 9 | 29.7 | 6.1 | 10.5 | 5.7 | 4.4 | 1.7 |
 
 ## Move mix (infection rounds)
-- R2: feed 29% · harden 34.5% · poison 23.3% · outbreak 13.3%
-- R3: harden 30.5% · poison 24.3% · outbreak 13.8% · feed 31.5%
-- R4: feed 31% · harden 31% · outbreak 14.8% · poison 23.3%
-- R5: feed 30.5% · outbreak 16.8% · harden 33% · poison 19.8%
-- R6: harden 30.8% · feed 23% · poison 18.8% · outbreak 27.5%
-- R7: poison 21% · feed 23.5% · outbreak 28% · harden 27.5%
-- R8: harden 31.5% · outbreak 29.5% · poison 19.8% · feed 19.3%
-- R9: poison 19.8% · harden 35% · feed 19.5% · outbreak 25.8%
+- R2: harden 25.5% · feed 33.5% · poison 20.5% · outbreak 20.5%
+- R3: harden 23.5% · poison 26.5% · outbreak 19.5% · feed 30.5%
+- R4: feed 34.5% · outbreak 16.5% · harden 26% · poison 23%
+- R5: feed 29.5% · harden 31.5% · poison 18.5% · outbreak 20.5%
+- R6: poison 20% · harden 28% · outbreak 28.5% · feed 23.5%
+- R7: outbreak 26% · harden 34% · poison 19% · feed 21%
+- R8: feed 23% · harden 28.5% · poison 19.5% · outbreak 29%
+- R9: feed 25% · harden 31% · outbreak 28% · poison 16%
 
 ## Balance read
-- Host win rate across infection rounds: **19.8%** (target ~45–55% for drama).
-  - R2: host 28% · Δ -6.6 → CREW HEAVY
-  - R3: host 33.5% · Δ -4.7 → CREW HEAVY
-  - R4: host 12.3% · Δ -17.1 → CREW HEAVY
-  - R5: host 14.3% · Δ -15.3 → CREW HEAVY
-  - R6: host 18.8% · Δ -13.3 → CREW HEAVY
-  - R7: host 18.5% · Δ -13.1 → CREW HEAVY
-  - R8: host 18.3% · Δ -13.6 → CREW HEAVY
-  - R9: host 15% · Δ -14.4 → CREW HEAVY
-- Boss clear rate: **0%** · avg margin -69.7 (crew−HP).
+- Host win rate across infection rounds: **48.9%** (target ~45–55% for drama).
+  - R2: host 51.5% · Δ 1 → ok
+  - R3: host 56% · Δ 2.5 → ok
+  - R4: host 31.5% · Δ -6.2 → CREW HEAVY
+  - R5: host 33% · Δ -4.6 → CREW HEAVY
+  - R6: host 44.5% · Δ -0.3 → ok
+  - R7: host 56.5% · Δ 3.8 → ok
+  - R8: host 58.5% · Δ 3.7 → ok
+  - R9: host 59.5% · Δ 6.3 → ok
+- Boss clear rate: **50.5%** · avg margin -1 (crew−HP).

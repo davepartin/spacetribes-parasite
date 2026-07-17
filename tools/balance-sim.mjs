@@ -25,7 +25,8 @@ code += `
   rollFace, rollIndex, rollExplodingAttack, starterDice, starterModDie,
   scarCount, addScarDie, healOneScar, modFaceValue, applyScarToBundle,
   applyParasiteMove, parasiteMoveOptions, computeHumanTotal, canAddColor,
-  uid, stdFaces, hotFaces, bossHP, parasiteTuning, randInt, get G(){ return G; }, set G(v){ G = v; },
+  uid, stdFaces, hotFaces, bossHP, parasiteTuning, parasiteBaseAttackNow, randInt,
+  get G(){ return G; }, set G(v){ G = v; },
 };
 `;
 
@@ -84,7 +85,7 @@ const {
   hostIdForRound, roundKind, rosterOf, deep, findDie, applyForge,
   rollFace, rollIndex, rollExplodingAttack,
   scarCount, modFaceValue, applyScarToBundle, applyParasiteMove, parasiteMoveOptions,
-  canAddColor, uid, stdFaces, hotFaces, bossHP, parasiteTuning, randInt,
+  canAddColor, uid, stdFaces, hotFaces, bossHP, parasiteTuning, parasiteBaseAttackNow, randInt,
 } = S;
 function setG(g) { S.G = g; }
 
@@ -293,6 +294,8 @@ function playGame(nPlayers) {
       hostWins: res.hostWins ?? null,
       move: res.growth && res.growth.key || null,
       aura: g.parasite.auraFlat || 0,
+      baseAtk: (g.parasite.baseAttack|0),
+      baseNow: parasiteBaseAttackNow(g.parasite, nPlayers).total,
       atkDice: (g.parasite.attack || []).length,
       bossMeter: g.parasite.bossMeter || 0,
       fusion: g.parasite.fusionPct || 0,
@@ -307,6 +310,7 @@ function playGame(nPlayers) {
       row.parInstinct = res.parPart.instinctAdd || 0;
       row.parAura = res.parPart.aura || 0;
       row.parTonight = res.parPart.tonightFlat || 0;
+      row.parBaseAtk = res.parPart.baseAtk || 0;
       row.parTotal = res.parPart.total || 0;
     }
     if (res.kind === 'boss') {
@@ -333,9 +337,9 @@ function runBatch(nPlayers, games) {
       n: 0,
       hostWins: 0,
       crew: [], host: [], hostHuman: [], par: [],
-      aura: [], atkDice: [], boss: [], scars: [],
+      aura: [], baseAtk: [], baseNow: [], atkDice: [], boss: [], scars: [],
       moves: {},
-      parBits: { atk: [], flat: [], fusion: [], instinct: [], aura: [], tonight: [] },
+      parBits: { atk: [], flat: [], fusion: [], instinct: [], aura: [], tonight: [], baseAtk: [] },
       bossClear: 0, bossN: 0, margins: [], hp: [],
       avgHuman: [],
     };
@@ -348,6 +352,8 @@ function runBatch(nPlayers, games) {
       b.kind = row.kind;
       b.n++;
       b.aura.push(row.aura);
+      b.baseAtk.push(row.baseAtk||0);
+      b.baseNow.push(row.baseNow||0);
       b.atkDice.push(row.atkDice);
       b.boss.push(row.bossMeter);
       b.scars.push(row.scarsAvg);
@@ -365,6 +371,7 @@ function runBatch(nPlayers, games) {
           b.parBits.instinct.push(row.parInstinct);
           b.parBits.aura.push(row.parAura);
           b.parBits.tonight.push(row.parTonight || 0);
+          b.parBits.baseAtk.push(row.parBaseAtk || 0);
         }
       } else if (row.kind === 'boss') {
         b.bossN++;
@@ -388,7 +395,7 @@ function formatReport(batch) {
   lines.push(`# Balance sim — ${batch.nPlayers}p × ${batch.games} games`);
   lines.push(`Tuning: fusion ${t.startFusion}→cap ${t.fusionCap}, aura ${t.startAura}/+${t.auraGain}, atkDice ${t.atkDice}, Par⚡ ${t.parStipend}, HP ${t.hpBase}+${t.hpPerMeter}×meter`);
   lines.push('');
-  lines.push('| R | Kind | Crew Σ | Host Σ | Δ (H−C) | Host win% | Par Σ | Aura | Atk# | Boss | Scars |');
+  lines.push('| R | Kind | Crew Σ | Host Σ | Δ (H−C) | Host win% | Par Σ | Base | Aura | Atk# | Boss |');
   lines.push('|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|');
 
   for (let r = 1; r <= 10; r++) {
@@ -396,11 +403,11 @@ function formatReport(batch) {
     if (!b.n) continue;
     if (b.kind === 'infection') {
       const c = mean(b.crew), h = mean(b.host), p = mean(b.par);
-      lines.push(`| ${r} | infect | ${round1(c)} | ${round1(h)} | ${round1(h - c)} | ${round1(pct(b.hostWins, b.n))}% | ${round1(p)} | ${round1(mean(b.aura))} | ${round1(mean(b.atkDice))} | ${round1(mean(b.boss))} | ${round2(mean(b.scars))} |`);
+      lines.push(`| ${r} | infect | ${round1(c)} | ${round1(h)} | ${round1(h - c)} | ${round1(pct(b.hostWins, b.n))}% | ${round1(p)} | ${round1(mean(b.baseNow||b.baseAtk||[0]))} | ${round1(mean(b.aura))} | ${round1(mean(b.atkDice))} | ${round1(mean(b.boss))} |`);
     } else if (b.kind === 'boss') {
-      lines.push(`| ${r} | boss | ${round1(mean(b.crew))} | HP ${round1(mean(b.hp))} | margin ${round1(mean(b.margins))} | clear ${round1(pct(b.bossClear, b.bossN))}% | — | ${round1(mean(b.aura))} | ${round1(mean(b.atkDice))} | ${round1(mean(b.boss))} | ${round2(mean(b.scars))} |`);
+      lines.push(`| ${r} | boss | ${round1(mean(b.crew))} | HP ${round1(mean(b.hp))} | margin ${round1(mean(b.margins))} | clear ${round1(pct(b.bossClear, b.bossN))}% | — | ${round1(mean(b.baseNow||b.baseAtk||[0]))} | ${round1(mean(b.aura))} | ${round1(mean(b.atkDice))} | ${round1(mean(b.boss))} |`);
     } else {
-      lines.push(`| ${r} | ${b.kind} | avgHum ${round1(mean(b.avgHuman))} | — | — | — | — | ${round1(mean(b.aura))} | ${round1(mean(b.atkDice))} | ${round1(mean(b.boss))} | ${round2(mean(b.scars))} |`);
+      lines.push(`| ${r} | ${b.kind} | avgHum ${round1(mean(b.avgHuman))} | — | — | — | — | ${round1(mean(b.baseNow||b.baseAtk||[0]))} | ${round1(mean(b.aura))} | ${round1(mean(b.atkDice))} | ${round1(mean(b.boss))} |`);
     }
   }
 

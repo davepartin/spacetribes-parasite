@@ -1,8 +1,16 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.8.0** · Schema **v9**
+Current build: **v4.9.0** · Schema **v10**
 
 ---
+
+## v4.9.0 — Parasite Base Attack
+- **Schema v10** — start a new game
+- **Base Attack** — flat parasite power tuned for **4 players** (starts lean at −4)
+- **Seat bonus this round** — +14 per player above 4 (−14 on 3p). Extra seats juice Base Attack without rewriting the whole package
+- **Loss catch-up** — when the crew holds, Base Attack **+6 forever** (early losses make the bug climb back)
+- Package flattened: same fusion/aura/atk-dice start at every table; Feed +2 aura; Outbreak +6 tonight
+- Boss HP per meter softened (clearable more often when infection stays even)
 
 ## v4.8.0 — Three die types (Attack / Mod / Scar)
 - **Schema v9** — start a new game

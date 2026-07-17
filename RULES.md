@@ -1,8 +1,8 @@
-# Space Tribes: Parasite — Crew Manual (v4.8)
+# Space Tribes: Parasite — Crew Manual (v4.9)
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.8.0** — Three die types only: Attack / Mod / Scar. Schema **v9** (new game). See [CHANGELOG.md](CHANGELOG.md).
+**v4.9.0** — Parasite **Base Attack** (4p-tuned, seat bonus, loss catch-up). Schema **v10** (new game). See [CHANGELOG.md](CHANGELOG.md).
 
 ## Mission map
 
@@ -86,9 +86,9 @@ When infected: shop + pick **one parasite move** → **Continue to rolls**.
 
 | Move | Effect | Cost | Boss |
 |---|---|---|---|
-| **Feed** | Permanent +aura | Safe | +1 |
+| **Feed** | Permanent +2 aura | Safe | +1 |
 | **Harden** | +1 on every face of all Attack dice | Safe | +1 |
-| **Outbreak** | +1 Attack die (if room) · **+10 tonight** | **Scar die on you** | +3 |
+| **Outbreak** | +1 Attack die (if room) · **+6 tonight** | **Scar die on you** | +3 |
 | **Poison** | Chosen crewmate grabs a **Scar die** | Hits them | +2 |
 
 Then:
@@ -104,24 +104,27 @@ Then:
 **Crew total** = the other humans combined  
 Ties go to the **crew**.
 
-### Parasite package (scales with table size)
+### Parasite package
 
-Baseline is **4 players**. Bigger tables get a stronger bug; smaller tables a leaner one.
+Combat package is the **same at every table size**. Seat count and losses dial **Base Attack**.
 
-| Players | Start share | Start aura | Attack dice | Par ⚡ | Boss HP base | +HP / meter |
-|---|---|---|---|---|---|---|
-| 3 | 55% | +2 | 2 | 5 | 75 | +2 |
-| 4 | 60% | +3 | 2 | 6 | 100 | +3 |
-| 5 | 65% | +4 | 2 (+1 face bump) | 7 | 125 | +4 |
-| 6 | 70% | +5 | 3 | 7 | 150 | +5 |
+| Piece | Role |
+|---|---|
+| **Base Attack** | Flat power. Tuned for **4p** (starts at −4). **+14 per seat above 4** this round only (−14 on 3p). If the **crew holds**, Base Attack **+6 forever**. |
+| **Attack dice** | 2 to start (max 4). On **max** face, **+ bonus re-roll**. |
+| **Mod die** | Flat or % of parasite attack |
+| **Human share** | 50% of host human attack (grows via legacy fusion keys only) |
+| **Aura** | Starts 0. **Feed** adds +2 forever |
+| **Specialty** | +8, +25% atk, +lowest, +your high, —, +extra die |
 
-Also on the package:
+| Players | Base this round (if never lost) | Par ⚡ | Boss HP base | +HP / meter |
+|---|---|---|---|---|
+| 3 | −4 − 14 = **−18** | 5 | 60 | +1 |
+| 4 | **−4** | 6 | 80 | +1 |
+| 5 | −4 + 14 = **+10** | 7 | 100 | +1 |
+| 6 | −4 + 28 = **+24** | 7 | 120 | +2 |
 
-- **Attack dice** — on **max**, **+ bonus re-roll** (roll again and add once); faces listed under each die
-- **Mod die** — flat or % of parasite attack
-- **Human share** — add a % of your human attack into the parasite total
-- **Aura** — permanent flat bonus (**Feed** raises it)
-- **Specialty die** faces: **+8**, **+25% atk**, **+lowest**, **+your high**, **—**, **+extra die**
+Ties go to the **crew**. Crew holds → parasite Base Attack grows (catch-up).
 
 ## Round 10 boss
 

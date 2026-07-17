@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.8.0">
+<meta name="stp-build" content="v4.9.0">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -601,7 +601,7 @@ const COLOR_META = {
 
 
 const TOTAL_ROUNDS = 10;
-const SCHEMA = 9;
+const SCHEMA = 10;
 
 const CFG = {
   roundStipend: 5,
@@ -631,40 +631,54 @@ const CFG = {
   winEn: 2,
   catEn: 1,
   lossEn: 0,
-  // parasite middle-balance
-  startFusion: 0.60,
-  fusionCap: 0.85,
+  // parasite — 4p baseline package; table size + losses dial Base Attack
+  startFusion: 0.50,
+  fusionCap: 0.80,
   fusionStep: 0.10,
-  startAura: 3,
-  auraGain: 4,
+  startAura: 0,
+  auraGain: 2,
+  // Base Attack: flat power tuned for 4p. Extra seats add this round. Losses bump it forever.
+  parBaseAttack: -4,      // lean 4p start; losses climb back
+  parBasePerSeat: 14,     // 3p −14 · 4p 0 · 5p +14 · 6p +28 this round
+  parBaseLossBump: 6,     // when crew holds, parasite Base Attack +6
   softMeter: 1,
   heavyMeter: 3,
   poisonMeter: 2,
-  outbreakTonight: 10,
+  outbreakTonight: 6,
   winMeter: 1,
-  hpBase: 100,
-  hpPerMeter: 3,
+  hpBase: 80,
+  hpPerMeter: 1,
 };
 
-/** Scale parasite + boss to table size. Baseline is 4 players (3 crew). */
+/** Scale parasite + boss to table size. Combat power mainly via Base Attack; HP still scales. */
 function parasiteTuning(n){
   n = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n|0 || 4));
   const crew = n - 1;
   const k = crew / 3;
   return {
     n, crew, k,
-    startFusion: Math.min(0.75, Math.round((0.45 + 0.05 * crew)*100)/100), // 3p .55 · 4p .60 · 5p .65 · 6p .70
-    fusionCap: Math.min(0.92, Math.round((0.70 + 0.05 * crew)*100)/100),   // 3p .80 · 4p .85 · 5p .90 · 6p .92
+    // Same combat package for every table — Base Attack handles seat count
+    startFusion: CFG.startFusion,
+    fusionCap: CFG.fusionCap,
     fusionStep: CFG.fusionStep,
-    startAura: Math.max(2, Math.round(CFG.startAura * k)), // 2 / 3 / 4 / 5
-    auraGain: Math.max(3, Math.round(CFG.auraGain * k)),   // 3 / 4 / 5 / 7
-    atkDice: n >= 6 ? 3 : 2,
-    faceBonus: n === 5 ? 1 : 0,                            // 5p: hotter starter faces
-    hpBase: Math.round(CFG.hpBase * n / 4),                // 75 / 100 / 125 / 150
-    hpPerMeter: Math.max(2, Math.round(CFG.hpPerMeter * n / 4)), // 2 / 3 / 4 / 5
-    // Parasite reroll budget — leaner at small tables (fewer crew to absorb host power)
+    startAura: CFG.startAura,
+    auraGain: CFG.auraGain,
+    startBaseAttack: CFG.parBaseAttack|0,
+    basePerSeat: CFG.parBasePerSeat|0,
+    baseLossBump: CFG.parBaseLossBump|0,
+    atkDice: 2,
+    faceBonus: 0,
+    hpBase: Math.round(CFG.hpBase * n / 4),
+    hpPerMeter: Math.max(1, Math.round(CFG.hpPerMeter * n / 4)),
     parStipend: ({3:5, 4:6, 5:7, 6:7})[n] || 6,
   };
+}
+/** Permanent Base Attack + this-round seat bonus (4p = no seat bonus). */
+function parasiteBaseAttackNow(parasite, n){
+  const t = parasiteTuning(n || (parasite && parasite.balanceN) || 4);
+  const stored = (parasite && parasite.baseAttack != null) ? (parasite.baseAttack|0) : (t.startBaseAttack|0);
+  const seatBonus = ((t.n|0) - 4) * (t.basePerSeat|0);
+  return { stored, seatBonus, total: stored + seatBonus };
 }
 function hostParStipendNow(){
   const t = parasiteTuning(tableSize(G));
@@ -730,6 +744,7 @@ const TIPS = {
   healScar: { title:'Heal scar', body:'Spend 2⚡ in the shop to remove one Scar die from your pool.' },
   fusion: { title:'Human share', body:'On host turns, part of your human attack is added into the parasite total.' },
   aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn. Feed raises it.' },
+  baseAtk: { title:'Base Attack', body:'Flat parasite power tuned for 4 players (starts lean). Extra seats add to it this round only (+14 per seat above 4, −14 below). When the crew holds, Base Attack +6 forever — early losses make the bug catch up.' },
   boss: { title:'Boss meter / Round 10 HP', body:'Tracks how much the table fed the parasite. Round 10 HP scales with table size + Boss Meter. Feed/Harden +1, Poison +2, Outbreak +3, host win +1.' },
   instinct: { title:'Specialty die', body:'Extra parasite die. Faces: +8, +25% atk, +lowest, +your high, blank, or +extra die.' },
   host: { title:'Host turn', body:'You are infected. Pick one of 4 parasite moves, then roll human + parasite separately, lock each, and Submit both.' },
@@ -737,7 +752,7 @@ const TIPS = {
   moves: { title:'Parasite moves', body:'Every host turn pick exactly one: Feed, Harden, Outbreak, or Poison.' },
   feed: { title:'Feed', body:'Safer. Permanent +aura. Boss +1. No Scar.' },
   harden: { title:'Harden', body:'Safer. +1 on every Attack face. Boss +1. No Scar.' },
-  outbreak: { title:'Outbreak', body:'+1 Attack die (if room), +10 tonight, and you take a Scar die. Boss +3.' },
+  outbreak: { title:'Outbreak', body:'+1 Attack die (if room), +6 tonight, and you take a Scar die. Boss +3.' },
   forge: { title:'Forge', body:'Spend 1⚡ to permanently +2 a face on an Attack die.' },
   heal: { title:'Heal scar', body:'Spend 2⚡ in the shop to remove one Scar die from your pool.' },
   energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge 1 · Mod upgrade 2 · Extra die 3 · Heal scar 2. 1 free reroll, then 1⚡ each. Reroll any die.' },
@@ -831,6 +846,7 @@ function starterParasite(n){
     fusionStep: t.fusionStep,
     auraFlat: t.startAura,
     auraGain: t.auraGain,
+    baseAttack: t.startBaseAttack|0,
     attack,
     // shared mod die (3 faces) — grows via soft/heavy
     mod: {
@@ -1333,11 +1349,11 @@ function liveParasiteBreakdown(humanAttack, humanRolls){
   const fusionOverride = (cart && cart.growth && cart.growth.key==='full_fusion') ? 1.0 : null;
   const part = computeParasitePortion(
     par, session.aRolls, session.pModRoll, session.instinctRoll,
-    humanAttack||0, highest, fusionOverride
+    humanAttack||0, highest, fusionOverride, { n: tableSize(G) }
   );
   if (session.instinctRoll==='explode' && session.instinctExtra){
     part.instinctAdd = session.instinctExtra|0;
-    part.total = part.atk + part.flat + part.pctAdd + part.fusion + part.instinctAdd + part.aura;
+    part.total = part.atk + part.flat + part.pctAdd + part.fusion + part.instinctAdd + part.aura + (part.baseAtk||0);
   }
   const tf = session._previewTonight || 0;
   if (tf){
@@ -1359,7 +1375,8 @@ function diceRowMiniHTML(rolls){
   ).join('')}</div>`;
 }
 
-function computeParasitePortion(parasite, aRolls, modRoll, instinctRoll, humanAttack, highestHumanDie, fusionOverride){
+function computeParasitePortion(parasite, aRolls, modRoll, instinctRoll, humanAttack, highestHumanDie, fusionOverride, opts){
+  opts = opts || {};
   let atk = (aRolls||[]).reduce((s,d)=>s+(d.v||0), 0);
   let flat = 0, pctAdd = 0;
   if (modRoll){
@@ -1378,28 +1395,34 @@ function computeParasitePortion(parasite, aRolls, modRoll, instinctRoll, humanAt
   } else if (instinctRoll === 'echo'){
     instinctAdd = highestHumanDie || 0;
   } else if (instinctRoll === 'explode'){
-    // already may include exploded die in aRolls via session — add one more hot die here if not present
     // resolve uses instinctExplodeV if provided on roll payload
   } else if (instinctRoll && typeof instinctRoll === 'object' && instinctRoll.id==='explode'){
     instinctAdd = instinctRoll.extra || 0;
     instinctNote = 'explode';
   }
   const aura = parasite.auraFlat || 0;
-  const total = atk + flat + pctAdd + fusion + instinctAdd + aura;
-  return { atk, flat, pctAdd, fusion, fusionPct, instinctAdd, aura, total, instinctNote };
+  const n = opts.n != null ? opts.n : (parasite.balanceN || 4);
+  const baseInfo = parasiteBaseAttackNow(parasite, n);
+  const baseAtk = baseInfo.total;
+  const total = atk + flat + pctAdd + fusion + instinctAdd + aura + baseAtk;
+  return {
+    atk, flat, pctAdd, fusion, fusionPct, instinctAdd, aura,
+    baseAtk, baseStored: baseInfo.stored, baseSeatBonus: baseInfo.seatBonus,
+    total, instinctNote,
+  };
 }
 
-function expectedParThreat(p){
+function expectedParThreat(p, n){
   const atk = (p.attack||[]).reduce((s,d)=>s+faceAvg(d.faces),0);
   let flatExp=0, pctExp=0;
   (p.mod && p.mod.faces || []).forEach(f=>{
-    const n = (p.mod.faces||[]).length || 1;
-    if (f.type==='flat') flatExp += f.n / n;
-    if (f.type==='pct') pctExp += (atk * f.n / 100) / n;
+    const len = (p.mod.faces||[]).length || 1;
+    if (f.type==='flat') flatExp += f.n / len;
+    if (f.type==='pct') pctExp += (atk * f.n / 100) / len;
   });
-  // instinct rough +4 EV, fusion uses ~20 human attack estimate
   const fusion = Math.floor(22 * (p.fusionPct||CFG.startFusion));
-  return Math.round(atk + flatExp + pctExp + fusion + (p.auraFlat||0) + 5);
+  const base = parasiteBaseAttackNow(p, n || p.balanceN || tableSize(G) || 4).total;
+  return Math.round(atk + flatExp + pctExp + fusion + (p.auraFlat||0) + base + 5);
 }
 
 function resolvePlayerBundle(g, pid, action){
@@ -1591,12 +1614,13 @@ function resolveRound(g){
       instinctPayload,
       hostHuman.attack,
       highestHumanDie,
-      fusionOverride
+      fusionOverride,
+      { n: roster.length }
     );
     // if explode was rolled in session with extra already in instinctExtra
     if (hAct.instinctRoll==='explode' && hAct.instinctExtra){
       parPart.instinctAdd = hAct.instinctExtra;
-      parPart.total = parPart.atk + parPart.flat + parPart.pctAdd + parPart.fusion + parPart.instinctAdd + parPart.aura;
+      parPart.total = parPart.atk + parPart.flat + parPart.pctAdd + parPart.fusion + parPart.instinctAdd + parPart.aura + (parPart.baseAtk||0);
     }
     if (tonightFlat){
       parPart.tonightFlat = tonightFlat;
@@ -1607,6 +1631,7 @@ function resolveRound(g){
     const hostWins = hostTotal > crewTotal; // ties → crew
 
     let mvp = null;
+    let baseAttackBump = 0;
     if (!hostWins){
       humans.forEach(h=>{
         awards[h].pts += CFG.humanWinPts(r);
@@ -1615,6 +1640,9 @@ function resolveRound(g){
       mvp = humans.reduce((a,b)=> (humanTotals[b].total > humanTotals[a].total ? b : a));
       awards[mvp].pts += CFG.mvpPts(r);
       awards[mvp].tags.push('mvp');
+      // Catch-up: crew holds → parasite Base Attack grows forever
+      baseAttackBump = parasiteTuning(roster.length).baseLossBump|0;
+      g.parasite.baseAttack = (g.parasite.baseAttack|0) + baseAttackBump;
     } else {
       awards[hostId].pts += CFG.hostWinPts(r);
       awards[hostId].energy += CFG.winEn;
@@ -1652,6 +1680,7 @@ function resolveRound(g){
       crewTotal, hostTotal,
       hostHuman: hostHuman.total, hostAttack: hostHuman.attack,
       parPart, growth: growthResult,
+      baseAttackBump,
       rolls, humanTotals, breakdown, cats, mvp, awards,
       aRolls: hAct.aRolls||[], pModRoll: hAct.pModRoll||null,
       instinctRoll: hAct.instinctRoll, instinctExtra: hAct.instinctExtra||0,
@@ -1714,7 +1743,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.8.0';
+const APP_BUILD = 'v4.9.0';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1745,6 +1774,7 @@ function normalizeGame(v){
     if (g.parasite.fusionCap == null) g.parasite.fusionCap = t.fusionCap;
     if (g.parasite.fusionStep == null) g.parasite.fusionStep = t.fusionStep;
     if (g.parasite.auraGain == null) g.parasite.auraGain = t.auraGain;
+    if (g.parasite.baseAttack == null) g.parasite.baseAttack = t.startBaseAttack|0;
     if (g.parasite.hpBase == null) g.parasite.hpBase = t.hpBase;
     if (g.parasite.hpPerMeter == null) g.parasite.hpPerMeter = t.hpPerMeter;
     if (g.parasite.balanceN == null) g.parasite.balanceN = t.n;
@@ -2275,7 +2305,7 @@ function rosterPickModalHTML(){
       <p class="small">Pick <b>3–6</b>. Type your name in any seat (or leave <b>all blank</b>: P1 = you, others = computers). Blank seats are Comp players. Host seats stay random (max 2 each).</p>
       <div class="roster-count">${countBtns}</div>
       <div class="roster-names">${rows.join('')}</div>
-      <div class="roster-meta"><b>${n}</b> players · Parasite tuned for ${t.n}p (aura +${t.startAura}, share ${Math.round(t.startFusion*100)}%, boss HP ${t.hpBase}+${t.hpPerMeter}/meter)</div>
+      <div class="roster-meta"><b>${n}</b> players · Base Atk ${t.startBaseAttack}${(n-4)*(t.basePerSeat||0)?` · seat ${(n-4)>=0?'+':''}${(n-4)*(t.basePerSeat||0)} this round`:''} · loss bump +${t.baseLossBump} · boss HP ${t.hpBase}+${t.hpPerMeter}/meter</div>
       <button class="btn" onclick="confirmRosterAndStart()">Start ${n}-player game</button>
       <button class="btn ghost modal-close" onclick="cancelRosterPick()">Cancel</button>
     </div>
@@ -2351,6 +2381,7 @@ function instructionsModalHTML(){
       <h3>Host turns (R2–9)</h3>
       <ul>
         <li>You = human dice + parasite package vs the rest of the crew.</li>
+        <li>${tip('baseAtk','Base Attack')} is tuned for 4 players. Extra seats add to it this round. If the crew holds, Base Attack bumps forever.</li>
         <li>Pick one of 4 ${tip('moves','moves')}: ${tip('feed','Feed')} · ${tip('harden','Harden')} · ${tip('outbreak','Outbreak')} · ${tip('poison','Poison')}.</li>
         <li>Poison gives the target a ${tip('scar','Scar')} die (same Scar dice as everyone).</li>
         <li>After shop: <b>Roll / Lock human</b> and <b>Roll / Lock parasite</b>, then <b>Submit both rolls</b>.</li>
@@ -2691,12 +2722,17 @@ function roundStripHTML(){
 function parasitePanelHTML(){
   const p = G.parasite;
   const evo = evoStage(p.mutations||0);
+  const n = tableSize(G);
+  const base = parasiteBaseAttackNow(p, n);
+  const seatNote = base.seatBonus
+    ? ` <span style="color:var(--dim)">(stored ${base.stored}${base.seatBonus>=0?'+':''}${base.seatBonus} seats)</span>`
+    : '';
   return `<div class="panel">
     <div class="parasite-stage">${parasiteArtHTML(evo.size, evo.stage)}
       <div class="p-name">${evo.name}</div>
       <div class="p-tagline">${evo.tag}</div>
-      <div class="p-base">${tip('fusion','Human share')} <b>${Math.round((p.fusionPct||0)*100)}%</b> · ${tip('aura','Aura')} <b>+${p.auraFlat||0}</b> · Threat ~<b>${expectedParThreat(p)}</b></div>
-      <div class="evo-tags"><span class="evo-tag">${tip('boss','Boss')} ${p.bossMeter||0}</span><span class="evo-tag">HP ${bossHP(G)}</span><span class="evo-tag">${tableSize(G)}p table</span></div>
+      <div class="p-base">${tip('baseAtk','Base Atk')} <b>+${base.total}</b>${seatNote} · ${tip('fusion','Share')} <b>${Math.round((p.fusionPct||0)*100)}%</b> · ${tip('aura','Aura')} <b>+${p.auraFlat||0}</b> · Threat ~<b>${expectedParThreat(p, n)}</b></div>
+      <div class="evo-tags"><span class="evo-tag">${tip('boss','Boss')} ${p.bossMeter||0}</span><span class="evo-tag">HP ${bossHP(G)}</span><span class="evo-tag">${n}p table</span></div>
     </div>
   </div>`;
 }
@@ -3250,6 +3286,8 @@ function rollPhaseHTML(r, isHost){
             <span class="op">+</span>
             <span class="rf">Mod <b>${modBit}</b></span>
             <span class="op">+</span>
+            <span class="rf tiny">${tip('baseAtk','Base')} <b>${par.baseAtk||0}</b></span>
+            <span class="op">+</span>
             <span class="rf tiny">Share <b>${par.fusion||0}</b></span>
             <span class="op">+</span>
             <span class="rf tiny">Spec <b>${par.instinctAdd||0}</b></span>
@@ -3478,7 +3516,7 @@ function playerReviewCardHTML(pid, res){
         ${pMod?`<div class="die-wrap">${dieHTML('mod', pModLabel(pMod))}<div class="die-label" style="color:var(--bio)">Mod</div></div>`:''}
         ${inst!=null?`<div class="die-wrap">${dieHTML('instinct', instinctShortLabel(instId))}<div class="die-label" style="color:var(--energy)">Specialty</div></div>`:''}
       </div>
-      <div class="small">${inst!=null?`Specialty: ${esc(instinctDesc(instId))}. `:''}Atk ${p.atk} + mod ${(p.flat||0)+(p.pctAdd||0)} + share ${p.fusion} + specialty ${p.instinctAdd} + aura ${p.aura} = <b style="color:var(--bio)">${Math.round(p.total)}</b></div>
+      <div class="small">${inst!=null?`Specialty: ${esc(instinctDesc(instId))}. `:''}Atk ${p.atk} + mod ${(p.flat||0)+(p.pctAdd||0)} + ${tip('baseAtk','base')} ${p.baseAtk||0} + share ${p.fusion} + specialty ${p.instinctAdd} + aura ${p.aura}${p.tonightFlat?` + tonight ${p.tonightFlat}`:''} = <b style="color:var(--bio)">${Math.round(p.total)}</b></div>
       <div class="small">Human ${Math.round(res.hostHuman)} + Parasite ${Math.round(p.total)} = <b style="color:var(--bio)">${Math.round(res.hostTotal)}</b></div>`;
   }
   return `<div class="panel" style="padding:10px;margin-bottom:8px">
@@ -3509,7 +3547,8 @@ function verdictHTML(r){
       <div class="vs-x">vs</div>
       <div class="vs-side p"><div class="lbl">${whoHTML(res.hostId,{short:true})}+bug</div><div class="val">${Math.round(res.hostTotal)}</div></div>
     </div>
-    ${res.growth?`<div class="small center" style="margin:6px 0">Growth: <b>${esc(growthTitle(res.growth.key))}</b> · Boss Meter ${res.bossMeter}</div>`:''}`;
+    ${res.growth?`<div class="small center" style="margin:6px 0">Growth: <b>${esc(growthTitle(res.growth.key))}</b> · Boss Meter ${res.bossMeter}</div>`:''}
+    ${(!res.hostWins && res.baseAttackBump)?`<div class="small center" style="margin:6px 0;color:var(--bio)">${tip('baseAtk','Base Attack')} +${res.baseAttackBump} (crew held — parasite grows)</div>`:''}`;
   } else if (res.kind==='boss'){
     banner = `<div class="result-banner ${res.cleared?'h':'p'}">${res.cleared ? 'THE CREW SLAYS THE BEAST' : 'THE PARASITE ESCAPES'}</div>`;
     body = `<div class="vs-bar">
