@@ -1,8 +1,8 @@
-# Space Tribes: Parasite — Crew Manual (v4.9)
+# Space Tribes: Parasite — Crew Manual (v4.10)
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.9.0** — Parasite **Base Attack** (4p-tuned, seat bonus, loss catch-up). Schema **v10** (new game). See [CHANGELOG.md](CHANGELOG.md).
+**v4.10.0** — Human **Base** starts at **0**; Mod ladders Energy / % / Base / Points. Schema **v11** (new game). See [CHANGELOG.md](CHANGELOG.md).
 
 ## Mission map
 
@@ -51,18 +51,21 @@ Weapons (red) · Strength (blue) · Agility (green). Forge faces, buy extras. Th
 
 ### Mod die (4 help · 2 Scar)
 
-Always rolls with you. Messing with chemicals can scar you.
+Always rolls with you. Messing with chemicals can scar you. Each helpful face has **two upgrades** (3 tiers).
 
-| Faces | Effect |
+| Faces | Effect (tier 1 → 2 → 3) |
 |---|---|
-| **Energy** (×2) | +2 / +3 / +4⚡ next round (upgrade levels) |
-| **%** (×1) | +20% / +30% / +40% of your attack |
-| **Base** (×1) | **+3** start · one upgrade → **+5** |
+| **Energy** (×1) | +2 / +3 / +4⚡ next round |
+| **%** (×1) | +10% / +20% / +25% of your attack |
+| **Base** (×1) | Claim permanent **Base** to **+3 / +4 / +5** (header starts at **+0**) |
+| **Points** (×1) | +3 / +4 / +5 **this round only** |
 | **Scar** (×2) | No combat help. If you **lock in** on this face, grab a Scar die into your pool |
 
 Upgrade helpful faces for **2⚡**. Max **level 3**.
 
-Your total = **Attack dice + Mod** (after Scar effects, if any).
+**Your Base** (top bar) starts at **+0**. When you lock a **Base** face, your permanent Base rises to that face’s value and adds to every combat after that.
+
+Your total = **Attack dice + permanent Base + Mod** (after Scar effects, if any).
 
 ### Scar dice (all the same)
 

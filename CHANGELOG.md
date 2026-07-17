@@ -1,8 +1,18 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.9.3** · Schema **v10**
+Current build: **v4.10.0** · Schema **v11**
 
 ---
+
+## v4.10.0 — Human Base from 0 + Mod ladders
+- **Schema v11** — start a new game
+- **Your Base** starts at **+0** (header). Lock a Mod **Base** face to claim permanent Base (+3 → +4 → +5 as upgraded)
+- Mod helpful faces (each with two upgrades):
+  - **Energy** +2⚡ → +3⚡ → +4⚡
+  - **%** +10% → +20% → +25%
+  - **Base** claim B3 → B4 → B5
+  - **Points** +3 → +4 → +5 that round (replaces the old 2nd Energy face)
+- Roll equation shows Dice + Base + Mod
 
 ## v4.9.3 — Scar faces + Base starts at +3
 - Mod **Scar** faces restyled (slash mark, stronger die chip)
@@ -29,7 +39,7 @@ Current build: **v4.9.3** · Schema **v10**
 - **No die commit** — Mint / Score / Strike / Charge / Brace removed
 - **Attack dice** — Weapons / Strength / Agility (forge, buy extras)
 - **Mod die** — 4 helpful faces (Energy / % / Base) + **2 Scar faces**. Lock a Scar face → grab a Scar die into your pool
-- **Scar dice** — one shared design: **3 blanks + 3 hurts** (−2⚡, −10%, −highest). From Mod, Outbreak, or Poison
+- **Scar dice** — one shared design: **3 blanks** + **3 hurts** (−2⚡, −10%, −highest). From Mod, Outbreak, or Poison
 - **Heal scar** — **2⚡** in the shop removes one Scar die
 - Reroll any die (Attack / Mod / Scar) with energy (1 free per round)
 
