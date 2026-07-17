@@ -1,8 +1,8 @@
-# Space Tribes: Parasite — Crew Manual (v4.7)
+# Space Tribes: Parasite — Crew Manual (v4.8)
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.7.0** — Four parasite moves (Feed / Harden / Outbreak / Poison). Schema **v8** (new game). See [CHANGELOG.md](CHANGELOG.md).
+**v4.8.0** — Three die types only: Attack / Mod / Scar. Schema **v9** (new game). See [CHANGELOG.md](CHANGELOG.md).
 
 ## Mission map
 
@@ -34,41 +34,49 @@
 
 | Spend | Cost | Effect |
 |---|---|---|
-| **Forge a face** | 1 | That face **+2** |
-| **Mod upgrade** | 2 | Bump one mod face one level (max L3) |
-| **Extra die** | 3 | +1 die in a category (max 2 per color) |
+| **Forge a face** | 1 | That Attack face **+2** |
+| **Mod upgrade** | 2 | Bump one helpful mod face one level (max L3). Scar faces can’t be upgraded |
+| **Extra die** | 3 | +1 Attack die in a category (max 2 per color) |
+| **Heal scar** | 2 | Remove one Scar die from your pool |
 | **Free reroll** | 0 | **1 free reroll every round** |
-| **Extra reroll** | 1 | Any further reroll |
+| **Extra reroll** | 1 | Any further reroll (Attack / Mod / Scar) |
 
 **Reset choices** clears your upgrade picks before you lock a roll.
 
-## Crew path (pick once)
+## Three die types
 
-| Path | Color | Always | Commit that color |
-|---|---|---|---|
-| **Gunner** | Weapons (red) | +1 on every red die in combat | **Strike** — +4 to your total |
-| **Engineer** | Strength (blue) | +1⚡ every round | **Charge** — +2⚡ next round |
-| **Warden** | Agility (green) | Scar ⚡ drain −1 | **Brace** — +3 to your total |
+### Attack (3 colors)
 
-## Commit one die (every roll)
+Weapons (red) · Strength (blue) · Agility (green). Forge faces, buy extras. They make your combat total.
 
-After you roll (and reroll), tap a crew die and choose **one**:
+### Mod die (4 help · 2 Scar)
 
-1. **Path action** — color must match your path; die still counts in combat  
-2. **Mint +1** — the face showing permanently +1; die is **0 combat** this round (reroll first to land the face you want to grow)  
-3. **Score** — gain points = half the die (min 1); die is **0 combat** this round  
+Always rolls with you. Messing with chemicals can scar you.
 
-Lock in is blocked until you commit.
+| Faces | Effect |
+|---|---|
+| **Energy** (×2) | +2 / +3 / +4⚡ next round (upgrade levels) |
+| **%** (×1) | +20% / +30% / +40% of your attack |
+| **Base** (×1) | +0 / +3 / +5 that round (header Base rises as you upgrade) |
+| **Scar** (×2) | No combat help. If you **lock in** on this face, grab a Scar die into your pool |
 
-## Human modifier die (2-2-2)
+Upgrade helpful faces for **2⚡**. Max **level 3**.
 
-Always rolls with you. Upgrade a face for **2⚡**. Max **level 3**.
+Your total = **Attack dice + Mod** (after Scar effects, if any).
 
-- **2× Energy** — +2 / +3 / +4⚡ next round  
-- **2× %** — +20% / +30% / +40% of your attack  
-- **2× Base** — +0 / +3 / +5 that round (starts at **0**; sticky header Base rises as you upgrade; only adds when Base face rolls)  
+### Scar dice (all the same)
 
-Your blue total = **dice + mod** (after Scar effects, if any).
+You **grab them into your pool**. Sources:
+
+- Lock a **Mod Scar** face
+- **Outbreak** (on the host)
+- **Poison** (on the chosen crewmate)
+
+Every Scar die is identical: **3 blanks** + **3 hurts** (−2⚡, −10%, −highest). Each Scar die in your pool rolls every turn. Cap **6**.
+
+**Heal** one for **2⚡** in the shop (healed dice don’t roll that round).
+
+**−highest** subtracts your strongest die from the combat total but **keeps the die showing**. Reroll that die to move the hit.
 
 ## Host turn (you + the monster)
 
@@ -80,13 +88,13 @@ When infected: shop + pick **one parasite move** → **Continue to rolls**.
 |---|---|---|---|
 | **Feed** | Permanent +aura | Safe | +1 |
 | **Harden** | +1 on every face of all Attack dice | Safe | +1 |
-| **Outbreak** | +1 Attack die (if room) · **+10 tonight** | **Scar on you** | +3 |
-| **Poison** | Chosen crewmate gains a **Poison die** (Scar-like, to L2) | Hits them | +2 |
+| **Outbreak** | +1 Attack die (if room) · **+10 tonight** | **Scar die on you** | +3 |
+| **Poison** | Chosen crewmate grabs a **Scar die** | Hits them | +2 |
 
 Then:
 
-1. **Roll / Lock human** (commit a die too)  
-2. **Roll / Lock parasite**  
+1. **Roll / Lock human**
+2. **Roll / Lock parasite**
 3. **Submit both rolls**
 
 - Parasite ⚡ by table: **3p → 5 · 4p → 6 · 5–6p → 7**
@@ -114,15 +122,6 @@ Also on the package:
 - **Human share** — add a % of your human attack into the parasite total
 - **Aura** — permanent flat bonus (**Feed** raises it)
 - **Specialty die** faces: **+8**, **+25% atk**, **+lowest**, **+your high**, **—**, **+extra die**
-
-## Scar & Poison dice
-
-**Scar** — from **Outbreak** (on the host). Caps at L2.  
-**Poison** — from the **Poison** move (on a chosen crewmate). Caps at L2.
-
-Both are separate d6s with bad faces. Labels are the effect. You can reroll them.
-
-**−highest** subtracts your strongest die from the combat total but **keeps the die showing**. Reroll that die to move the hit.
 
 ## Round 10 boss
 

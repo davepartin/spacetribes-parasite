@@ -1,8 +1,18 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.7.1** · Schema **v8**
+Current build: **v4.8.0** · Schema **v9**
 
 ---
+
+## v4.8.0 — Three die types (Attack / Mod / Scar)
+- **Schema v9** — start a new game
+- **No crew paths** — Gunner / Engineer / Warden removed
+- **No die commit** — Mint / Score / Strike / Charge / Brace removed
+- **Attack dice** — Weapons / Strength / Agility (forge, buy extras)
+- **Mod die** — 4 helpful faces (Energy / % / Base) + **2 Scar faces**. Lock a Scar face → grab a Scar die into your pool
+- **Scar dice** — one shared design: **3 blanks + 3 hurts** (−2⚡, −10%, −highest). From Mod, Outbreak, or Poison
+- **Heal scar** — **2⚡** in the shop removes one Scar die
+- Reroll any die (Attack / Mod / Scar) with energy (1 free per round)
 
 ## v4.7.1 — Tooltips on hard words
 - Dotted gold tips for Feed / Harden / Outbreak / Poison, paths, Strike / Charge / Brace, Mint / Score / Commit, Forge, Scar, Lock in, and more

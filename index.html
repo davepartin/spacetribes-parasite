@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.7.1">
+<meta name="stp-build" content="v4.8.0">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -597,34 +597,11 @@ const COLOR_META = {
   green: { name:'Agility',  icon:'A' },
 };
 
-/** Crew paths — pick once; each round commit one die. */
-const PATHS = {
-  gunner: {
-    id:'gunner', name:'Gunner', color:'red',
-    tagline:'Weapons path',
-    passive:'+1 on every Weapons (red) die in combat',
-    action:'Strike', actionDesc:'Commit a red die: +4 to your total (die still counts)',
-  },
-  engineer: {
-    id:'engineer', name:'Engineer', color:'blue',
-    tagline:'Power path',
-    passive:'+1⚡ every round',
-    action:'Charge', actionDesc:'Commit a blue die: +2⚡ next round (die still counts)',
-  },
-  warden: {
-    id:'warden', name:'Warden', color:'green',
-    tagline:'Defense path',
-    passive:'Scar ⚡ drain −1 (min 0)',
-    action:'Brace', actionDesc:'Commit a green die: +3 to your total (die still counts)',
-  },
-};
-const PATH_IDS = Object.keys(PATHS);
-function pathInfo(id){ return PATHS[id] || null; }
-function randomPathId(){ return PATH_IDS[randInt(PATH_IDS.length)]; }
+/** Paths removed in v4.8 — three die types only: Attack / Mod / Scar. */
 
 
 const TOTAL_ROUNDS = 10;
-const SCHEMA = 8;
+const SCHEMA = 9;
 
 const CFG = {
   roundStipend: 5,
@@ -640,11 +617,8 @@ const CFG = {
   maxParAttack: 4,
   hostParStipend: 7, // baseline; actual stipend scales with table size
   parRerollCost: 1,
-  // path / die commit
-  pathStrikeBonus: 4,
-  pathBraceBonus: 3,
-  pathChargeEnergy: 2,
-  engineerRoundEnergy: 1,
+  healScarCost: 2,
+  maxScars: 6,
   // points
   trainRankPts: [6,4,2,1],
   humanWinPts: r => r >= 6 ? 12 : 8,
@@ -723,44 +697,19 @@ const MOD_LEVELS = {
   base:   [0, 3, 5],
 };
 
-const SCAR_FACES = {
-  1: [
-    { id:'drain',   label:'−2⚡',     desc:'Lose 2 Energy' },
-    { id:'bleed',   label:'−10%',    desc:'−10% attack' },
-    { id:'static',  label:'no mod',  desc:'Mod die ignored' },
-    { id:'fumble',  label:'reroll↑', desc:'Reroll highest die' },
-    { id:'penalty', label:'−5 pts',  desc:'Lose 5 points' },
-    { id:'shatter', label:'−highest',desc:'− your strongest die from the total (die stays — reroll it to move the hit)' },
-  ],
-  2: [
-    { id:'drain',   label:'−4⚡',      desc:'Lose 4 Energy' },
-    { id:'bleed',   label:'−20%',     desc:'−20% attack' },
-    { id:'static',  label:'no mod−1⚡',desc:'Mod ignored & −1⚡' },
-    { id:'fumble',  label:'reroll↑↑', desc:'Reroll two highest' },
-    { id:'penalty', label:'−10 pts',  desc:'Lose 10 points' },
-    { id:'shatter', label:'−high −5pts', desc:'− strongest die from total (die stays; reroll can move the hit) & −5 pts' },
-  ],
-};
+/** One shared Scar die — grab from the table into your pool. 3 blanks + 3 hurts. */
+const SCAR_DIE_FACES = [
+  { id:'blank',   label:'—',        desc:'Nothing this roll' },
+  { id:'blank',   label:'—',        desc:'Nothing this roll' },
+  { id:'blank',   label:'—',        desc:'Nothing this roll' },
+  { id:'drain',   label:'−2⚡',      desc:'Lose 2 Energy' },
+  { id:'bleed',   label:'−10%',     desc:'−10% attack' },
+  { id:'shatter', label:'−highest', desc:'− strongest die from the total (die stays)' },
+];
+// legacy aliases
+const SCAR_FACES = { 1: SCAR_DIE_FACES, 2: SCAR_DIE_FACES };
+const POISON_FACES = SCAR_FACES;
 
-// Poison die — inflicted by host Poison move (same pain language as Scar)
-const POISON_FACES = {
-  1: [
-    { id:'drain',   label:'−2⚡',     desc:'Lose 2 Energy' },
-    { id:'bleed',   label:'−10%',    desc:'−10% attack' },
-    { id:'static',  label:'no mod',  desc:'Mod die ignored' },
-    { id:'fumble',  label:'reroll↑', desc:'Reroll highest die' },
-    { id:'penalty', label:'−5 pts',  desc:'Lose 5 points' },
-    { id:'blank',   label:'—',       desc:'Nothing this roll' },
-  ],
-  2: [
-    { id:'drain',   label:'−4⚡',      desc:'Lose 4 Energy' },
-    { id:'bleed',   label:'−20%',     desc:'−20% attack' },
-    { id:'static',  label:'no mod−1⚡',desc:'Mod ignored & −1⚡' },
-    { id:'fumble',  label:'reroll↑↑', desc:'Reroll two highest' },
-    { id:'penalty', label:'−10 pts',  desc:'Lose 10 points' },
-    { id:'shatter', label:'−highest', desc:'− strongest die from total' },
-  ],
-};
 
 // Instinct die — the fun parasite specialty die (always rolled)
 const INSTINCT_FACES = [
@@ -774,32 +723,27 @@ const INSTINCT_FACES = [
 
 
 const TIPS = {
-  mod: { title:'Human mod die', body:'Always rolls with you. Faces: +2⚡ next (→3/4), +20% attack (→30/40), or Base +0 (→3/5). Sticky header Base starts at +0 and rises as you upgrade Base faces. Base only adds to your total when that face rolls. Upgrade a face for 2 Energy (max level 3).' },
-  scar: { title:'Scar die', body:'You get this from Outbreak (on the host). All 6 faces hurt. Labels show the real effect. You can reroll it. −highest keeps the die showing — it subtracts from your total, and rerolling that die can move which face is hit. Caps at L2.' },
-  fusion: { title:'Human share', body:'On host turns, part of your human attack is added into the parasite total. Feed grows aura instead; share starts from the table size and can rise with older growth effects.' },
+  mod: { title:'Mod die', body:'Always rolls with you. 4 helpful faces (Energy / % / Base) and 2 Scar faces — messing with chemicals can scar you. If you lock in on a Scar face, you add a Scar die to your pool. Upgrade positive faces for 2⚡.' },
+  modDie: { title:'Mod die', body:'Always rolls with you. 4 helpful faces (Energy / % / Base) and 2 Scar faces — messing with chemicals can scar you. If you lock in on a Scar face, you add a Scar die to your pool. Upgrade positive faces for 2⚡.' },
+  scar: { title:'Scar die', body:'All Scar dice are the same: 3 blanks + 3 hurts (−2⚡, −10%, −highest). You pick them up into your pool (from Mod Scar faces, Outbreak, or Poison). Each Scar die rolls every turn. Heal one for 2⚡ in the shop.' },
+  scarDie: { title:'Scar die', body:'All Scar dice are the same: 3 blanks + 3 hurts (−2⚡, −10%, −highest). You pick them up into your pool (from Mod Scar faces, Outbreak, or Poison). Each Scar die rolls every turn. Heal one for 2⚡ in the shop.' },
+  healScar: { title:'Heal scar', body:'Spend 2⚡ in the shop to remove one Scar die from your pool.' },
+  fusion: { title:'Human share', body:'On host turns, part of your human attack is added into the parasite total.' },
   aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn. Feed raises it.' },
   boss: { title:'Boss meter / Round 10 HP', body:'Tracks how much the table fed the parasite. Round 10 HP scales with table size + Boss Meter. Feed/Harden +1, Poison +2, Outbreak +3, host win +1.' },
-  instinct: { title:'Specialty die', body:'Extra parasite die. Faces show the effect: +8, +25% atk, +lowest, +your high, blank, or +extra die.' },
-  host: { title:'Host turn', body:'You are infected. Pick one of 4 parasite moves, then roll your human dice and the parasite package separately, lock each, and Submit both. Your total = human + parasite vs the crew.' },
-  poison: { title:'Poison', body:'Host move: pick a crewmate. They gain a Poison die (like Scar) that rolls with them. Stacks to L2. This is the person-to-person parasite attack.' },
-  moves: { title:'Parasite moves', body:'Every host turn pick exactly one move. Tap a dotted gold move name for details.' },
-  feed: { title:'Feed', body:'Safer move. Permanently adds aura to the parasite. Round-10 boss meter +1. No Scar on you.' },
-  harden: { title:'Harden', body:'Safer move. +1 on every face of all parasite Attack dice (lasting). Round-10 boss meter +1. No Scar on you.' },
-  outbreak: { title:'Outbreak', body:'Big swing. +1 Attack die if there is room, +10 to the parasite total tonight, and you take a Scar. Round-10 boss meter +3.' },
-  path: { title:'Crew path', body:'Pick Gunner, Engineer, or Warden once. Each path has a passive bonus and a color action. Every roll you Commit one die.' },
-  gunner: { title:'Gunner', body:'Weapons path (red). Always: +1 on every red die in combat. Commit a red die to Strike (+4 to your total; die still counts).' },
-  engineer: { title:'Engineer', body:'Power path (blue). Always: +1⚡ every round. Commit a blue die to Charge (+2⚡ next round; die still counts).' },
-  warden: { title:'Warden', body:'Defense path (green). Always: Scar/Poison ⚡ drain is −1 (min 0). Commit a green die to Brace (+3 to your total; die still counts).' },
-  strike: { title:'Strike', body:'Gunner path action. Commit a Weapons (red) die: +4 to your combat total. The die still counts.' },
-  charge: { title:'Charge', body:'Engineer path action. Commit a Strength (blue) die: +2⚡ next round. The die still counts in combat.' },
-  brace: { title:'Brace', body:'Warden path action. Commit an Agility (green) die: +3 to your combat total. The die still counts.' },
-  mint: { title:'Mint +1', body:'Reroll until the face you want is up, then Commit → Mint. That face permanently +1, but the die scores 0 combat this round. Strong long-term build choice.' },
-  score: { title:'Score', body:'Commit a die to bank points now: you gain half its value (min 1). That die is 0 combat this round.' },
-  commit: { title:'Commit a die', body:'After rolling, tap a crew die and choose one: Path action (color match), Mint +1 on that face, or Score points. Required before Lock in. Rerolling clears your commit.' },
-  forge: { title:'Forge', body:'Spend 1⚡ to permanently +2 the selected face on one of your dice. This is how you build bigger numbers over the game.' },
-  energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge face +2 costs 1. Mod upgrade 2. Extra die 3. 1 free reroll per round, then 1⚡ each.' },
-  explode: { title:'Bonus re-roll', body:'If a parasite attack die hits its highest face, you get a bonus re-roll of that die and add it once.' },
-  lock: { title:'Lock in', body:'Confirms your roll for the round. On host turns you lock human and parasite separately, then Submit both. You can’t change dice after locking.' },
+  instinct: { title:'Specialty die', body:'Extra parasite die. Faces: +8, +25% atk, +lowest, +your high, blank, or +extra die.' },
+  host: { title:'Host turn', body:'You are infected. Pick one of 4 parasite moves, then roll human + parasite separately, lock each, and Submit both.' },
+  poison: { title:'Poison', body:'Host move: pick a crewmate. They add one Scar die to their pool (same Scar dice as everyone else).' },
+  moves: { title:'Parasite moves', body:'Every host turn pick exactly one: Feed, Harden, Outbreak, or Poison.' },
+  feed: { title:'Feed', body:'Safer. Permanent +aura. Boss +1. No Scar.' },
+  harden: { title:'Harden', body:'Safer. +1 on every Attack face. Boss +1. No Scar.' },
+  outbreak: { title:'Outbreak', body:'+1 Attack die (if room), +10 tonight, and you take a Scar die. Boss +3.' },
+  forge: { title:'Forge', body:'Spend 1⚡ to permanently +2 a face on an Attack die.' },
+  heal: { title:'Heal scar', body:'Spend 2⚡ in the shop to remove one Scar die from your pool.' },
+  energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge 1 · Mod upgrade 2 · Extra die 3 · Heal scar 2. 1 free reroll, then 1⚡ each. Reroll any die.' },
+  explode: { title:'Bonus re-roll', body:'If a parasite attack die hits its highest face, bonus re-roll and add once.' },
+  lock: { title:'Lock in', body:'Confirms your roll. If your Mod shows Scar and you lock it, you gain a Scar die. On host turns lock human + parasite, then Submit both.' },
+  attack: { title:'Attack dice', body:'Your colored crew dice (Weapons / Strength / Agility). Forge faces, buy extras. They make your combat total.' },
 };
 function tip(key, label){
   // span (not button) so tips work inside cards/buttons without nested-button bugs
@@ -850,13 +794,30 @@ function starterDice(){
 function isStarterDieId(id){ return id==='w1' || id==='s1' || id==='a1'; }
 function isBonusDie(d){ return !!(d && (d.bonus || d.tempNew || d.id==='preview')); }
 function starterModDie(){
-  // 2 energy, 2 pct, 2 base — all level 0
+  // 4 positive + 2 scar — chemicals can scar you
   return [
-    { kind:'energy', level:0 }, { kind:'energy', level:0 },
-    { kind:'pct', level:0 },    { kind:'pct', level:0 },
-    { kind:'base', level:0 },   { kind:'base', level:0 },
+    { kind:'energy', level:0 },
+    { kind:'pct', level:0 },
+    { kind:'base', level:0 },
+    { kind:'energy', level:0 },
+    { kind:'scar', level:0 },
+    { kind:'scar', level:0 },
   ];
 }
+function scarCount(pl){ return Math.max(0, (pl && pl.scars)|0); }
+function addScarDie(pl){
+  if (!pl) return false;
+  const max = CFG.maxScars || 6;
+  if ((pl.scars||0) >= max) return false;
+  pl.scars = (pl.scars||0) + 1;
+  return true;
+}
+function healOneScar(pl){
+  if (!pl || !(pl.scars > 0)) return false;
+  pl.scars -= 1;
+  return true;
+}
+
 function starterParasite(n){
   const t = parasiteTuning(n || 4);
   const faces = hotFaces().map(v => v + (t.faceBonus||0));
@@ -957,10 +918,14 @@ function arrangeHosts(bag){
 }
 
 function modFaceValue(face){
-  return MOD_LEVELS[face.kind][Math.min(2, face.level|0)];
+  if (!face || face.kind==='scar') return 0;
+  const ladder = MOD_LEVELS[face.kind];
+  if (!ladder) return 0;
+  return ladder[Math.min(2, face.level|0)];
 }
 function modFaceLabel(face){
   if (!face) return '?';
+  if (face.kind==='scar') return 'Scar';
   const v = modFaceValue(face);
   if (face.kind==='energy') return '+'+v+'⚡';
   if (face.kind==='pct') return '+'+v+'%';
@@ -969,6 +934,7 @@ function modFaceLabel(face){
 }
 function modFaceClass(face){
   if (!face) return 'blank';
+  if (face.kind==='scar') return 'scar';
   if (face.kind==='energy') return 'energy-face';
   if (face.kind==='pct') return 'pct';
   if (face.kind==='base') return 'base-face';
@@ -1091,7 +1057,7 @@ let me = localStorage.getItem('stp_me') || null;
 let cart = null;
 let cartRound = 0;
 let animating = false;
-let ui = { selectedDie: null, selectedFace: null, selectedModFace: null, showHelp: false, tipKey: null, showLog: false, showRosterPick: false, pendingCount: 4, pendingNames: ['','','',''], pendingPath: null, claimPath: null, _botBusy: {} };
+let ui = { selectedDie: null, selectedFace: null, selectedModFace: null, showHelp: false, tipKey: null, showLog: false, showRosterPick: false, pendingCount: 4, pendingNames: ['','','',''], _botBusy: {} };
 let session = null;
 
 function newGameData(roster, names, botFlags){
@@ -1116,9 +1082,7 @@ function newGameData(roster, names, botFlags){
       energy: CFG.roundStipend,
       dice: starterDice(),
       modDie: starterModDie(),
-      scarLv: 0,
-      poisonLv: 0,
-      path: isBot ? randomPathId() : null,
+      scars: 0,
       perks: { freeReroll:false },
     };
   });
@@ -1174,7 +1138,7 @@ function parasiteMoveOptions(p, g){
     { key:'outbreak', lane:'heavy', title:'Outbreak',
       desc:(room?`+1 Attack die (${n}→${n+1}). `:`Attack dice maxed (${n}). `)+`+${tonight} tonight. You take Scar. Round-10 boss +3.` },
     { key:'poison', lane:'strike', title:'Poison',
-      desc:'Pick a crewmate — they gain a Poison die (like Scar). No Scar on you. Round-10 boss +2.', needsTarget:true },
+      desc:'Pick a crewmate — they grab a Scar die into their pool. No Scar on you. Round-10 boss +2.', needsTarget:true },
   ];
 }
 function softGrowthOptions(p){ return parasiteMoveOptions(p).filter(o=>o.lane==='soft'); }
@@ -1190,23 +1154,23 @@ function applyParasiteMove(parasite, key, hostPl, opts){
   if (key==='feed'){
     parasite.bossMeter = (parasite.bossMeter||0) + CFG.softMeter;
     parasite.auraFlat = (parasite.auraFlat||0) + (parasite.auraGain!=null?parasite.auraGain:CFG.auraGain);
-    return { key, lane:'soft', fusionOverride, tonightFlat, poisonTarget, scarLv: hostPl?hostPl.scarLv:0 };
+    return { key, lane:'soft', fusionOverride, tonightFlat, poisonTarget };
   }
   if (key==='harden'){
     parasite.bossMeter = (parasite.bossMeter||0) + CFG.softMeter;
     (parasite.attack||[]).forEach(d=>{ d.faces = d.faces.map(v=>v+1); });
-    return { key, lane:'soft', fusionOverride, tonightFlat, poisonTarget, scarLv: hostPl?hostPl.scarLv:0 };
+    return { key, lane:'soft', fusionOverride, tonightFlat, poisonTarget };
   }
   if (key==='outbreak'){
     parasite.bossMeter = (parasite.bossMeter||0) + CFG.heavyMeter;
     tryAddParAttackDie(parasite);
     tonightFlat = CFG.outbreakTonight || 10;
-    if (hostPl && (hostPl.scarLv||0) < 2) hostPl.scarLv = (hostPl.scarLv||0) + 1;
-    return { key, lane:'heavy', fusionOverride, tonightFlat, poisonTarget, scarLv: hostPl?hostPl.scarLv:0 };
+    if (hostPl) addScarDie(hostPl);
+    return { key, lane:'heavy', fusionOverride, tonightFlat, poisonTarget, scars: hostPl?scarCount(hostPl):0 };
   }
   if (key==='poison'){
     parasite.bossMeter = (parasite.bossMeter||0) + (CFG.poisonMeter||2);
-    return { key, lane:'strike', fusionOverride, tonightFlat, poisonTarget, scarLv: hostPl?hostPl.scarLv:0 };
+    return { key, lane:'strike', fusionOverride, tonightFlat, poisonTarget };
   }
   // Legacy soft keys
   if (key==='surge' || key==='push_mod' || key==='fusion' || key==='aura'){
@@ -1258,7 +1222,7 @@ function applySoftGrowth(parasite, key){
 function applyHeavyGrowth(parasite, key, hostPl){
   parasite.bossMeter = (parasite.bossMeter||0) + CFG.heavyMeter;
   parasite.mutations = (parasite.mutations||0) + 1;
-  if (hostPl && (hostPl.scarLv||0) < 2) hostPl.scarLv = (hostPl.scarLv||0) + 1;
+  if (hostPl) addScarDie(hostPl);
   let fusionOverride = null;
   let tonightFlat = 0;
   tryAddParAttackDie(parasite);
@@ -1278,7 +1242,7 @@ function applyHeavyGrowth(parasite, key, hostPl){
     }
     parasite.instinct = inst;
   }
-  return { key, lane:'heavy', fusionOverride, tonightFlat, scarLv: hostPl ? hostPl.scarLv : 0 };
+  return { key, lane:'heavy', fusionOverride, tonightFlat, scars: hostPl ? scarCount(hostPl) : 0 };
 }
 
 /* ================= COMBAT HELPERS ================= */
@@ -1291,55 +1255,29 @@ function normalizeModRoll(modRoll){
 }
 
 /** Highest-die subtract for Scar shatter. Legacy rolls may already have scarZeroed v=0. */
-function shatterSubFromRolls(rolls, scarRoll, combatVals, poisonRoll){
-  const hit = (scarRoll && scarRoll.id==='shatter') || (poisonRoll && poisonRoll.id==='shatter');
-  if (!hit || !rolls || !rolls.length) return 0;
-  // Old locked actions zeroed the die in place — don't double-subtract
+function shatterSubFromScarRolls(rolls, scarRolls, combatVals){
+  const list = scarRolls || [];
+  const hits = list.filter(s => s && s.id==='shatter').length;
+  if (!hits || !rolls || !rolls.length) return 0;
   if (rolls.some(d => d.scarZeroed)) return 0;
-  if (combatVals) return combatVals.reduce((m,v)=> Math.max(m, v||0), 0);
-  return rolls.reduce((m,d)=> Math.max(m, d.v||0), 0);
+  const hi = combatVals
+    ? combatVals.reduce((m,v)=> Math.max(m, v||0), 0)
+    : rolls.reduce((m,d)=> Math.max(m, d.v||0), 0);
+  return hi * hits;
 }
-/** Combat values per die after die-commit (mint/score remove the die from combat). */
-function combatValuesForRolls(rolls, dieCommit){
-  return (rolls||[]).map((d,i)=>{
-    if (dieCommit && dieCommit.i===i && (dieCommit.type==='mint' || dieCommit.type==='score')) return 0;
-    return d.v||0;
-  });
-}
-function scorePtsFromCommit(rolls, dieCommit){
-  if (!dieCommit || dieCommit.type!=='score') return 0;
-  const d = rolls && rolls[dieCommit.i];
-  if (!d) return 0;
-  return Math.max(1, Math.floor((d.v||0) / 2));
-}
-function computeHumanTotal(rolls, modRoll, scarRoll, scarLv, opts){
-  // opts: { path, dieCommit }
+function computeHumanTotal(rolls, modRoll, scarRollOrList, _unused, opts){
   opts = opts || {};
-  const path = opts.path || null;
-  const dieCommit = opts.dieCommit || null;
-  const poisonRoll = opts.poisonRoll || null;
-  const pinfo = pathInfo(path);
+  const scarRolls = Array.isArray(scarRollOrList)
+    ? scarRollOrList
+    : (scarRollOrList ? [scarRollOrList] : (opts.scarRolls || []));
   modRoll = normalizeModRoll(modRoll);
-  const vals = combatValuesForRolls(rolls, dieCommit);
-  let attack = 0;
-  (rolls||[]).forEach((d,i)=>{
-    let v = vals[i]||0;
-    if (v > 0 && path==='gunner' && d.color==='red') v += 1;
-    attack += v;
-  });
-  const shatterSub = shatterSubFromRolls(rolls, scarRoll, vals, poisonRoll);
+  // Scar face on mod ignores helpful mod
+  if (modRoll && modRoll.kind==='scar') modRoll = null;
+  let attack = (rolls||[]).reduce((s,d)=>s+(d.v||0), 0);
+  const vals = (rolls||[]).map(d=>d.v||0);
+  const shatterSub = shatterSubFromScarRolls(rolls, scarRolls, vals);
   if (shatterSub) attack = Math.max(0, attack - shatterSub);
-  let pathBonus = 0;
-  let pathNote = '';
-  if (dieCommit && dieCommit.type==='path' && pinfo){
-    const d = rolls[dieCommit.i];
-    if (d && d.color===pinfo.color){
-      if (path==='gunner'){ pathBonus = CFG.pathStrikeBonus||4; pathNote = 'Strike +'+pathBonus; }
-      else if (path==='warden'){ pathBonus = CFG.pathBraceBonus||3; pathNote = 'Brace +'+pathBonus; }
-      else if (path==='engineer'){ pathNote = 'Charge +'+(CFG.pathChargeEnergy||2)+'⚡'; }
-    }
-  }
-  let total = attack + pathBonus;
+  let total = attack;
   let pendingEnergy = 0;
   let modAdd = 0;
   let modLabel = 'no mod';
@@ -1354,46 +1292,25 @@ function computeHumanTotal(rolls, modRoll, scarRoll, scarLv, opts){
     modAdd = modRoll.value|0;
     total += modAdd;
     modLabel = 'Base +'+modAdd;
+  } else if (!modRoll){
+    modLabel = 'scar / off';
   }
-  if (dieCommit && dieCommit.type==='path' && path==='engineer' && pinfo){
-    const d = rolls[dieCommit.i];
-    if (d && d.color==='blue') pendingEnergy += (CFG.pathChargeEnergy||2);
-  }
-  const scorePts = scorePtsFromCommit(rolls, dieCommit);
-  let scarLabel = '';
-  if (scarRoll && scarRoll.label) scarLabel = scarRoll.label;
-  let poisonLabel = '';
-  if (poisonRoll && poisonRoll.label) poisonLabel = poisonRoll.label;
+  const scarLabels = scarRolls.filter(s=>s && s.id!=='blank').map(s=>s.label).filter(Boolean);
   return {
-    attack, total, pendingEnergy, modAdd, modLabel, scarLabel, poisonLabel, shatterSub,
-    pathBonus, pathNote, scorePts, dieCommit: dieCommit||null, path: path||null,
-  };
-}
-
-function humanTotalOptsFor(pid, action){
-  const pl = G && G.players && G.players[pid];
-  return {
-    path: (pl && pl.path) || null,
-    dieCommit: (action && action.dieCommit) || null,
+    attack, total, pendingEnergy, modAdd, modLabel,
+    scarLabel: scarLabels.join(' · '),
+    shatterSub, scarRolls,
   };
 }
 
 /** Build display math from clean base dice + current mod/scar (for the big blue total). */
 function liveHumanBreakdown(){
   if (!session || !session.rolls){
-    return { rawAttack:0, attack:0, modAdd:0, modLabel:'—', pendingEnergy:0, scarLabel:'', total:0, ptsDelta:0, energyLoss:0, shatterSub:0, pathBonus:0, pathNote:'', scorePts:0 };
+    return { rawAttack:0, attack:0, modAdd:0, modLabel:'—', pendingEnergy:0, scarLabel:'', total:0, ptsDelta:0, energyLoss:0, shatterSub:0 };
   }
   const base = session.baseRolls || session.rolls || [];
   const rawAttack = base.reduce((s,d)=>s+(d.v||0), 0);
-  const scar = session.scarRoll;
-  const pl = G.players[me] || {};
-  const br = computeHumanTotal(session.rolls||[], session.modRoll, scar, pl.scarLv||0, {
-    path: pl.path||null,
-    dieCommit: session.dieCommit||null,
-    poisonRoll: session.poisonRoll||null,
-  });
-  let energyLoss = session.scarEnergyLoss||0;
-  if (pl.path==='warden' && energyLoss) energyLoss = Math.max(0, energyLoss - 1);
+  const br = computeHumanTotal(session.rolls||[], session.modRoll, session.scarRolls||[], 0, {});
   return {
     rawAttack,
     attack: br.attack,
@@ -1402,13 +1319,9 @@ function liveHumanBreakdown(){
     pendingEnergy: br.pendingEnergy,
     scarLabel: br.scarLabel,
     total: br.total,
-    ptsDelta: (session.ptsDelta||0) + (br.scorePts||0),
-    energyLoss,
+    ptsDelta: session.ptsDelta||0,
+    energyLoss: session.scarEnergyLoss||0,
     shatterSub: br.shatterSub||0,
-    pathBonus: br.pathBonus||0,
-    pathNote: br.pathNote||'',
-    scorePts: br.scorePts||0,
-    poisonLabel: br.poisonLabel||'',
   };
 }
 /** Live parasite package math on host roll screen (before lock-in). */
@@ -1489,32 +1402,15 @@ function expectedParThreat(p){
   return Math.round(atk + flatExp + pctExp + fusion + (p.auraFlat||0) + 5);
 }
 
-function applyMintFromAction(pl, action){
-  const c = action && action.dieCommit;
-  if (!c || c.type !== 'mint') return false;
-  const d = findDie(pl.dice, c.dieId);
-  if (!d || c.faceIndex == null || d.faces[c.faceIndex] == null) return false;
-  d.faces[c.faceIndex] = (d.faces[c.faceIndex]|0) + 1;
-  return true;
-}
-function scarEnergyAfterPath(pl, loss){
-  loss = loss|0;
-  if (pl && pl.path==='warden' && loss) return Math.max(0, loss - 1);
-  return loss;
-}
 function resolvePlayerBundle(g, pid, action){
   const pl = g.players[pid];
   const a = action || {};
-  const minted = applyMintFromAction(pl, a);
-  const br = computeHumanTotal(a.rolls, a.modRoll||null, a.scarRoll||null, pl.scarLv||0, {
-    path: pl.path||null,
-    dieCommit: a.dieCommit||null,
-    poisonRoll: a.poisonRoll||null,
-  });
-  const scarLoss = scarEnergyAfterPath(pl, a.scarEnergyLoss||0);
+  const scarRolls = a.scarRolls || (a.scarRoll ? [a.scarRoll] : []);
+  const br = computeHumanTotal(a.rolls, a.modRoll||null, scarRolls, 0, {});
+  const scarLoss = a.scarEnergyLoss||0;
   const pending = Math.max(0, (br.pendingEnergy||0) - scarLoss);
-  const ptsDelta = (a.ptsDelta||0) + (br.scorePts||0);
-  return { br, pending, ptsDelta, minted, scarLoss };
+  const ptsDelta = a.ptsDelta||0;
+  return { br, pending, ptsDelta, scarLoss };
 }
 
 /* ================= ROUND RESOLUTION ================= */
@@ -1541,7 +1437,7 @@ function resolveRound(g){
     // mod upgrades
     (a.modUps||[]).forEach(idx=>{
       const face = pl.modDie[idx];
-      if (face && face.level < 2){
+      if (face && face.kind!=='scar' && face.level < 2){
         face.level += 1;
         spent += CFG.modUpgradeCost;
       }
@@ -1552,8 +1448,13 @@ function resolveRound(g){
       pl.dice.push({ id: fromRoll ? fromRoll.dieId : uid(a.addDie[0]), color: a.addDie, faces: stdFaces(), bonus: true });
     }
     spent += Math.max(0, a.rerollBuys||0) * CFG.rerollCost;
+    const healN = Math.max(0, a.healScars||0);
+    spent += healN * (CFG.healScarCost||2);
+    for (let h=0; h<healN; h++) healOneScar(pl);
     // free-reroll perk purchase removed — everyone gets CFG.freeRerollsPerRound each round
     pl.energy = Math.max(0, (pl.energy||0) - spent);
+    // Mod Scar face locked in → pick up a Scar die
+    if (a.gainScar) addScarDie(pl);
   });
 
   // Host parasite move
@@ -1572,10 +1473,9 @@ function resolveRound(g){
         fusionOverride = growthResult.fusionOverride;
         tonightFlat = growthResult.tonightFlat || 0;
         if (growth.key==='poison' && growth.target && g.players[growth.target] && growth.target !== hostId){
-          const vic = g.players[growth.target];
-          vic.poisonLv = Math.min(2, (vic.poisonLv||0) + 1);
+          addScarDie(g.players[growth.target]);
           growthResult.poisonTarget = growth.target;
-          growthResult.poisonLv = vic.poisonLv;
+          growthResult.scars = scarCount(g.players[growth.target]);
         }
       } else if (growth.lane==='heavy'){
         growthResult = applyHeavyGrowth(g.parasite, growth.key, g.players[hostId]);
@@ -1605,13 +1505,10 @@ function resolveRound(g){
         attack: br.attack, total: br.total, modAdd: br.modAdd, modLabel: br.modLabel,
         modRoll: deep(a.modRoll||null), scarRoll: deep(a.scarRoll||null),
         pendingEnergy: pack.pending, ptsDelta: pack.ptsDelta,
-        path: g.players[pid].path||null, dieCommit: deep(a.dieCommit||null),
-        pathNote: br.pathNote||'', scorePts: br.scorePts||0, minted: pack.minted,
+        scars: scarCount(g.players[pid]), scarRolls: deep(a.scarRolls||[]),
       };
       awards[pid].pendingEnergy = pack.pending;
       if (pack.ptsDelta) awards[pid].pts += pack.ptsDelta;
-      if (pack.minted) awards[pid].tags.push('mint');
-      if (br.scorePts) awards[pid].tags.push('score');
     });
     const order = roster.slice().sort((a,b)=> totals[b]-totals[a]);
     const trainPts = rankPtsFor(roster.length, 6, 1);
@@ -1632,7 +1529,6 @@ function resolveRound(g){
     });
     roster.forEach(p=>{
       awards[p].energy += CFG.roundStipend;
-      if (g.players[p].path==='engineer') awards[p].energy += (CFG.engineerRoundEnergy||1);
       g.players[p].pts = Math.max(0, g.players[p].pts + awards[p].pts);
       g.players[p].energy += awards[p].energy + (awards[p].pendingEnergy||0);
     });
@@ -1660,13 +1556,11 @@ function resolveRound(g){
         attack: br.attack, total: br.total, modAdd: br.modAdd, modLabel: br.modLabel,
         modRoll: deep(a.modRoll||null), scarRoll: deep(a.scarRoll||null),
         pendingEnergy: pack.pending, ptsDelta: pack.ptsDelta,
-        path: g.players[h].path||null, dieCommit: deep(a.dieCommit||null),
-        pathNote: br.pathNote||'', scorePts: br.scorePts||0, minted: pack.minted,
+        scars: scarCount(g.players[h]), scarRolls: deep(a.scarRolls||[]),
       };
       crewTotal += br.total;
       awards[h].pendingEnergy = pack.pending;
       if (pack.ptsDelta) awards[h].pts += pack.ptsDelta;
-      if (pack.minted) awards[h].tags.push('mint');
     });
 
     const hAct = actions[hostId];
@@ -1677,14 +1571,12 @@ function resolveRound(g){
       attack: hostHuman.attack, total: hostHuman.total, modAdd: hostHuman.modAdd, modLabel: hostHuman.modLabel,
       modRoll: deep(hAct.modRoll||null), scarRoll: deep(hAct.scarRoll||null),
       pendingEnergy: hostPack.pending, ptsDelta: hostPack.ptsDelta,
-      path: g.players[hostId].path||null, dieCommit: deep(hAct.dieCommit||null),
-      pathNote: hostHuman.pathNote||'', scorePts: hostHuman.scorePts||0, minted: hostPack.minted,
+      scars: scarCount(g.players[hostId]), scarRolls: deep(hAct.scarRolls||[]),
       aRolls: deep(hAct.aRolls||[]), pModRoll: deep(hAct.pModRoll||null),
       instinctRoll: hAct.instinctRoll, instinctExtra: hAct.instinctExtra||0,
     };
     awards[hostId].pendingEnergy = hostPack.pending;
     if (hostPack.ptsDelta) awards[hostId].pts += hostPack.ptsDelta;
-    if (hostPack.minted) awards[hostId].tags.push('mint');
 
     const highestHumanDie = Math.max(0, ...(hAct.rolls||[]).map(d=>d.v||0));
     let instinctPayload = hAct.instinctRoll;
@@ -1751,7 +1643,6 @@ function resolveRound(g){
 
     roster.forEach(p=>{
       awards[p].energy += CFG.roundStipend;
-      if (g.players[p].path==='engineer') awards[p].energy += (CFG.engineerRoundEnergy||1);
       g.players[p].pts = Math.max(0, g.players[p].pts + awards[p].pts);
       g.players[p].energy += awards[p].energy + (awards[p].pendingEnergy||0);
     });
@@ -1786,13 +1677,11 @@ function resolveRound(g){
         attack: br.attack, total: br.total, modAdd: br.modAdd, modLabel: br.modLabel,
         modRoll: deep(a.modRoll||null), scarRoll: deep(a.scarRoll||null),
         pendingEnergy: pack.pending, ptsDelta: pack.ptsDelta,
-        path: g.players[pid].path||null, dieCommit: deep(a.dieCommit||null),
-        pathNote: br.pathNote||'', scorePts: br.scorePts||0, minted: pack.minted,
+        scars: scarCount(g.players[pid]), scarRolls: deep(a.scarRolls||[]),
       };
       crewTotal += br.total;
       awards[pid].pendingEnergy = pack.pending;
       if (pack.ptsDelta) awards[pid].pts += pack.ptsDelta;
-      if (pack.minted) awards[pid].tags.push('mint');
     });
     const hp = bossHP(g);
     const cleared = crewTotal >= hp;
@@ -1825,7 +1714,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.7.1';
+const APP_BUILD = 'v4.8.0';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1865,7 +1754,7 @@ function normalizeGame(v){
     if (!pl){
       pl = g.players[pid] = {
         name:'', isBot:false, pts:0, energy:CFG.roundStipend, dice:starterDice(), modDie:starterModDie(),
-        scarLv:0, poisonLv:0, path:null, perks:{ freeReroll:false },
+        scars:0, perks:{ freeReroll:false },
       };
     }
     pl.isBot = !!pl.isBot;
@@ -1883,12 +1772,15 @@ function normalizeGame(v){
     });
     if (!pl.modDie) pl.modDie = starterModDie();
     if (!pl.perks) pl.perks = { freeReroll:false };
-    if (pl.scarLv == null) pl.scarLv = 0;
-    if (pl.poisonLv == null) pl.poisonLv = 0;
+    if (pl.scars == null){
+      // migrate legacy scarLv / poisonLv into scar dice count
+      pl.scars = Math.min(CFG.maxScars||6, (pl.scarLv||0) + (pl.poisonLv||0));
+    }
     if (pl.energy == null) pl.energy = CFG.roundStipend;
     if (pl.pts == null) pl.pts = 0;
-    if (pl.path != null && !PATHS[pl.path]) pl.path = null;
-    if (pl.isBot && !pl.path) pl.path = randomPathId();
+    delete pl.path;
+    delete pl.scarLv;
+    delete pl.poisonLv;
   });
   if (g.parasite && g.parasite.bossMeter == null) g.parasite.bossMeter = 0;
   return g;
@@ -2131,49 +2023,36 @@ function buildBotAction(pid){
   const modDie = deep(pl.modDie);
   const mi = rollIndex(modDie.length);
   let modRoll = { index:mi, kind:modDie[mi].kind, level:modDie[mi].level, value:modFaceValue(modDie[mi]) };
-  let scarRoll = null;
-  const scarLv = pl.scarLv||0;
-  if (scarLv > 0){
-    const faces = SCAR_FACES[scarLv];
-    const si = rollIndex(faces.length);
-    scarRoll = { index:si, id:faces[si].id, label:faces[si].label, level:scarLv };
+  // Roll each Scar die in the pool
+  const scarRolls = [];
+  for (let s=0; s<scarCount(pl); s++){
+    const si = rollIndex(SCAR_DIE_FACES.length);
+    const f = SCAR_DIE_FACES[si];
+    scarRolls.push({ index:si, id:f.id, label:f.label, level:1 });
   }
-  let poisonRoll = null;
-  const poisonLv = pl.poisonLv||0;
-  if (poisonLv > 0){
-    const faces = POISON_FACES[poisonLv] || POISON_FACES[1];
-    const si = rollIndex(faces.length);
-    poisonRoll = { index:si, id:faces[si].id, label:faces[si].label, level:poisonLv };
+  let ptsDelta = 0, scarEnergyLoss = 0;
+  scarRolls.forEach(sr=>{
+    if (!sr || sr.id==='blank') return;
+    const packed = applyScarToBundle(rolls, modRoll, sr);
+    rolls = packed.rolls;
+    modRoll = packed.modRoll;
+    ptsDelta += packed.ptsDelta||0;
+    scarEnergyLoss += packed.scarEnergyLoss||0;
+  });
+  // Prefer not to lock a Mod Scar face — one free reroll of mod if needed
+  let rerollBuys = 0;
+  if (modRoll && modRoll.kind==='scar' && (pl.energy||0) > forges.length * CFG.forgeCost){
+    const mi2 = rollIndex(modDie.length);
+    modRoll = { index:mi2, kind:modDie[mi2].kind, level:modDie[mi2].level, value:modFaceValue(modDie[mi2]) };
+    rerollBuys = 1;
   }
-  let scarred = applyScarToBundle(rolls, modRoll, scarRoll);
-  rolls = scarred.rolls;
-  modRoll = scarred.modRoll;
-  if (poisonRoll && poisonRoll.id!=='blank'){
-    const p2 = applyScarToBundle(rolls, modRoll, poisonRoll);
-    rolls = p2.rolls;
-    modRoll = p2.modRoll;
-    scarred.ptsDelta = (scarred.ptsDelta||0) + (p2.ptsDelta||0);
-    scarred.scarEnergyLoss = (scarred.scarEnergyLoss||0) + (p2.scarEnergyLoss||0);
-  }
-
-  if (!pl.path) pl.path = randomPathId();
-  const pinfo = pathInfo(pl.path);
-  let dieCommit = null;
-  const pathIdxs = rolls.map((d,i)=>i).filter(i => pinfo && rolls[i].color===pinfo.color);
-  const roll = randInt(100);
-  if (pathIdxs.length && roll < 55){
-    const i = pathIdxs[randInt(pathIdxs.length)];
-    const d = rolls[i];
-    dieCommit = { type:'path', i, dieId:d.dieId, color:d.color, faceIndex:d.index, v:d.v|0 };
-  } else if (rolls.length && roll < 80){
-    let i = 0;
-    for (let k=1;k<rolls.length;k++) if ((rolls[k].v||0)>(rolls[i].v||0)) i=k;
-    const d = rolls[i];
-    dieCommit = { type:'mint', i, dieId:d.dieId, color:d.color, faceIndex:d.index, v:d.v|0 };
-  } else if (rolls.length){
-    const i = randInt(rolls.length);
-    const d = rolls[i];
-    dieCommit = { type:'score', i, dieId:d.dieId, color:d.color, faceIndex:d.index, v:d.v|0 };
+  const gainScar = !!(modRoll && modRoll.kind==='scar');
+  let healScars = 0;
+  const scarsNow = scarCount(pl);
+  let energyLeftBot = (pl.energy||0) - forges.length * CFG.forgeCost - rerollBuys * CFG.rerollCost;
+  while (scarsNow - healScars > 0 && energyLeftBot >= (CFG.healScarCost||2) && healScars < 2){
+    healScars++;
+    energyLeftBot -= (CFG.healScarCost||2);
   }
 
   const action = {
@@ -2184,20 +2063,20 @@ function buildBotAction(pid){
     modUps: [],
     addDie: null,
     buyFreeReroll: false,
-    rerollBuys: 0,
-    dieCommit,
+    rerollBuys,
+    healScars,
+    gainScar,
     rolls,
     modRoll,
-    scarRoll,
-    poisonRoll,
-    ptsDelta: scarred.ptsDelta||0,
-    scarEnergyLoss: scarred.scarEnergyLoss||0,
+    scarRolls,
+    ptsDelta,
+    scarEnergyLoss,
     bot: true,
   };
   if (isHost && growth){
     action.growth = growth;
     const fake = deep(G.parasite);
-    applyParasiteMove(fake, growth.key, { scarLv: pl.scarLv||0 }, { poisonTarget: growth.target });
+    applyParasiteMove(fake, growth.key, pl, { poisonTarget: growth.target });
     action.aRolls = (fake.attack||[]).map(d=>{
       const er = rollExplodingAttack(d.faces);
       return { dieId:d.id, faces:d.faces, index:er.index, v:er.value, shown:er.shown, exploded:er.exploded, first:er.value, rerolled:false };
@@ -2460,24 +2339,20 @@ function instructionsModalHTML(){
       <ul>
         <li><b>+5</b> every round (banks). Top bar counts down as you spend.</li>
         <li>Win +2 · Category +1 · Loss: no bonus</li>
-        <li>Forge face <b>+2</b> = 1 · Mod upgrade = 2 · Extra die = 3</li>
-        <li><b>1 free reroll</b> each round; more cost 1</li>
+        <li>Forge face <b>+2</b> = 1 · Mod upgrade = 2 · Extra die = 3 · ${tip('heal','Heal scar')} = 2</li>
+        <li><b>1 free reroll</b> each round; more cost 1. Reroll any die (Attack / Mod / Scar).</li>
       </ul>
-      <h3>Human mod die</h3>
+      <h3>Three die types</h3>
       <ul>
-        <li>2× Energy (+2/3/4⚡) · 2× % (+20/30/40) · 2× Base (+0/3/5). Header Base starts at +0 and rises when you upgrade Base faces. Base only adds when that face rolls.</li>
-        <li>Your big blue total = dice + mod (after scar, if any).</li>
-      </ul>
-      <h3>Crew path + commit</h3>
-      <ul>
-        <li>Pick ${tip('gunner','Gunner')} / ${tip('engineer','Engineer')} / ${tip('warden','Warden')} once when you join.</li>
-        <li>Each roll: tap a die and ${tip('commit','Commit')} — path action, ${tip('mint','Mint +1')} (die out of combat; grows forever), or ${tip('score','Score')} half the die as points.</li>
-        <li>Reroll first to land the face you want to Mint — that’s the strong build choice.</li>
+        <li>${tip('attack','Attack')} — Weapons / Strength / Agility. Forge faces, buy extras.</li>
+        <li>${tip('mod','Mod')} — 4 helpful faces (Energy / % / Base) + 2 Scar faces. Lock a Scar face → grab a Scar die. Upgrade positive faces for 2⚡.</li>
+        <li>${tip('scar','Scar')} — all the same: 3 blanks + 3 hurts (−2⚡, −10%, −highest). From Mod, Outbreak, or Poison. Heal one for 2⚡.</li>
       </ul>
       <h3>Host turns (R2–9)</h3>
       <ul>
         <li>You = human dice + parasite package vs the rest of the crew.</li>
         <li>Pick one of 4 ${tip('moves','moves')}: ${tip('feed','Feed')} · ${tip('harden','Harden')} · ${tip('outbreak','Outbreak')} · ${tip('poison','Poison')}.</li>
+        <li>Poison gives the target a ${tip('scar','Scar')} die (same Scar dice as everyone).</li>
         <li>After shop: <b>Roll / Lock human</b> and <b>Roll / Lock parasite</b>, then <b>Submit both rolls</b>.</li>
         <li>Parasite ⚡ scales with table size (3p:5 · 4p:6 · 5–6p:7).</li>
         <li>Specialty: +8, +25% atk, +lowest, +your high, +extra die. Attack max face = + bonus re-roll.</li>
@@ -2494,7 +2369,8 @@ function instructionsModalHTML(){
 function freshCart(isHost){
   return {
     forges: [], modUps: [], addDie: null, buyFreeReroll: false,
-    growth: null, // host only {key, lane}
+    healScars: 0,
+    growth: null, // host only {key, lane, target?}
   };
 }
 function cartCost(){
@@ -2502,6 +2378,7 @@ function cartCost(){
   c += (cart.forges||[]).length * CFG.forgeCost;
   c += (cart.modUps||[]).length * CFG.modUpgradeCost;
   if (cart.addDie) c += CFG.addDieCost;
+  c += Math.max(0, cart.healScars||0) * (CFG.healScarCost||2);
   return c;
 }
 function myBudget(){ return (G.players[me].energy||0); }
@@ -2515,7 +2392,7 @@ function freeRerollThisRound(){
   return CFG.freeRerollsPerRound || 1;
 }
 function isParasiteRollType(type){ return type==='a' || type==='m' || type==='i'; }
-function isHumanRollType(type){ return type==='h' || type==='hm' || type==='s' || type==='p'; }
+function isHumanRollType(type){ return type==='h' || type==='hm' || type==='s'; }
 function canAffordReroll(){
   // Human pool only (crew dice / human mod / scar)
   if (!session || !session.selectedRoll || !isHumanRollType(session.selectedRoll.type)) return false;
@@ -2543,11 +2420,11 @@ function spendParRerollCharge(){
 }
 function resetSessionForRound(r){
   if (!session || session.round !== r){
-    session = { round:r, phase:'upgrade', rolls:null, modRoll:null, scarRoll:null, poisonRoll:null,
+    session = { round:r, phase:'upgrade', rolls:null, modRoll:null, scarRoll:null, scarRolls:[],
       aRolls:null, pModRoll:null, instinctRoll:null, instinctExtra:0,
       paidRerolls:0, freeLeft:0, parEnergy:0, parRerolls:0,
       humanRolled:false, humanLocked:false, parRolled:false, parLocked:false,
-      dieCommit:null, _previewPar:null, shake:false, selectedRoll:null, ptsDelta:0 };
+      _previewPar:null, shake:false, selectedRoll:null, ptsDelta:0, scarEnergyLoss:0 };
   }
   if (cartRound !== r || !cart){ cart = freshCart(); cartRound = r; }
 }
@@ -2654,15 +2531,9 @@ function charSelectScreen(){
   const note = bots
     ? `This table is <b>${pool.length}</b> (${bots} computer). Join your human seat — comps play themselves.`
     : `This table is <b>${pool.length} players</b>. Type <b>your</b> name on your seat, then Join.`;
-  const pathBlock = `<div class="panel" style="text-align:left;margin-top:12px">
-    <div class="lane-label" style="margin-top:0">${tip('path','Choose your path')}</div>
-    <div class="small">Pick once. Every roll you’ll ${tip('commit','commit')} one die — path action, ${tip('mint','Mint')}, or ${tip('score','Score')}. Tap gold words for tips.</div>
-    ${pathPickHTML(ui.claimPath, 'pickClaimPath')}
-  </div>`;
   return `<div class="center" style="padding-top:4vh">
     <h1 class="brand-hero">SPACE TRIBES: <span>PARASITE</span></h1>
     <p class="small">${note}</p>
-    ${pathBlock}
     <div class="char-grid">${cards}</div>
   </div>`;
 }
@@ -2672,8 +2543,6 @@ function claimSeat(pid){
   const el = document.getElementById('claim-'+pid);
   const name = cleanPlayerName(el && el.value);
   if (!name){ alert('Type your name first.'); return; }
-  const chosenPath = ui.claimPath || (G.players[pid] && G.players[pid].path) || null;
-  if (!chosenPath || !PATHS[chosenPath]){ alert('Pick a crew path first (Gunner, Engineer, or Warden).'); return; }
   // block duplicate names on other seats
   const clash = rosterOf(G).find(p => p!==pid && cleanPlayerName((G.players[p]&&G.players[p].name)||'').toLowerCase()===name.toLowerCase());
   if (clash){ alert('That name is already taken.'); return; }
@@ -2682,14 +2551,13 @@ function claimSeat(pid){
     if (!confirm('Replace "'+prev+'" with "'+name+'" on this seat?')) return;
   }
   G.players[pid].name = name;
-  G.players[pid].path = chosenPath;
+  delete G.players[pid].path;
   me = pid;
   localStorage.setItem('stp_me', pid);
   localStorage.setItem('stp_myname', name);
-  ui.claimPath = chosenPath;
   render();
   const save = ()=> {
-    const payload = { name, path: chosenPath };
+    const payload = { name };
     if (gameRef && !usingRest){
       return gameRef.child('players/'+pid).update(payload).catch(()=> restPatchPlayer(pid, payload));
     }
@@ -2703,37 +2571,6 @@ function restPatchPlayer(pid, payload){
     Object.assign(g.players[pid], payload);
     return restPut('games/current', g);
   }).catch(()=>null);
-}
-function pickClaimPath(id){
-  if (!PATHS[id]) return;
-  ui.claimPath = id;
-  render();
-}
-function pathPickHTML(selected, onclickPrefix){
-  return `<div class="path-grid">${PATH_IDS.map(id=>{
-    const p = PATHS[id];
-    const on = selected===id ? 'picked' : '';
-    const actionTip = ({Strike:'strike',Charge:'charge',Brace:'brace'})[p.action] || id;
-    return `<button type="button" class="path-card ${id} ${on}" onclick="${onclickPrefix}('${id}')">
-      <div class="pn">${tip(id, p.name)} · ${COLOR_META[p.color].name}</div>
-      <div class="pt"><b>Always:</b> ${p.passive}</div>
-      <div class="pt"><b>${tip(actionTip, p.action)}:</b> ${p.actionDesc}</div>
-    </button>`;
-  }).join('')}</div>`;
-}
-function setMyPath(id){
-  if (!G || !me || !PATHS[id]) return;
-  if (G.players[me].path) return;
-  G.players[me].path = id;
-  ui.claimPath = id;
-  render();
-  const save = ()=> {
-    if (gameRef && !usingRest){
-      return gameRef.child('players/'+me+'/path').set(id).catch(()=> restPatchPlayer(me, { path:id }));
-    }
-    return restPatchPlayer(me, { path:id });
-  };
-  save().catch(err => console.warn('path save', err));
 }
 function pickChar(p){
   // back-compat for older calls / tests
@@ -2770,11 +2607,11 @@ function topbarHTML(){
   } else if (hostNow && session && session.phase==='upgrade'){
     parChip = `<div class="stat-chip par-en" title="Parasite energy this host turn (scales with table size)">Par ⚡${hostParStipendNow()}</div>`;
   }
-  const pinfo = pathInfo(pl.path);
-  const pathChip = pinfo ? `<div class="stat-chip path-chip" title="${esc(pinfo.passive)}">${tip('path', pinfo.name)}</div>` : '';
+  const scars = scarCount(pl);
+  const scarChip = scars ? `<div class="stat-chip" style="color:#ff8a9a" title="Scar dice in your pool">${tip('scar','Scar')} ${scars}</div>` : '';
   return `<div class="topbar">
     <button class="me-chip" onclick="switchChar()">${whoHTML(me)}</button>
-    ${pathChip}
+    ${scarChip}
     <div class="stat-chip energy">${tip('energy','⚡')} ${showLeft}${showLeft!==(pl.energy||0)?`<span style="color:var(--dim);font-size:10px">/${pl.energy||0}</span>`:''}</div>
     <div class="stat-chip base${baseN?'':' dim'}" title="Rises when you upgrade Base faces on your mod die">${tip('mod', baseLab)}</div>
     ${parChip}
@@ -2790,8 +2627,8 @@ function standingsBarHTML(){
   const leadPts = G.players[ranked[0]] ? (G.players[ranked[0]].pts||0) : 0;
   const chips = ranked.map((p)=>{
     const pts = G.players[p].pts||0;
-    const scar = G.players[p].scarLv ? `Scar L${G.players[p].scarLv}` : '';
-    const poison = G.players[p].poisonLv ? `Psn L${G.players[p].poisonLv}` : '';
+    const sc = scarCount(G.players[p]);
+    const scar = sc ? `${sc} scar${sc>1?'s':''}` : '';
     const bot = !!G.players[p].isBot;
     const cls = (p===me?'me':'') + (pts===leadPts && leadPts>0?' lead':'');
     return `<div class="sb-chip ${cls}">
@@ -2799,7 +2636,6 @@ function standingsBarHTML(){
       <div class="sb-pts">${pts}</div>
       ${bot?`<div class="sb-meta">COMP</div>`:''}
       ${scar?`<div class="sb-meta" style="color:#ff8a9a">${esc(scar)}</div>`:''}
-      ${poison?`<div class="sb-meta" style="color:#c77dff">${esc(poison)}</div>`:''}
     </div>`;
   }).join('');
   const boss = G.parasite ? `${tip('boss','Boss')} ${G.parasite.bossMeter||0} · HP ${bossHP(G)}` : '';
@@ -2868,39 +2704,28 @@ function parasitePanelHTML(){
 function turnCoachHTML(r, isHost){
   const kind = roundKind(r, G);
   const n = tableSize(G);
-  const pinfo = pathInfo((G.players[me]||{}).path);
-  const pathBit = pinfo
-    ? ` You’re a ${tip(pinfo.id, pinfo.name)} — ${tip('commit','Commit')} one die (${tip(({Strike:'strike',Charge:'charge',Brace:'brace'})[pinfo.action]||'commit', pinfo.action)} / ${tip('mint','Mint')} / ${tip('score','Score')}).`
-    : ` ${tip('commit','Commit')} one die each roll.`;
   let title, how;
   if (kind==='training'){
     title = 'Training day';
-    how = `No parasite. ${tip('forge','Forge')}, roll, then ${tip('commit','commit')}.${pathBit}`;
+    how = `No parasite. ${tip('forge','Forge')}, upgrade ${tip('mod','Mod')}, roll ${tip('attack','Attack')} dice.`;
   } else if (kind==='skirmish'){
     title = 'Crew skirmish';
-    how = `No host this round. Score like training.${pathBit}`;
+    how = `No host this round. Score like training.`;
   } else if (kind==='boss'){
     title = 'THE REVEAL';
-    how = `Crew vs <b>${bossHP(G)} HP</b>.${pathBit}`;
+    how = `Crew vs <b>${bossHP(G)} HP</b>.`;
   } else if (isHost){
     title = 'You are the HOST';
-    how = `Pick one ${tip('moves','move')}: ${tip('feed','Feed')} / ${tip('harden','Harden')} / ${tip('outbreak','Outbreak')} / ${tip('poison','Poison')}. Then roll &amp; lock human + parasite.${pathBit} Par ⚡ <b>${hostParStipendNow()}</b>.`;
+    how = `Pick one ${tip('moves','move')}: ${tip('feed','Feed')} / ${tip('harden','Harden')} / ${tip('outbreak','Outbreak')} / ${tip('poison','Poison')}. Then roll &amp; lock human + parasite. Par ⚡ <b>${hostParStipendNow()}</b>.`;
   } else {
     const hid = hostIdForRound(G, r);
     title = `${whoHTML(hid)} is infected`;
-    how = `Hold the ship (${n-1} crew).${pathBit}`;
+    how = `Hold the ship (${n-1} crew).`;
   }
   return `<div class="turn-coach ${isHost?'parasite':''}"><div class="step">Round ${r} · ${kind}</div>
     <div class="title">${title}</div><div class="how">${how}</div></div>`;
 }
 
-function pathGateHTML(){
-  return `<div class="panel">
-    <div class="lane-label" style="margin-top:0">${tip('path','Choose your crew path')}</div>
-    <div class="small">This locks for the whole game. Every roll you’ll ${tip('commit','commit')} one die. Tap gold names for tips.</div>
-    ${pathPickHTML(ui.claimPath || (G.players[me]&&G.players[me].path) || null, 'setMyPath')}
-  </div>`;
-}
 function gameScreen(){
   const r = G.round;
   const kind = roundKind(r, G);
@@ -2909,11 +2734,9 @@ function gameScreen(){
   resetSessionForRound(r);
   const actions = (G.rounds[r] && G.rounds[r].actions) || {};
   const locked = actionLocked(actions[me]);
-  const needPath = me && G.players[me] && !G.players[me].isBot && !PATHS[G.players[me].path];
 
   let body;
-  if (needPath) body = pathGateHTML();
-  else if (locked) body = waitingHTML(r);
+  if (locked) body = waitingHTML(r);
   else if (session.phase==='roll') body = rollPhaseHTML(r, isHost);
   else body = shopHTML(r, isHost);
   setTimeout(kickBots, 60);
@@ -2921,7 +2744,7 @@ function gameScreen(){
   return `${chromeHTML()}
     ${roundStripHTML()}
     ${parasitePanelHTML()}
-    ${needPath?'':turnCoachHTML(r, isHost)}
+    ${turnCoachHTML(r, isHost)}
     ${body}
     ${bottomDockHTML()}`;
 }
@@ -2954,17 +2777,28 @@ function shopHTML(r, isHost){
     </div>`;
   }
 
-  const modBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('mod','Modifier die')} (2⚡ / 20% / Base+0)</div>
-    <div class="si-desc">Upgrade a face for 2⚡. Max level 3 (⚡→4, %→40, Base 0→3→5).</div></div><div class="si-cost">2⚡</div></div>
+  const modBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('mod','Mod die')} — 4 help · 2 Scar</div>
+    <div class="si-desc">Upgrade a helpful face for 2⚡ (max L3). Scar faces can’t be upgraded — lock one and you grab a ${tip('scar','Scar')} die.</div></div><div class="si-cost">2⚡</div></div>
     <div class="face-strip">${modPrev.map((f,i)=>{
       const queued = (cart.modUps||[]).filter(x=>x===i).length;
       const pick = ui.selectedModFace===i;
       return `<button class="face-chip ${modFaceClass(f)} ${pick?'picked':''}" onclick="pickModFace(${i})">${modFaceLabel(f)}${queued?`↑${queued}`:''}</button>`;
     }).join('')}</div>
-    <button class="buy-btn primary" onclick="queueModUp()" ${ui.selectedModFace==null || left < CFG.modUpgradeCost?'disabled':''}>Upgrade face</button>
+    <button class="buy-btn primary" onclick="queueModUp()" ${ui.selectedModFace==null || left < CFG.modUpgradeCost || (modPrev[ui.selectedModFace]&&modPrev[ui.selectedModFace].kind==='scar')?'disabled':''}>Upgrade face</button>
   </div>`;
 
-  const extras = `<div class="shop-item"><div class="si-top"><div><div class="si-name">Extra die</div>
+  const myScars = scarCount(pl);
+  const healQueued = Math.max(0, cart.healScars||0);
+  const healBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('heal','Heal scar')}</div>
+    <div class="si-desc">Remove one ${tip('scar','Scar')} die from your pool (2⚡ each). You have <b>${myScars}</b>.</div></div><div class="si-cost">2⚡</div></div>
+    <div class="row" style="gap:8px;margin-top:8px">
+      <button class="buy-btn" onclick="queueHealScar(-1)" ${healQueued<1?'disabled':''}>−</button>
+      <div class="si-desc" style="flex:1;text-align:center">Heal <b>${healQueued}</b></div>
+      <button class="buy-btn primary" onclick="queueHealScar(1)" ${myScars-healQueued<1 || left < CFG.healScarCost?'disabled':''}>+ heal</button>
+    </div>
+  </div>`;
+
+  const extras = `<div class="shop-item"><div class="si-top"><div><div class="si-name">Extra ${tip('attack','Attack')} die</div>
     <div class="si-desc">Add one more die in a category (3⚡). Everyone already gets <b>1 free reroll</b> each round.</div></div><div class="si-cost">3⚡</div></div>
     <div class="cat-picks">${COLORS.map(c=>{
       const ok = canAddColor(pl, c, cart.addDie);
@@ -2984,7 +2818,7 @@ function shopHTML(r, isHost){
     const targetRow = poisonOn ? `<div class="small" style="margin-top:8px">${tip('poison','Poison target')}:</div>
       <div class="target-row">${crew.map(pid=>{
         const on = cart.growth && cart.growth.target===pid;
-        return `<button type="button" class="btn target ${on?'on':''}" onclick="pickPoisonTarget('${pid}')">${whoHTML(pid,{short:true})}${G.players[pid].poisonLv?` · P${G.players[pid].poisonLv}`:''}</button>`;
+        return `<button type="button" class="btn target ${on?'on':''}" onclick="pickPoisonTarget('${pid}')">${whoHTML(pid,{short:true})}${scarCount(G.players[pid])?` · ${scarCount(G.players[pid])} scar`:''}</button>`;
       }).join('')}</div>` : '';
     growthBlock = `<div class="panel" style="border-color:#8dff6a44">
       <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('moves','Parasite move')} — pick one</div>
@@ -2996,7 +2830,7 @@ function shopHTML(r, isHost){
           <div class="go-title">${tip(o.key, o.title)}</div><div class="go-desc">${o.desc}</div></button>`;
       }).join('')}</div>
       ${targetRow}
-      ${pl.scarLv?`<div class="warn-box">You carry ${tip('scar','Scar')} L${pl.scarLv}. ${tip('outbreak','Outbreak')} bumps toward L2 (cap).</div>`:''}
+      ${myScars?`<div class="warn-box">You carry ${myScars} ${tip('scar','Scar')} die${myScars>1?'s':''}. ${tip('outbreak','Outbreak')} adds another.</div>`:''}
     </div>`;
   }
 
@@ -3010,7 +2844,7 @@ function shopHTML(r, isHost){
   return `${growthBlock}
     <div class="spent-preview">Energy left after shop: ⚡ ${left}${isHost?` · Parasite will get ⚡ ${parStip}`:''}</div>
     <div class="dice-row">${diceRow}</div>
-    ${forgeBlock}${modBlock}${extras}
+    ${forgeBlock}${modBlock}${healBlock}${extras}
     <button class="btn ghost" style="margin-top:4px" onclick="resetChoices()">Reset choices</button>
     <div class="cta-spacer"></div>
     <div class="fixed-cta">
@@ -3026,7 +2860,7 @@ function resetChoices(){
     session.baseModRoll = null;
     session.modRoll = null;
     session.scarRoll = null;
-    session.poisonRoll = null;
+    session.scarRolls = [];
     session.aRolls = null;
     session.pModRoll = null;
     session.instinctRoll = null;
@@ -3038,7 +2872,6 @@ function resetChoices(){
     session.humanLocked = false;
     session.parRolled = false;
     session.parLocked = false;
-    session.dieCommit = null;
     session._previewPar = null;
     session.selectedRoll = null;
     session.ptsDelta = 0;
@@ -3064,8 +2897,19 @@ function queueModUp(){
   if (ui.selectedModFace==null || energyLeft() < CFG.modUpgradeCost) return;
   const pl = G.players[me];
   const preview = previewModDie(pl);
-  if (!preview[ui.selectedModFace] || preview[ui.selectedModFace].level>=2) return;
+  const face = preview[ui.selectedModFace];
+  if (!face || face.kind==='scar' || face.level>=2) return;
   cart.modUps.push(ui.selectedModFace);
+  render();
+}
+function queueHealScar(delta){
+  const pl = G.players[me];
+  const max = scarCount(pl);
+  let n = Math.max(0, (cart.healScars||0) + (delta|0));
+  n = Math.min(n, max);
+  const baseSpend = (cart.forges||[]).length*CFG.forgeCost + (cart.modUps||[]).length*CFG.modUpgradeCost + (cart.addDie?CFG.addDieCost:0);
+  while (n > 0 && (myBudget() - baseSpend - n*(CFG.healScarCost||2)) < 0) n--;
+  cart.healScars = n;
   render();
 }
 function setAddDie(c){
@@ -3090,7 +2934,7 @@ function pickPoisonTarget(pid){
 function prepareHostGrowthPreview(){
   const fake = deep(G.parasite);
   if (cart && cart.growth && cart.growth.key){
-    const hostFake = { scarLv: G.players[me].scarLv||0 };
+    const hostFake = { scars: scarCount(G.players[me]) };
     const MOVE_KEYS = { feed:1, harden:1, outbreak:1, poison:1 };
     if (MOVE_KEYS[cart.growth.key]){
       const res = applyParasiteMove(fake, cart.growth.key, hostFake, { poisonTarget: cart.growth.target });
@@ -3120,26 +2964,19 @@ function rollHumanBundle(){
   }
   const mi = rollIndex(modPrev.length);
   const modRoll = { index:mi, kind:modPrev[mi].kind, level:modPrev[mi].level, value:modFaceValue(modPrev[mi]) };
-  let scarRoll = null;
-  const scarLv = G.players[me].scarLv||0;
-  if (scarLv > 0){
-    const faces = SCAR_FACES[scarLv];
-    const si = rollIndex(faces.length);
-    scarRoll = { index:si, id:faces[si].id, label:faces[si].label, level:scarLv };
-  }
-  let poisonRoll = null;
-  const poisonLv = G.players[me].poisonLv||0;
-  if (poisonLv > 0){
-    const faces = POISON_FACES[poisonLv] || POISON_FACES[1];
-    const si = rollIndex(faces.length);
-    poisonRoll = { index:si, id:faces[si].id, label:faces[si].label, level:poisonLv };
+  const scarsActive = Math.max(0, scarCount(G.players[me]) - Math.max(0, (cart && cart.healScars)|0));
+  const scarRolls = [];
+  for (let s=0; s<scarsActive; s++){
+    const si = rollIndex(SCAR_DIE_FACES.length);
+    const f = SCAR_DIE_FACES[si];
+    scarRolls.push({ index:si, id:f.id, label:f.label, level:1 });
   }
   session.baseRolls = deep(rolls);
   session.baseModRoll = deep(modRoll);
   session.rolls = deep(rolls);
   session.modRoll = deep(modRoll);
-  session.scarRoll = scarRoll;
-  session.poisonRoll = poisonRoll;
+  session.scarRolls = scarRolls;
+  session.scarRoll = scarRolls[0] || null; // legacy single pointer
   session.ptsDelta = 0;
   session.scarEnergyLoss = 0;
   reapplyScarFromBase();
@@ -3181,7 +3018,7 @@ function startHostRollPhase(){
   session.baseRolls = null;
   session.modRoll = null;
   session.scarRoll = null;
-  session.poisonRoll = null;
+  session.scarRolls = [];
   session.aRolls = null;
   session.pModRoll = null;
   session.instinctRoll = null;
@@ -3190,7 +3027,6 @@ function startHostRollPhase(){
   session.parRerolls = 0;
   session.freeLeft = freeRerollThisRound();
   session.paidRerolls = 0;
-  session.dieCommit = null;
   session.selectedRoll = null;
   session.shake = false;
   render();
@@ -3198,7 +3034,6 @@ function startHostRollPhase(){
 function beginHumanRoll(){
   if (!session || session.phase!=='roll' || session.humanLocked) return;
   rollHumanBundle();
-  clearDieCommit();
   session.selectedRoll = null;
   session.shake = true;
   render();
@@ -3216,7 +3051,6 @@ function beginParasiteRoll(){
 }
 function lockHumanRoll(){
   if (!session || !session.humanRolled || session.humanLocked) return;
-  if (!dieCommitReady()) return;
   session.humanLocked = true;
   session.selectedRoll = null;
   render();
@@ -3241,7 +3075,6 @@ function beginRoll(){
   session.humanLocked = false;
   session.parRolled = false;
   session.parLocked = false;
-  session.dieCommit = null;
   session.freeLeft = freeRerollThisRound();
   session.paidRerolls = 0;
   session.phase = 'roll';
@@ -3251,7 +3084,7 @@ function beginRoll(){
   setTimeout(()=>{ if(session) session.shake=false; render(); }, 550);
 }
 
-/** Restore clean dice/mod, then apply scar + poison once. */
+/** Restore clean dice/mod, then apply each Scar die once. */
 function reapplyScarFromBase(){
   if (!session) return;
   session.rolls = deep(session.baseRolls || session.rolls || []);
@@ -3259,75 +3092,24 @@ function reapplyScarFromBase(){
   session.ptsDelta = 0;
   session.scarEnergyLoss = 0;
   (session.rolls||[]).forEach(d=>{ d.scarZeroed = false; d.scarNote = ''; });
-  applyScarToSession();
-  applyPoisonToSession();
+  (session.scarRolls||[]).forEach(sr => applyHurtFace(sr, 'scar'));
 }
 function applyHurtFace(hurt, kind){
-  // kind: 'scar' | 'poison' — mutates session.rolls / mod / pts / energy
+  // Scar dice are uniform (level 1 effects). Mutates session.rolls / energy / pts.
   if (!hurt || hurt.id==='blank') return;
-  const lv = hurt.level;
   const rolls = session.rolls || [];
   if (hurt.id==='drain'){
-    session.scarEnergyLoss = (session.scarEnergyLoss||0) + (lv===1 ? 2 : 4);
+    session.scarEnergyLoss = (session.scarEnergyLoss||0) + 2;
   } else if (hurt.id==='bleed'){
-    const mult = lv===1 ? 0.9 : 0.8;
-    rolls.forEach(d=>{ d.v = Math.max(0, Math.round(d.v * mult)); });
-  } else if (hurt.id==='static'){
-    session.modRoll = null;
-    if (lv===2) session.scarEnergyLoss = (session.scarEnergyLoss||0) + 1;
-  } else if (hurt.id==='fumble'){
-    const n = lv===1 ? 1 : 2;
-    for (let k=0;k<n;k++){
-      if (!rolls.length) break;
-      let hi=0; for (let i=1;i<rolls.length;i++) if ((rolls[i].v||0)>(rolls[hi].v||0)) hi=i;
-      const rf = rollFace(rolls[hi].faces);
-      rolls[hi].v = rf.value; rolls[hi].index = rf.index; rolls[hi].rerolled = true;
-      if (session.baseRolls && session.baseRolls[hi]){
-        session.baseRolls[hi].v = rf.value;
-        session.baseRolls[hi].index = rf.index;
-      }
-    }
-  } else if (hurt.id==='penalty'){
-    session.ptsDelta = (session.ptsDelta||0) - (lv===1 ? 5 : 10);
+    rolls.forEach(d=>{ d.v = Math.max(0, Math.round(d.v * 0.9)); });
   } else if (hurt.id==='shatter'){
     if (rolls.length){
       let hi=0; for (let i=1;i<rolls.length;i++) if ((rolls[i].v||0)>(rolls[hi].v||0)) hi=i;
       const lost = rolls[hi].v||0;
       rolls[hi].scarNote = (rolls[hi].scarNote ? rolls[hi].scarNote+' · ' : '') + '−'+lost+' '+kind;
     }
-    if (lv===2 && kind==='scar') session.ptsDelta = (session.ptsDelta||0) - 5;
   }
 }
-function applyPoisonToSession(){
-  applyHurtFace(session.poisonRoll, 'poison');
-}
-
-function applyScarToSession(){
-  applyHurtFace(session.scarRoll, 'scar');
-}
-
-function clearDieCommit(){ if (session) session.dieCommit = null; }
-function commitDie(type){
-  if (!session || session.phase!=='roll' || session.humanLocked) return;
-  if (!session.selectedRoll || session.selectedRoll.type!=='h') return;
-  const i = session.selectedRoll.i|0;
-  const d = session.rolls && session.rolls[i];
-  if (!d) return;
-  const pl = G.players[me] || {};
-  const pinfo = pathInfo(pl.path);
-  if (type==='path'){
-    if (!pinfo || d.color !== pinfo.color) return;
-  } else if (type!=='mint' && type!=='score') return;
-  session.dieCommit = {
-    type, i,
-    dieId: d.dieId,
-    color: d.color,
-    faceIndex: d.index,
-    v: d.v|0,
-  };
-  render();
-}
-function dieCommitReady(){ return !!(session && session.dieCommit && session.dieCommit.type); }
 
 function rollPhaseHTML(r, isHost){
   const shake = session.shake ? 'rolling' : '';
@@ -3335,7 +3117,6 @@ function rollPhaseHTML(r, isHost){
   const humanLocked = !!session.humanLocked;
   const parRolled = !!session.parRolled || !!(session.aRolls && session.aRolls.length);
   const parLocked = !!session.parLocked;
-  // Non-host always treats the single roll as the human bundle
   if (!isHost && session.rolls && !session.humanRolled) session.humanRolled = true;
 
   const rolls = session.rolls||[];
@@ -3350,41 +3131,36 @@ function rollPhaseHTML(r, isHost){
   if (live.modAdd) modPart = '+'+live.modAdd;
   else if (live.pendingEnergy) modPart = '+'+live.pendingEnergy+'⚡';
   else if (modRoll && modRoll.kind==='base') modPart = '+0';
+  else if (modRoll && modRoll.kind==='scar') modPart = 'Scar';
   else if (!modRoll) modPart = humanRolled ? 'off' : '—';
 
+  const scarList = session.scarRolls || [];
   let scarLine = '';
-  if (session.scarRoll){
-    scarLine += `<div class="warn-box">${tip('scar','Scar')}: <b>${session.scarRoll.label}</b> — tap scar die to reroll</div>`;
+  if (scarList.length){
+    const labs = scarList.map(s => s && s.label ? s.label : '—').join(' · ');
+    scarLine = `<div class="warn-box">${tip('scar','Scar')} pool (${scarList.length}): <b>${esc(labs)}</b> — tap a Scar die to reroll</div>`;
   }
-  if (session.poisonRoll){
-    scarLine += `<div class="warn-box" style="border-color:#c77dff66;color:#e0c0ff">${tip('poison','Poison')}: <b>${session.poisonRoll.label}</b> — tap poison die to reroll</div>`;
+  if (modRoll && modRoll.kind==='scar' && !humanLocked){
+    scarLine += `<div class="warn-box">Mod shows Scar — ${tip('lock','lock in')} and you grab a permanent ${tip('scar','Scar')} die</div>`;
   }
   let extraBits = '';
   if (live.scarLabel) extraBits += `<div class="small center" style="margin-top:4px;color:#ff8a9a">Scar ${esc(live.scarLabel)}</div>`;
-  if (live.poisonLabel) extraBits += `<div class="small center" style="margin-top:4px;color:#c77dff">Poison ${esc(live.poisonLabel)}</div>`;
   if (live.shatterSub) extraBits += `<div class="small center" style="color:#ff8a9a">Scar −${live.shatterSub} (strongest die — reroll it to move the hit)</div>`;
-  if (live.pathNote) extraBits += `<div class="small center" style="color:var(--energy)">${esc(live.pathNote)}</div>`;
-  if (live.scorePts) extraBits += `<div class="small center" style="color:var(--energy)">${tip('score','Score')} +${live.scorePts} pts (die out of combat)</div>`;
-  if (session.dieCommit && session.dieCommit.type==='mint') extraBits += `<div class="small center" style="color:var(--energy)">${tip('mint','Mint')}: face +1 forever · die out of combat this round</div>`;
-  if (live.ptsDelta && !live.scorePts) extraBits += `<div class="small center" style="color:#ff8a9a">${live.ptsDelta} pts</div>`;
-  else if (live.ptsDelta && live.scorePts && (session.ptsDelta||0)) extraBits += `<div class="small center" style="color:#ff8a9a">Scar ${(session.ptsDelta||0)} pts</div>`;
+  if (live.ptsDelta) extraBits += `<div class="small center" style="color:#ff8a9a">${live.ptsDelta} pts</div>`;
   if (live.energyLoss) extraBits += `<div class="small center" style="color:#ff8a9a">−${live.energyLoss}⚡</div>`;
 
   const canPickHuman = humanRolled && !humanLocked;
-  const commit = session.dieCommit;
   const dice = humanRolled ? rolls.map((d,i)=>{
     const sel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='h' && session.selectedRoll.i===i;
     const shown = d.v;
     const bonus = isBonusDie(d);
     const bits = [];
-    if (commit && commit.i===i) bits.push(commit.type==='mint'?'MINT':(commit.type==='score'?'SCORE':'PATH'));
     if (d.scarNote) bits.push(d.scarNote);
     else if (d.rerolled) bits.push('rerolled');
     if (bonus) bits.push('bonus');
     const faceLine = (d.faces||[]).join('·');
-    const committed = commit && commit.i===i ? 'committed' : '';
     const pick = canPickHuman ? `can-pick ${sel?'selected':''}" onclick="pickRoll('h',${i})` : '';
-    return `<div class="die-wrap ${committed} ${pick}">${dieHTML(d.color, shown, shake, {bonus})}
+    return `<div class="die-wrap ${pick}">${dieHTML(d.color, shown, shake, {bonus})}
       <div class="die-label ${d.color}">${COLOR_META[d.color].name}${bonus?' +':''}</div>
       <div class="die-sub">${bits.join(' · ')}</div>
       <div class="die-faces">${esc(faceLine)}</div></div>`;
@@ -3398,24 +3174,19 @@ function rollPhaseHTML(r, isHost){
     </div>` : '';
 
   let scarDie = '';
-  if (humanRolled && session.scarRoll){
-    const sel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='s';
-    scarDie += `<div class="die-wrap ${canPickHuman?`can-pick ${sel?'selected':''}" onclick="pickRoll('s',0)`:''}">${dieHTML('scar', session.scarRoll.label, shake)}
-      <div class="die-label" style="color:#ff8a9a">${tip('scar','Scar')}</div></div>`;
-  }
-  if (humanRolled && session.poisonRoll){
-    const sel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='p';
-    scarDie += `<div class="die-wrap ${canPickHuman?`can-pick ${sel?'selected':''}" onclick="pickRoll('p',0)`:''}">${dieHTML('scar', session.poisonRoll.label, shake)}
-      <div class="die-label" style="color:#c77dff">${tip('poison','Poison')}</div></div>`;
+  if (humanRolled){
+    scarList.forEach((sr, si)=>{
+      const sel = canPickHuman && session.selectedRoll && session.selectedRoll.type==='s' && session.selectedRoll.i===si;
+      scarDie += `<div class="die-wrap ${canPickHuman?`can-pick ${sel?'selected':''}" onclick="pickRoll('s',${si})`:''}">${dieHTML('scar', sr.label, shake)}
+        <div class="die-label" style="color:#ff8a9a">${tip('scar','Scar')} ${si+1}</div></div>`;
+    });
   }
 
-  const pathBit = live.pathBonus ? `<span class="op">+</span><span class="rf">Path <b>+${live.pathBonus}</b></span>` : '';
   const finalBlock = humanRolled ? `<div class="roll-final">
       <div class="roll-eq">
         <span class="rf">Dice <b>${live.attack}</b></span>
         <span class="op">+</span>
         <span class="rf">Mod <b>${esc(String(modPart))}</b></span>
-        ${pathBit}
         <span class="op">=</span>
         <span class="rf total">Total <b>${humanSum}</b></span>
       </div>
@@ -3423,33 +3194,15 @@ function rollPhaseHTML(r, isHost){
     </div>` : `<div class="hint">Roll your human dice when ready. You can roll the parasite separately.</div>`;
 
   const canRR = canAffordReroll();
-  const plPath = pathInfo((G.players[me]||{}).path);
-  const selH = session.selectedRoll && session.selectedRoll.type==='h' ? session.rolls[session.selectedRoll.i] : null;
-  const canPath = !!(selH && plPath && selH.color===plPath.color);
-  const scorePreview = selH ? Math.max(1, Math.floor((selH.v||0)/2)) : 0;
-  let commitPanel = '';
-  if (humanRolled && !humanLocked){
-    commitPanel = `<div class="panel" style="margin-top:8px;border-color:#f0c04044">
-      <div class="lane-label" style="margin-top:0">${tip('commit','Commit one die')}</div>
-      <div class="small">${selH?`Selected <b>${COLOR_META[selH.color].name}</b> showing <b>${selH.v}</b>. Choose:`:'Tap a crew die (not mod/scar), then choose:'}</div>
-      <div class="commit-grid">
-        <button class="btn commit ${commit&&commit.type==='path'?'on':''}" onclick="commitDie('path')" ${!canPath?'disabled':''}>${plPath?`${tip(({Strike:'strike',Charge:'charge',Brace:'brace'})[plPath.action]||'path', plPath.action)} (${COLOR_META[plPath.color].name})`:'Path action'}</button>
-        <button class="btn commit ${commit&&commit.type==='mint'?'on':''}" onclick="commitDie('mint')" ${!selH?'disabled':''}>${tip('mint','Mint +1')} on this face · 0 combat</button>
-        <button class="btn commit ${commit&&commit.type==='score'?'on':''}" onclick="commitDie('score')" ${!selH?'disabled':''}>${tip('score','Score')} +${scorePreview||'?'} pts · 0 combat</button>
-      </div>
-      ${dieCommitReady()?`<div class="hint" style="margin-top:6px">Committed. Reroll clears it — commit again before lock.</div>`:`<div class="hint" style="margin-top:6px;color:#ff8a9a">Commit required before Lock in.</div>`}
-    </div>`;
-  }
   let humanActions = '';
   if (!humanRolled){
     humanActions = `<button class="btn reroll" onclick="beginHumanRoll()">Roll human dice</button>`;
   } else if (isHost && humanLocked){
     humanActions = `<button class="btn lock-side done" disabled>Human roll locked · ${humanSum}</button>`;
   } else {
-    humanActions = `${commitPanel}
-      <div class="hint">Tap a die to reroll or commit (${session.freeLeft?`<b>${session.freeLeft} free</b> reroll · then `:''}⚡${CFG.rerollCost})</div>
+    humanActions = `<div class="hint">Tap any die to reroll (${session.freeLeft?`<b>${session.freeLeft} free</b> · then `:''}⚡${CFG.rerollCost})</div>
       <button class="btn reroll" onclick="confirmReroll()" ${!session.selectedRoll || !isHumanRollType(session.selectedRoll.type) || !canRR?'disabled':''}>Reroll selected</button>
-      ${isHost?`<button class="btn lock-side" onclick="lockHumanRoll()" ${!dieCommitReady()?'disabled':''}>Lock human roll · ${humanSum}</button>`:''}`;
+      ${isHost?`<button class="btn lock-side" onclick="lockHumanRoll()">Lock human roll · ${humanSum}</button>`:''}`;
   }
 
   const humanPanel = `<div class="panel ${humanLocked?'locked-side':''}">
@@ -3546,14 +3299,14 @@ function rollPhaseHTML(r, isHost){
 
   let bottom = '';
   if (!isHost){
-    const ready = humanRolled && dieCommitReady();
+    const ready = humanRolled;
     bottom = `<button class="btn" onclick="lockIn()" ${!ready?'disabled':''}>Lock in · ${humanSum}</button>
-      ${humanRolled && !dieCommitReady()?`<div class="hint" style="margin-top:6px">${tip('commit','Commit')} one die first.</div>`:`<div class="hint" style="margin-top:6px">${tip('lock','Lock in')} sends your roll.</div>`}`;
+      <div class="hint" style="margin-top:6px">${tip('lock','Lock in')} sends your roll.</div>`;
   } else if (humanLocked && parLocked){
     bottom = `<button class="btn" onclick="lockIn()">Submit both rolls · ${hostCombined}</button>`;
   } else {
     const need = [];
-    if (!humanLocked) need.push(humanRolled ? (dieCommitReady()?'lock human':'commit + lock human') : 'roll + commit + lock human');
+    if (!humanLocked) need.push(humanRolled ? 'lock human' : 'roll + lock human');
     if (!parLocked) need.push(parRolled ? 'lock parasite' : 'roll + lock parasite');
     bottom = `<button class="btn" disabled>Submit both rolls</button>
       <div class="hint" style="margin-top:6px">Still need to ${need.join(' and ')}.</div>`;
@@ -3577,7 +3330,6 @@ function confirmReroll(){
   if (!session.selectedRoll || !isHumanRollType(session.selectedRoll.type) || !canAffordReroll()) return;
   const { type, i } = session.selectedRoll;
   if (!spendRerollCharge()) return;
-  clearDieCommit();
   if (type==='h'){
     if (!session.baseRolls || !session.baseRolls[i]) return;
     const d = session.baseRolls[i];
@@ -3593,16 +3345,11 @@ function confirmReroll(){
     session.modRoll = deep(modRoll);
     reapplyScarFromBase();
   } else if (type==='s'){
-    const lv = G.players[me].scarLv||1;
-    const faces = SCAR_FACES[lv];
-    const si = rollIndex(faces.length);
-    session.scarRoll = { index:si, id:faces[si].id, label:faces[si].label, level:lv };
-    reapplyScarFromBase();
-  } else if (type==='p'){
-    const lv = G.players[me].poisonLv||1;
-    const faces = POISON_FACES[lv] || POISON_FACES[1];
-    const si = rollIndex(faces.length);
-    session.poisonRoll = { index:si, id:faces[si].id, label:faces[si].label, level:lv };
+    if (!session.scarRolls || !session.scarRolls[i]) return;
+    const si = rollIndex(SCAR_DIE_FACES.length);
+    const f = SCAR_DIE_FACES[si];
+    session.scarRolls[i] = { index:si, id:f.id, label:f.label, level:1 };
+    session.scarRoll = session.scarRolls[0] || null;
     reapplyScarFromBase();
   }
   session.selectedRoll = null;
@@ -3645,10 +3392,10 @@ function lockIn(){
   if (isHost){
     if (!session.humanLocked || !session.parLocked) return;
     if (!session.rolls || !session.aRolls) return;
-    if (!dieCommitReady()) return;
-  } else if (!session.rolls || !dieCommitReady()){
+  } else if (!session.rolls){
     return;
   }
+  const gainScar = !!(session.modRoll && session.modRoll.kind==='scar');
   const action = {
     phase:'locked',
     role: isHost ? 'host' : 'human',
@@ -3658,11 +3405,12 @@ function lockIn(){
     addDie: cart.addDie||null,
     buyFreeReroll: !!cart.buyFreeReroll,
     rerollBuys: session.paidRerolls||0,
-    dieCommit: session.dieCommit||null,
+    healScars: Math.max(0, cart.healScars||0),
+    gainScar,
     rolls: session.rolls,
     modRoll: session.modRoll,
-    scarRoll: session.scarRoll,
-    poisonRoll: session.poisonRoll||null,
+    scarRolls: session.scarRolls||[],
+    scarRoll: (session.scarRolls && session.scarRolls[0]) || session.scarRoll || null,
     ptsDelta: session.ptsDelta||0,
     scarEnergyLoss: session.scarEnergyLoss||0,
   };
@@ -3673,7 +3421,6 @@ function lockIn(){
     action.instinctRoll = session.instinctRoll;
     action.instinctExtra = session.instinctExtra||0;
   }
-  // apply scar energy loss into pending by negative pending — stash on action
   submitAction(action);
   session = { round:r, phase:'upgrade', rolls:null, paidRerolls:0, freeLeft:0, shake:false, selectedRoll:null };
   cart = freshCart();
@@ -3705,7 +3452,12 @@ function playerReviewCardHTML(pid, res){
   let modLabel = br ? br.modLabel : 'mod ?';
   let modAdd = br ? br.modAdd : 0;
   let pending = br ? br.pendingEnergy : 0;
-  let scarLab = br && br.scarRoll ? br.scarRoll.label : '';
+  let scarLab = '';
+  if (br){
+    if (br.scarRolls && br.scarRolls.length) scarLab = br.scarRolls.filter(s=>s&&s.id!=='blank').map(s=>s.label).join(' · ');
+    else if (br.scarRoll) scarLab = br.scarRoll.label || '';
+    if (br.scars) scarLab = (scarLab ? scarLab+' · ' : '') + br.scars + ' in pool';
+  }
   const isHost = res.hostId === pid;
   let hostExtra = '';
   if (isHost && res.parPart){
