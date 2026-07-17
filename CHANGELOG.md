@@ -1,8 +1,11 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.12.6** · Schema **v12**
+Current build: **v4.12.7** · Schema **v12**
 
 ---
+
+## v4.12.7 — Section shake only
+- Dice shake animation only on the section you reroll (Attack / Mod / Scar, or parasite Attack / Mod / Specialty)
 
 ## v4.12.6 — Humans only
 - Removed computer / Comp players

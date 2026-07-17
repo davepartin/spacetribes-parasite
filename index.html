@@ -1837,7 +1837,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.12.6';
+const APP_BUILD = 'v4.12.7';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2504,7 +2504,7 @@ function resetSessionForRound(r){
       aRolls:null, pModRoll:null, instinctRoll:null, instinctExtra:0,
       paidRerolls:0, freeLeft:0, parEnergy:0, parRerolls:0,
       humanRolled:false, humanLocked:false, parRolled:false, parLocked:false,
-      _previewPar:null, shake:false, selectedRoll:null, ptsDelta:0, scarEnergyLoss:0 };
+      _previewPar:null, shakeSecs:[], selectedRoll:null, ptsDelta:0, scarEnergyLoss:0 };
   }
   if (cartRound !== r || !cart){ cart = freshCart(); cartRound = r; }
 }
@@ -3002,6 +3002,7 @@ function resetChoices(){
     session.selectedRoll = null;
     session.ptsDelta = 0;
     session.scarEnergyLoss = 0;
+    session.shakeSecs = [];
   }
   cart = freshCart();
   ui.selectedDie = null;
@@ -3154,16 +3155,14 @@ function startHostRollPhase(){
   session.freeLeft = freeRerollThisRound();
   session.paidRerolls = 0;
   session.selectedRoll = null;
-  session.shake = false;
+  session.shakeSecs = [];
   render();
 }
 function beginHumanRoll(){
   if (!session || session.phase!=='roll' || session.humanLocked) return;
   rollHumanBundle();
   session.selectedRoll = null;
-  session.shake = true;
-  render();
-  setTimeout(()=>{ if(session) session.shake=false; render(); }, 550);
+  flashRoll(['attack','mod','scar']);
 }
 function beginParasiteRoll(){
   if (!session || session.phase!=='roll' || session.parLocked) return;
@@ -3171,9 +3170,7 @@ function beginParasiteRoll(){
   if (session.parEnergy == null) session.parEnergy = hostParStipendNow();
   rollParasiteBundle();
   session.selectedRoll = null;
-  session.shake = true;
-  render();
-  setTimeout(()=>{ if(session) session.shake=false; render(); }, 550);
+  flashRoll(['parAttack','parMod','instinct']);
 }
 function lockHumanRoll(){
   if (!session || !session.humanRolled || session.humanLocked) return;
@@ -3205,9 +3202,7 @@ function beginRoll(){
   session.paidRerolls = 0;
   session.phase = 'roll';
   session.selectedRoll = null;
-  session.shake = true;
-  render();
-  setTimeout(()=>{ if(session) session.shake=false; render(); }, 550);
+  flashRoll(['attack','mod','scar']);
 }
 
 /** Restore clean dice/mod, then apply each Scar die once. */
@@ -3238,7 +3233,7 @@ function applyHurtFace(hurt, kind){
 }
 
 function rollPhaseHTML(r, isHost){
-  const shake = session.shake ? 'rolling' : '';
+  const shakeOf = (sec) => (session.shakeSecs && session.shakeSecs.includes(sec)) ? 'rolling' : '';
   const humanRolled = !isHost || !!session.humanRolled || !!(session.rolls && session.rolls.length);
   const humanLocked = !!session.humanLocked;
   const parRolled = !!session.parRolled || !!(session.aRolls && session.aRolls.length);
@@ -3300,14 +3295,14 @@ function rollPhaseHTML(r, isHost){
     else if (d.rerolled) bits.push('rerolled');
     if (bonus) bits.push('bonus');
     const faceLine = (d.faces||[]).join('·');
-    return `<div class="die-wrap">${dieHTML(d.color, shown, shake, {bonus})}
+    return `<div class="die-wrap">${dieHTML(d.color, shown, shakeOf('attack'), {bonus})}
       <div class="die-label ${d.color}">${COLOR_META[d.color].name}${bonus?' +':''}</div>
       <div class="die-sub">${bits.join(' · ')}</div>
       <div class="die-faces">${esc(faceLine)}</div></div>`;
   }).join('') : '';
 
   const modDie = humanRolled ? `<div class="die-wrap">
-      ${dieHTML('hmod', modFaceTxt, `${shake} ${modKindCls}`)}
+      ${dieHTML('hmod', modFaceTxt, `${shakeOf('mod')} ${modKindCls}`)}
       <div class="die-label hmod">${tip('mod','Mod')}</div>
       <div class="die-sub">${esc(live.modLabel)}</div>
     </div>` : '';
@@ -3315,7 +3310,7 @@ function rollPhaseHTML(r, isHost){
   let scarDie = '';
   if (humanRolled){
     scarList.forEach((sr, si)=>{
-      scarDie += `<div class="die-wrap">${dieHTML('scar', sr.label, shake)}
+      scarDie += `<div class="die-wrap">${dieHTML('scar', sr.label, shakeOf('scar'))}
         <div class="die-label" style="color:#ff8a9a">${tip('scar','Scar')} ${si+1}</div></div>`;
     });
   }
@@ -3384,7 +3379,7 @@ function rollPhaseHTML(r, isHost){
     if (parRolled){
       aDice = (session.aRolls||[]).map((d)=>{
         const faceLine = (d.faces||[]).join('·');
-        return `<div class="die-wrap">${dieHTML('attack', d.v, shake)}
+        return `<div class="die-wrap">${dieHTML('attack', d.v, shakeOf('parAttack'))}
           <div class="die-label" style="color:#ffb090">Attack</div>
           <div class="die-sub">${d.exploded?'+ bonus re-roll':''}</div>
           <div class="die-faces">${esc(faceLine)}</div></div>`;
@@ -3441,7 +3436,7 @@ function rollPhaseHTML(r, isHost){
         <div class="roll-sec-head"><div class="lane-label">Mod</div>
           <button class="btn par-reroll sec" onclick="rerollParSection('mod')" ${!canParSec?'disabled':''}>${parSecLab}</button>
         </div>
-        <div class="dice-row par-row"><div class="die-wrap">${dieHTML('mod', pModTxt, shake)}
+        <div class="dice-row par-row"><div class="die-wrap">${dieHTML('mod', pModTxt, shakeOf('parMod'))}
           <div class="die-label" style="color:var(--bio)">Mod</div>
           <div class="die-sub">boost</div></div></div>
       </div>`;
@@ -3449,7 +3444,7 @@ function rollPhaseHTML(r, isHost){
         <div class="roll-sec-head"><div class="lane-label">${tip('instinct','Specialty')}</div>
           <button class="btn par-reroll sec" onclick="rerollParSection('instinct')" ${!canParSec?'disabled':''}>${parSecLab}</button>
         </div>
-        <div class="dice-row par-row"><div class="die-wrap">${dieHTML('instinct', instShort, shake)}
+        <div class="dice-row par-row"><div class="die-wrap">${dieHTML('instinct', instShort, shakeOf('instinct'))}
           <div class="die-label" style="color:var(--energy)">Specialty</div>
           <div class="die-sub">${instId==='explode'&&session.instinctExtra?('+'+session.instinctExtra):''}</div></div></div>
       </div>`;
@@ -3470,10 +3465,10 @@ function rollPhaseHTML(r, isHost){
       parActions = `${parFinal}<button class="btn lock-side done" disabled>Parasite roll locked · ${parTotal}</button>`;
     }
     const diceRowLocked = (parRolled && parLocked) ? `<div class="dice-row par-row">${aDice}
-        <div class="die-wrap">${dieHTML('mod', pModTxt, shake)}
+        <div class="die-wrap">${dieHTML('mod', pModTxt, shakeOf('parMod'))}
           <div class="die-label" style="color:var(--bio)">Mod</div>
           <div class="die-sub">boost</div></div>
-        <div class="die-wrap">${dieHTML('instinct', instShort, shake)}
+        <div class="die-wrap">${dieHTML('instinct', instShort, shakeOf('instinct'))}
           <div class="die-label" style="color:var(--energy)">${tip('instinct','Specialty')}</div>
           <div class="die-sub">${instId==='explode'&&session.instinctExtra?('+'+session.instinctExtra):''}</div></div>
       </div>` : '';
@@ -3506,19 +3501,23 @@ function rollPhaseHTML(r, isHost){
     <div class="fixed-cta">${bottom}</div>`;
 }
 
+function isShaking(){
+  return !!(session && session.shakeSecs && session.shakeSecs.length);
+}
 function pickRoll(type, i){
   // Legacy single-die pick — section reroll buttons replaced this UX
-  if (!session || session.phase!=='roll' || session.shake) return;
+  if (!session || session.phase!=='roll' || isShaking()) return;
   if (isHumanRollType(type) && session.humanLocked) return;
   if (isParasiteRollType(type) && session.parLocked) return;
   session.selectedRoll = { type, i };
   render();
 }
-function flashRoll(){
+/** Shake only the dice in these sections (attack/mod/scar or parAttack/parMod/instinct). */
+function flashRoll(sections){
   session.selectedRoll = null;
-  session.shake = true;
+  session.shakeSecs = Array.isArray(sections) ? sections.slice() : [];
   render();
-  setTimeout(()=>{ if(session) session.shake=false; render(); }, 450);
+  setTimeout(()=>{ if(session){ session.shakeSecs = []; render(); } }, 450);
 }
 function rerollHumanAttackDice(){
   (session.baseRolls||[]).forEach(d=>{
@@ -3543,18 +3542,19 @@ function rerollHumanScarDice(){
   session.scarRoll = (session.scarRolls && session.scarRolls[0]) || null;
 }
 function rerollHumanSection(section){
-  if (!session || session.humanLocked || session.phase!=='roll' || session.shake) return;
+  if (!session || session.humanLocked || session.phase!=='roll' || isShaking()) return;
   if (!session.humanRolled && !(session.rolls && session.rolls.length)) return;
   const all = section==='all';
   const cost = all ? (CFG.rerollAllCost||2) : (CFG.rerollCost||1);
   if (section==='scar' && !(session.scarRolls||[]).length) return;
   // Free covers a section reroll only — "all" always costs full energy
   if (!spendHumanRerollCost(cost, { allowFree: !all })) return;
-  if (all || section==='attack') rerollHumanAttackDice();
-  if (all || section==='mod') rerollHumanModDie();
-  if (all || section==='scar') rerollHumanScarDice();
+  const secs = [];
+  if (all || section==='attack'){ rerollHumanAttackDice(); secs.push('attack'); }
+  if (all || section==='mod'){ rerollHumanModDie(); secs.push('mod'); }
+  if (all || section==='scar'){ rerollHumanScarDice(); secs.push('scar'); }
   reapplyScarFromBase();
-  flashRoll();
+  flashRoll(secs);
 }
 function rerollParAttackDice(){
   (session.aRolls||[]).forEach(d=>{
@@ -3577,15 +3577,16 @@ function rerollParInstinct(){
   }
 }
 function rerollParSection(section){
-  if (!session || session.parLocked || session.phase!=='roll' || session.shake) return;
+  if (!session || session.parLocked || session.phase!=='roll' || isShaking()) return;
   if (!session.parRolled && !(session.aRolls && session.aRolls.length)) return;
   const all = section==='all';
   const cost = all ? (CFG.rerollAllCost||2) : (CFG.parRerollCost||1);
   if (!spendParRerollCost(cost)) return;
-  if (all || section==='attack') rerollParAttackDice();
-  if (all || section==='mod') rerollParModDie();
-  if (all || section==='instinct') rerollParInstinct();
-  flashRoll();
+  const secs = [];
+  if (all || section==='attack'){ rerollParAttackDice(); secs.push('parAttack'); }
+  if (all || section==='mod'){ rerollParModDie(); secs.push('parMod'); }
+  if (all || section==='instinct'){ rerollParInstinct(); secs.push('instinct'); }
+  flashRoll(secs);
 }
 function confirmReroll(){
   // Back-compat: treat as section based on selected type
@@ -3640,7 +3641,7 @@ function lockIn(){
     action.instinctExtra = session.instinctExtra||0;
   }
   submitAction(action);
-  session = { round:r, phase:'upgrade', rolls:null, paidRerolls:0, freeLeft:0, shake:false, selectedRoll:null };
+  session = { round:r, phase:'upgrade', rolls:null, paidRerolls:0, freeLeft:0, shakeSecs:[], selectedRoll:null };
   cart = freshCart();
   render();
 }
