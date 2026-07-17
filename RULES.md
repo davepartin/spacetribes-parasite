@@ -2,7 +2,19 @@
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.12.0** — Section rerolls (1⚡) + Reroll all (2⚡). Schema still **v12**. See [CHANGELOG.md](CHANGELOG.md).
+**v4.12.5** — Clearer in-game coaching + Help dictionary. Schema **v12**. See [CHANGELOG.md](CHANGELOG.md).
+
+## Goal
+
+Score the most **points**. If Round 10 fails, the parasite escapes (hollow win on points).
+
+## What to do each round
+
+1. **Shop** — Forge, upgrade Mod, heal scars, buy an extra Attack die.
+2. **Roll** — Section reroll **1⚡** (1 free) · Reroll all **2⚡**.
+3. **Lock in** — If Mod shows **gain scar** and you lock it, you pick up a Scar die.
+
+**Host rounds:** pick one parasite move in the shop → Continue to rolls → Lock human → Lock parasite → **Submit both**.
 
 ## Mission map
 

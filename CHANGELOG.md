@@ -1,16 +1,18 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.12.4** · Schema **v12**
+Current build: **v4.12.5** · Schema **v12**
 
 ---
 
+## v4.12.5 — Phase coaching
+- Turn coach now tells you the **next step** (shop vs roll, host locks, waiting)
+- RULES updated with **what to do each round** + dictionary
+
 ## v4.12.4 — Clearer Help + dictionary
-- Help rewritten as step-by-step **what to do**
-- Added an in-game **Dictionary** of terms (tap gold words for tips)
+- Help rewritten as step-by-step what to do
+- In-game Dictionary of terms
 
 ## v4.12.3 — Playtest bugfixes
-- Scar drain, bleed floor, shatter/% order, free vs All reroll, Points equation, Boss HP copy
-
 ## v4.12.2 — Scar bleed −20%
 ## v4.12.1 — Scar slash + − highest dice
 ## v4.12.0 — Section rerolls

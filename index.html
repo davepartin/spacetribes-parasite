@@ -1839,7 +1839,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.12.4';
+const APP_BUILD = 'v4.12.5';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2991,26 +2991,74 @@ function parasitePanelHTML(){
 function turnCoachHTML(r, isHost){
   const kind = roundKind(r, G);
   const n = tableSize(G);
-  let title, how;
-  if (kind==='training'){
-    title = 'Training day';
-    how = `No parasite. ${tip('forge','Forge')}, upgrade ${tip('mod','Mod')}, roll ${tip('attack','Attack')} dice.`;
+  const phase = (session && session.phase) || 'upgrade';
+  const actions = (G.rounds[r] && G.rounds[r].actions) || {};
+  const locked = actionLocked(actions[me]);
+  let title, how, stepLabel = `Round ${r} · ${kind}`;
+
+  if (locked){
+    title = 'Waiting on the crew';
+    how = `Your roll is locked. Hang tight until everyone submits.`;
+  } else if (kind==='training'){
+    if (phase==='roll'){
+      title = 'Training — roll';
+      how = `Reroll a section if you need to, then <b>Lock in</b>. Categories (best color die) score too.`;
+    } else {
+      title = 'Training — shop';
+      how = `${tip('forge','Forge')}, upgrade ${tip('mod','Mod')}, or heal. Then tap <b>Roll dice</b>. No parasite this round.`;
+    }
   } else if (kind==='skirmish'){
-    title = 'Crew skirmish';
-    how = `No host this round. Score like training.`;
+    if (phase==='roll'){
+      title = 'Skirmish — roll';
+      how = `No host. Reroll if needed, then <b>Lock in</b>.`;
+    } else {
+      title = 'Skirmish — shop';
+      how = `No host this round — score like training. Shop, then <b>Roll dice</b>.`;
+    }
   } else if (kind==='boss'){
-    title = 'THE REVEAL';
-    how = `Crew vs <b>${bossHP(G)} HP</b>.`;
+    if (phase==='roll'){
+      title = 'THE REVEAL — roll';
+      how = `Crew vs <b>${bossHP(G)} HP</b>. Push your total, then <b>Lock in</b>.`;
+    } else {
+      title = 'THE REVEAL — shop';
+      how = `Boss HP <b>${bossHP(G)}</b>. Spend ⚡ wisely, then <b>Roll dice</b>. Everyone’s totals add together.`;
+    }
   } else if (isHost){
-    title = 'You are the HOST';
-    how = `Pick one ${tip('moves','move')}: ${tip('feed','Feed')} / ${tip('harden','Harden')} / ${tip('outbreak','Outbreak')} / ${tip('poison','Poison')}. Then roll &amp; lock human + parasite. Par ⚡ <b>${hostParStipendNow()}</b>.`;
+    if (phase==='roll'){
+      const needH = !session.humanLocked;
+      const needP = !session.parLocked;
+      if (needH && needP){
+        title = 'HOST — roll both sides';
+        how = `Roll &amp; lock <b>human</b>, then roll &amp; lock <b>parasite</b> (Par ⚡ <b>${session.parEnergy != null ? session.parEnergy : hostParStipendNow()}</b>). Then <b>Submit both</b>.`;
+      } else if (needH){
+        title = 'HOST — finish human';
+        how = `Lock your human roll, then handle the parasite.`;
+      } else if (needP){
+        title = 'HOST — finish parasite';
+        how = `Roll/lock the parasite package, then <b>Submit both rolls</b>.`;
+      } else {
+        title = 'HOST — submit';
+        how = `Both sides locked. Tap <b>Submit both rolls</b>.`;
+      }
+    } else {
+      title = 'You are the HOST';
+      how = `1) Pick one ${tip('moves','move')}: ${tip('feed','Feed')} / ${tip('harden','Harden')} / ${tip('outbreak','Outbreak')} / ${tip('poison','Poison')}. 2) Shop. 3) <b>Continue to rolls</b>.`;
+    }
   } else {
     const hid = hostIdForRound(G, r);
-    title = `${whoHTML(hid)} is infected`;
-    how = `Hold the ship (${n-1} crew).`;
+    if (phase==='roll'){
+      title = 'Crew — hold the ship';
+      how = `${whoHTML(hid)} is host. Reroll if needed, then <b>Lock in</b> — your total helps beat the parasite.`;
+    } else {
+      title = `${whoHTML(hid)} is infected`;
+      how = `You’re crew (${n-1} strong). Shop, then <b>Roll dice</b>. Beat the host together to score.`;
+    }
   }
-  return `<div class="turn-coach ${isHost?'parasite':''}"><div class="step">Round ${r} · ${kind}</div>
-    <div class="title">${title}</div><div class="how">${how}</div></div>`;
+
+  return `<div class="turn-coach ${isHost?'parasite':''}"><div class="step">${stepLabel}${phase==='roll' && !locked?' · rolling':(!locked?' · shop':'')}</div>
+    <div class="title">${title}</div><div class="how">${how}</div>
+    <div class="how" style="margin-top:8px;font-size:12px;color:var(--dim)">Stuck? Open <b>Help</b> for the full guide + dictionary.</div>
+  </div>`;
 }
 
 function gameScreen(){
