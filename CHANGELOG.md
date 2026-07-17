@@ -1,8 +1,12 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.9.1** · Schema **v10**
+Current build: **v4.9.2** · Schema **v10**
 
 ---
+
+## v4.9.2 — Path UI fully gone
+- Removed leftover path/commit CSS and legacy Gunner/Engineer seat titles
+- Live `main` ships the no-path build (v4.8+)
 
 ## v4.9.1 — Copy game link
 - Bottom dock **Copy link** button — copies the game URL so you can text it anytime

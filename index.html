@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.9.1">
+<meta name="stp-build" content="v4.9.2">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -54,17 +54,6 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .panel.locked-side{opacity:.72;border-color:var(--good)!important;}
 .lock-badge{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:99px;font-size:10px;
   font-weight:800;letter-spacing:.06em;background:#3ecf8e33;color:var(--good);vertical-align:middle;}
-.path-grid{display:grid;gap:8px;margin:10px 0;}
-.path-card{text-align:left;background:var(--panel2);border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;color:inherit;}
-.path-card.picked{border-color:var(--energy);box-shadow:0 0 0 1px #f0c04055;}
-.path-card .pn{font-weight:800;font-size:15px;}
-.path-card .pt{font-size:12px;color:var(--dim);margin-top:2px;line-height:1.35;}
-.path-card.gunner{border-color:#ff5a4e66;}
-.path-card.engineer{border-color:#4aa8ff66;}
-.path-card.warden{border-color:#3ecf8e66;}
-.path-card.gunner.picked{border-color:#ff5a4e;}
-.path-card.engineer.picked{border-color:#4aa8ff;}
-.path-card.warden.picked{border-color:#3ecf8e;}
 .move-grid{display:grid;gap:8px;margin:8px 0;}
 .growth-opt.move{border-color:#8dff6a55;}
 .growth-opt.move.feed{border-color:#3ecf8e66;}
@@ -75,13 +64,6 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .target-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
 .btn.target{padding:8px 10px;font-size:12px;background:var(--panel2);border:1.5px solid var(--line);color:var(--text);box-shadow:none;}
 .btn.target.on{border-color:#c77dff;background:#2a1830;}
-.commit-grid{display:grid;gap:7px;margin-top:8px;}
-.btn.commit{background:var(--panel2);border:1.5px solid var(--line);color:var(--text);font-weight:700;padding:10px;border-radius:10px;box-shadow:none;}
-.btn.commit.on{border-color:var(--energy);background:#2a2410;}
-.btn.commit:disabled{opacity:.4;}
-.die-wrap.committed{outline:2px solid var(--energy);outline-offset:2px;border-radius:12px;}
-.path-chip{font-size:11px;font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:99px;
-  background:#ffffff12;color:var(--energy);}
 .die-faces{font-size:10px;color:var(--dim);font-family:'IBM Plex Mono',monospace;margin-top:2px;
   letter-spacing:.02em;line-height:1.2;}
 @media (max-width:400px){
@@ -453,7 +435,7 @@ code{background:#00000055;padding:2px 5px;border-radius:5px;font-size:12px;word-
 .tip-sheet h2{margin:0 0 8px;font-size:18px;}
 .tip-sheet p{font-size:14px;line-height:1.45;color:var(--text);margin:0 0 10px;}
 /* tip inside cards/buttons — keep dotted gold readable */
-.growth-opt .tip-link,.path-card .tip-link,.btn.commit .tip-link,.btn .tip-link{color:var(--energy);}
+.growth-opt .tip-link,.btn .tip-link{color:var(--energy);}
 .log-round{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;background:var(--panel2);}
 .log-round h4{margin:0 0 6px;font-size:13px;color:var(--energy);}
 
@@ -495,12 +477,12 @@ const LEGACY_NAMES = {
   dave:'Dave', brian:'Brian', joel:'Joel', chris:'Chris', sam:'Sam', riley:'Riley',
 };
 const LEGACY_META = {
-  dave:  { color:'#f0b429', shape:'circle',   title:'Captain' },
-  brian: { color:'#4db8ff', shape:'triangle', title:'Gunner' },
-  joel:  { color:'#3ecf8e', shape:'square',   title:'Engineer' },
-  chris: { color:'#ff8a3d', shape:'diamond',  title:'Scout' },
-  sam:   { color:'#ff7eb6', shape:'star',     title:'Medic' },
-  riley: { color:'#a78bfa', shape:'hex',      title:'Pilot' },
+  dave:  { color:'#f0b429', shape:'circle',   title:'Seat' },
+  brian: { color:'#4db8ff', shape:'triangle', title:'Seat' },
+  joel:  { color:'#3ecf8e', shape:'square',   title:'Seat' },
+  chris: { color:'#ff8a3d', shape:'diamond',  title:'Seat' },
+  sam:   { color:'#ff7eb6', shape:'star',     title:'Seat' },
+  riley: { color:'#a78bfa', shape:'hex',      title:'Seat' },
 };
 const ALL_PIDS = ['p1','p2','p3','p4','p5','p6'];
 const MIN_PLAYERS = 3;
@@ -1745,7 +1727,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.9.1';
+const APP_BUILD = 'v4.9.2';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
