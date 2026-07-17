@@ -3424,8 +3424,8 @@ function rollPhaseHTML(r, isHost){
       <div class="dice-row">${scarDie}</div>
     </div>` : '';
     const topAll = !humanLocked ? `<div class="roll-top-actions">
-      <button class="btn reroll all" onclick="rerollHumanSection('all')" ${!canAll?'disabled':''}>${tip('rerollAll','Reroll all')} · ⚡${allCost}${freeNote}</button>
-      <div class="hint" style="margin:0">Section ${tip('rerollSec','reroll')} = ⚡${secCost} (1 free). All = ⚡${allCost}.</div>
+      <button class="btn reroll all" onclick="rerollHumanSection('all')" ${!canAll?'disabled':''}>Reroll all · ⚡${allCost}${freeNote}</button>
+      <div class="hint" style="margin:0">Section ${tip('rerollSec','reroll')} = ⚡${secCost} (1 free). ${tip('rerollAll','All')} = ⚡${allCost}.</div>
     </div>` : '';
     humanBody = `${topAll}${atkSec}${modSec}${scarSec}${scarLine}${finalBlock}`;
   }
@@ -3524,8 +3524,8 @@ function rollPhaseHTML(r, isHost){
           <div class="die-sub">${instId==='explode'&&session.instinctExtra?('+'+session.instinctExtra):''}</div></div></div>
       </div>`;
       parActions = `<div class="roll-top-actions">
-          <button class="btn par-reroll all" onclick="rerollParSection('all')" ${!canParAll?'disabled':''}>${tip('rerollAll','Reroll all')} · ⚡${CFG.rerollAllCost||2}</button>
-          <div class="hint" style="margin:0">Section = ⚡${CFG.parRerollCost||1} from parasite energy. All = ⚡${CFG.rerollAllCost||2}.</div>
+          <button class="btn par-reroll all" onclick="rerollParSection('all')" ${!canParAll?'disabled':''}>Reroll all · ⚡${CFG.rerollAllCost||2}</button>
+          <div class="hint" style="margin:0">Section = ⚡${CFG.parRerollCost||1} from parasite energy. ${tip('rerollAll','All')} = ⚡${CFG.rerollAllCost||2}.</div>
         </div>
         ${atkSec}${modSec}${instSec}
         ${parFinal}
