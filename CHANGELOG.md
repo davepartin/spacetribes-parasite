@@ -1,8 +1,15 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.12.10** · Schema **v12**
+Current build: **v4.12.11** · Schema **v12**
 
 ---
+
+## v4.12.11 — 6-player-first balance
+- Tuned primarily for **6p** tables (~45% host infection wins, flatter early→late curve)
+- Seat Base map: **3p −18 · 4p 0 · 5p +18 · 6p +30** (was linear ±22 which made 6p open at +44 / ~90% early host)
+- Crew-hold bump scales: **4p +2 · 5p +4 · 6p +6**
+- Human share starts higher on bigger tables (6p ~62%)
+- Feed aura **+2 at 6p** (+1 elsewhere)
 
 ## v4.12.10 — Parasite ~45% host wins
 - Retuned host infection power after Monte Carlo sims (aggressive shop bots)

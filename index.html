@@ -670,14 +670,16 @@ const CFG = {
   fusionCap: 0.80,
   fusionStep: 0.10,
   startAura: 0,
-  auraGain: 1,
-  // Base Attack: flat power tuned for 4p. Extra seats add this round. Losses bump it forever.
+  auraGain: 1,            // 6p gets +1 more via tuning (Feed +2 there)
+  // Base Attack — 6p-first seat map (absolute this-round bonus)
   parBaseAttack: -4,      // lean 4p start; losses climb back
-  // Asymmetric seat dial (tuned so host infection wins ~45% at 3–6p)
-  parBasePerSeatUp: 22,   // 5p +22 · 6p +44 this round
-  parBasePerSeatDown: 18, // 3p −18 this round
-  parBasePerSeat: 22,     // legacy alias (= up)
-  parBaseLossBump: 2,     // when crew holds, parasite Base Attack +2
+  // Absolute seat bonuses (not per-seat × count). Tuned for 6p drama ~45% host wins.
+  parSeatBonus: { 3: -18, 4: 0, 5: 18, 6: 30 },
+  // Legacy aliases kept for older UI copy / tooling
+  parBasePerSeatUp: 15,   // ~6p/2; not used when seat map present
+  parBasePerSeatDown: 18,
+  parBasePerSeat: 15,
+  parBaseLossBump: 2,     // 4p +2; +2 more per seat above 4 (5p +4 · 6p +6)
   softMeter: 1,
   heavyMeter: 3,
   poisonMeter: 2,
@@ -687,24 +689,38 @@ const CFG = {
   hpPerMeter: 1,
 };
 
-/** Scale parasite + boss to table size. Combat power mainly via Base Attack; HP still scales. */
+/** Scale parasite + boss to table size. 6p-first: seat map + stronger catch-up on bigger tables. */
 function parasiteTuning(n){
   n = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n|0 || 4));
   const crew = n - 1;
   const k = crew / 3;
+  const seatsAbove = Math.max(0, n - 4);
+  const seatMap = CFG.parSeatBonus || {};
+  let seatBonus = seatMap[n];
+  if (seatBonus == null){
+    // fallback: legacy per-seat dial
+    const seats = n - 4;
+    const per = seats >= 0
+      ? (CFG.parBasePerSeatUp != null ? CFG.parBasePerSeatUp : CFG.parBasePerSeat)|0
+      : (CFG.parBasePerSeatDown != null ? CFG.parBasePerSeatDown : CFG.parBasePerSeat)|0;
+    seatBonus = seats * per;
+  }
   return {
     n, crew, k,
-    // Same combat package for every table — Base Attack handles seat count
-    startFusion: CFG.startFusion,
+    // Bigger tables start with a bit more human-share (6p ~62%)
+    startFusion: Math.min(CFG.fusionCap, (CFG.startFusion || 0.5) + seatsAbove * 0.06),
     fusionCap: CFG.fusionCap,
     fusionStep: CFG.fusionStep,
     startAura: CFG.startAura,
-    auraGain: CFG.auraGain,
+    // 6p Feed hits harder so late infection stays contested
+    auraGain: (CFG.auraGain || 1) + (n >= 6 ? 1 : 0),
     startBaseAttack: CFG.parBaseAttack|0,
+    seatBonus: seatBonus|0,
     basePerSeatUp: CFG.parBasePerSeatUp != null ? (CFG.parBasePerSeatUp|0) : (CFG.parBasePerSeat|0),
     basePerSeatDown: CFG.parBasePerSeatDown != null ? (CFG.parBasePerSeatDown|0) : (CFG.parBasePerSeat|0),
     basePerSeat: CFG.parBasePerSeatUp != null ? (CFG.parBasePerSeatUp|0) : (CFG.parBasePerSeat|0),
-    baseLossBump: CFG.parBaseLossBump|0,
+    // Crew holds grow the bug faster when more humans are scoring against it
+    baseLossBump: (CFG.parBaseLossBump|0) + seatsAbove * 2,
     atkDice: 2,
     faceBonus: 0,
     hpBase: Math.round(CFG.hpBase * n / 4),
@@ -716,11 +732,7 @@ function parasiteTuning(n){
 function parasiteBaseAttackNow(parasite, n){
   const t = parasiteTuning(n || (parasite && parasite.balanceN) || 4);
   const stored = (parasite && parasite.baseAttack != null) ? (parasite.baseAttack|0) : (t.startBaseAttack|0);
-  const seats = (t.n|0) - 4;
-  const per = seats >= 0
-    ? ((t.basePerSeatUp != null ? t.basePerSeatUp : t.basePerSeat)|0)
-    : ((t.basePerSeatDown != null ? t.basePerSeatDown : t.basePerSeat)|0);
-  const seatBonus = seats * per;
+  const seatBonus = (t.seatBonus != null ? t.seatBonus : 0)|0;
   return { stored, seatBonus, total: stored + seatBonus };
 }
 function hostParStipendNow(){
@@ -789,13 +801,13 @@ const TIPS = {
   healScar: { title:'Heal scar', body:'Spend 3⚡ in the shop to remove one Scar die from your pool.' },
   fusion: { title:'Human share', body:'On host turns, part of your human attack is added into the parasite total.' },
   aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn. Feed raises it.' },
-  baseAtk: { title:'Base Attack', body:'Flat parasite power tuned for 4 players (starts lean). Extra seats add this round only (+22 per seat above 4, −18 below). When the crew holds, Base Attack +2 forever — early losses make the bug catch up without snowballing.' },
+  baseAtk: { title:'Base Attack', body:'Flat parasite power. Tuned for 6-player tables first (this-round seat bonus: 3p −18 · 4p 0 · 5p +18 · 6p +30). When the crew holds, Base Attack grows forever (+2 at 4p, +4 at 5p, +6 at 6p).' },
   boss: { title:'Boss meter / Round 10 HP', body:'Tracks how much the table fed the parasite. Round 10 HP scales with table size + Boss Meter. Feed/Harden +1, Poison +2, Outbreak +3, host win +1.' },
   instinct: { title:'Specialty die', body:'Extra parasite die. Faces: +8, +25% atk, +lowest, +your high, blank, or +extra die.' },
   host: { title:'Host turn', body:'You are infected. Pick one of 4 parasite moves, then roll human + parasite separately, lock each, and Submit both.' },
   poison: { title:'Poison', body:'Host move: pick a crewmate. They add one Scar die to their pool (same Scar dice as everyone else).' },
   moves: { title:'Parasite moves', body:'Every host turn pick exactly one: Feed, Harden, Outbreak, or Poison.' },
-  feed: { title:'Feed', body:'Safer. Permanent +1 aura. Boss +1. No Scar.' },
+  feed: { title:'Feed', body:'Safer. Permanent +aura (usually +1; +2 at 6 players). Boss +1. No Scar.' },
   harden: { title:'Harden', body:'Safer. +1 on every Attack face. Boss +1. No Scar.' },
   outbreak: { title:'Outbreak', body:'+1 Attack die (if room), +4 tonight, and you take a Scar die. Boss +3.' },
   forge: { title:'Forge', body:'Spend 1⚡ to permanently +2 a face on an Attack die.' },
@@ -1862,7 +1874,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.12.10';
+const APP_BUILD = 'v4.12.11';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
