@@ -192,7 +192,11 @@ function simShopAndRoll(pid, g) {
   if (addDie) dice.push({ id: 'preview', color: addDie, faces: stdFaces(), bonus: true });
 
   const modDie = deep(pl.modDie);
-  modUps.forEach(idx => { if (modDie[idx] && modDie[idx].kind !== 'scar' && modDie[idx].level < 2) modDie[idx].level++; });
+  modUps.forEach(idx => {
+    if (!modDie[idx] || modDie[idx].kind === 'scar') return;
+    const max = (MOD_LEVELS[modDie[idx].kind] || []).length - 1;
+    if ((modDie[idx].level | 0) < max) modDie[idx].level++;
+  });
 
   let rolls = dice.map(d => {
     const rf = rollFace(d.faces);

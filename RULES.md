@@ -57,7 +57,7 @@ Always rolls with you. Messing with chemicals can scar you.
 |---|---|
 | **Energy** (×2) | +2 / +3 / +4⚡ next round (upgrade levels) |
 | **%** (×1) | +20% / +30% / +40% of your attack |
-| **Base** (×1) | +0 / +3 / +5 that round (header Base rises as you upgrade) |
+| **Base** (×1) | **+3** start · one upgrade → **+5** |
 | **Scar** (×2) | No combat help. If you **lock in** on this face, grab a Scar die into your pool |
 
 Upgrade helpful faces for **2⚡**. Max **level 3**.

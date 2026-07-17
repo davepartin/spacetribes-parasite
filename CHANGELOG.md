@@ -1,8 +1,12 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.9.2** · Schema **v10**
+Current build: **v4.9.3** · Schema **v10**
 
 ---
+
+## v4.9.3 — Scar faces + Base starts at +3
+- Mod **Scar** faces restyled (slash mark, stronger die chip)
+- Mod **Base** starts at **+3**; one upgrade → **+5**
 
 ## v4.9.2 — Path UI fully gone
 - Removed leftover path/commit CSS and legacy Gunner/Engineer seat titles

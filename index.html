@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#081018">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
-<meta name="stp-build" content="v4.9.2">
+<meta name="stp-build" content="v4.9.3">
 <title>Space Tribes: Parasite</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -196,6 +196,9 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .die.hmod.pct{background:linear-gradient(160deg,#4adf9a,#1a8f68);color:#fff;border-color:#0f5c42;
   box-shadow:inset 0 2px 0 #ffffff40, inset 0 -5px 0 #00000040, 0 6px 14px #2db88a44;}
 .die.hmod.base{background:linear-gradient(160deg,#f0c040,#c49220);color:#1a1208;border-color:#8a6a10;}
+.die.hmod.scar{background:linear-gradient(160deg,#c43a4a,#4a1018);color:#fff;border-color:#8a2030;
+  box-shadow:inset 0 2px 0 #ffffff28, inset 0 -5px 0 #00000050, 0 6px 16px #ff5a4e55;}
+.die.hmod.scar .num{font-size:15px;letter-spacing:.06em;font-weight:800;}
 .die.hmod.off{background:linear-gradient(160deg,#3a4450,#1a2228);color:#8aa0ae;border-color:#2a4050;
   box-shadow:inset 0 2px 0 #ffffff10, inset 0 -5px 0 #0006, 0 6px 14px #0006;}
 .die .num{font-size:28px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;}
@@ -244,13 +247,21 @@ button{font-family:inherit;border:none;cursor:pointer;}
 .face-chip.picked{outline:2px solid var(--energy);outline-offset:2px;}
 .face-chip.forged{box-shadow:0 0 0 2px var(--energy), inset 0 -3px 0 #0002;}
 /* Mod-die shop faces — mini dice */
-.face-chip.energy-face,.face-chip.pct,.face-chip.base-face{
+.face-chip.energy-face,.face-chip.pct,.face-chip.base-face,.face-chip.scar{
   width:48px;height:48px;border-radius:12px;font-size:12px;line-height:1.05;padding:3px;
   text-align:center;white-space:pre-line;
   box-shadow:inset 0 2px 0 #ffffff40, inset 0 -4px 0 #00000040, 0 3px 10px #0006;}
 .face-chip.energy-face{background:linear-gradient(160deg,#5eb0ff,#2a6fbf);color:#fff;border:1px solid #154a86;}
 .face-chip.pct{background:linear-gradient(160deg,#4adf9a,#1a8f68);color:#fff;border:1px solid #0f5c42;}
 .face-chip.base-face{background:linear-gradient(160deg,#f0c040,#c49220);color:#1a1208;border:1px solid #8a6a10;}
+.face-chip.scar{
+  background:
+    linear-gradient(125deg, transparent 42%, #ff8a9aaa 46%, #ff8a9a 50%, #ff8a9aaa 54%, transparent 58%),
+    linear-gradient(160deg,#7a1a28,#2a080e);
+  color:#ffd0d6;border:1.5px solid #ff5a4e99;font-size:11px;font-weight:800;letter-spacing:.06em;
+  text-shadow:0 1px 2px #000a;
+  box-shadow:inset 0 2px 0 #ffffff22, inset 0 -4px 0 #00000055, 0 3px 12px #ff5a4e44;
+}
 
 .shop-item{display:flex;flex-direction:column;align-items:stretch;gap:10px;background:var(--panel2);
   border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px;}
@@ -414,9 +425,8 @@ code{background:#00000055;padding:2px 5px;border-radius:5px;font-size:12px;word-
 .explain-box p:last-child{margin:0;}
 .explain-box b{color:var(--bio);}
 .explain-box .now{color:var(--energy);font-weight:700;}
-.face-chip.scar{background:#2a1018;color:#ff8a9a;border-color:#ff5a4e55;}
 .face-chip.instinct{background:#2a2410;color:#f5c042;border-color:#f5c04255;}
-/* energy-face / base-face shop styles live with .face-chip block above */
+/* energy-face / base-face / scar shop styles live with .face-chip block above */
 .boss-meter{font-family:'IBM Plex Mono',monospace;color:var(--danger);font-weight:800;}
 .rnode.fog .re{color:var(--dim);}
 .rnode.train{border-color:#4da3ff55;}
@@ -691,8 +701,8 @@ function ordinalPlace(place){
 const MOD_LEVELS = {
   energy: [2, 3, 4],
   pct:    [20, 30, 40],
-  // Base starts at 0; upgrade faces to earn +3 then +5 (shown in sticky header)
-  base:   [0, 3, 5],
+  // Base starts at +3; one upgrade → +5
+  base:   [3, 5],
 };
 
 /** One shared Scar die — grab from the table into your pool. 3 blanks + 3 hurts. */
@@ -721,8 +731,8 @@ const INSTINCT_FACES = [
 
 
 const TIPS = {
-  mod: { title:'Mod die', body:'Always rolls with you. 4 helpful faces (Energy / % / Base) and 2 Scar faces — messing with chemicals can scar you. If you lock in on a Scar face, you add a Scar die to your pool. Upgrade positive faces for 2⚡.' },
-  modDie: { title:'Mod die', body:'Always rolls with you. 4 helpful faces (Energy / % / Base) and 2 Scar faces — messing with chemicals can scar you. If you lock in on a Scar face, you add a Scar die to your pool. Upgrade positive faces for 2⚡.' },
+  mod: { title:'Mod die', body:'Always rolls with you. 4 helpful faces (Energy / % / Base) and 2 Scar faces — messing with chemicals can scar you. Base starts at +3 (one upgrade → +5). If you lock in on a Scar face, you add a Scar die to your pool. Upgrade positive faces for 2⚡.' },
+  modDie: { title:'Mod die', body:'Always rolls with you. 4 helpful faces (Energy / % / Base) and 2 Scar faces — messing with chemicals can scar you. Base starts at +3 (one upgrade → +5). If you lock in on a Scar face, you add a Scar die to your pool. Upgrade positive faces for 2⚡.' },
   scar: { title:'Scar die', body:'All Scar dice are the same: 3 blanks + 3 hurts (−2⚡, −10%, −highest). You pick them up into your pool (from Mod Scar faces, Outbreak, or Poison). Each Scar die rolls every turn. Heal one for 2⚡ in the shop.' },
   scarDie: { title:'Scar die', body:'All Scar dice are the same: 3 blanks + 3 hurts (−2⚡, −10%, −highest). You pick them up into your pool (from Mod Scar faces, Outbreak, or Poison). Each Scar die rolls every turn. Heal one for 2⚡ in the shop.' },
   healScar: { title:'Heal scar', body:'Spend 2⚡ in the shop to remove one Scar die from your pool.' },
@@ -917,19 +927,25 @@ function arrangeHosts(bag){
   return out;
 }
 
+function modMaxLevel(face){
+  if (!face || face.kind==='scar') return 0;
+  const ladder = MOD_LEVELS[face.kind];
+  if (!ladder || !ladder.length) return 0;
+  return ladder.length - 1;
+}
 function modFaceValue(face){
   if (!face || face.kind==='scar') return 0;
   const ladder = MOD_LEVELS[face.kind];
-  if (!ladder) return 0;
-  return ladder[Math.min(2, face.level|0)];
+  if (!ladder || !ladder.length) return 0;
+  return ladder[Math.min(ladder.length - 1, face.level|0)];
 }
 function modFaceLabel(face){
   if (!face) return '?';
-  if (face.kind==='scar') return 'Scar';
+  if (face.kind==='scar') return 'SCAR';
   const v = modFaceValue(face);
   if (face.kind==='energy') return '+'+v+'⚡';
   if (face.kind==='pct') return '+'+v+'%';
-  if (face.kind==='base') return v ? ('B+'+v) : 'B0';
+  if (face.kind==='base') return 'B+'+v;
   return '?';
 }
 function modFaceClass(face){
@@ -1444,7 +1460,7 @@ function resolveRound(g){
     // mod upgrades
     (a.modUps||[]).forEach(idx=>{
       const face = pl.modDie[idx];
-      if (face && face.kind!=='scar' && face.level < 2){
+      if (face && face.kind!=='scar' && (face.level|0) < modMaxLevel(face)){
         face.level += 1;
         spent += CFG.modUpgradeCost;
       }
@@ -1727,7 +1743,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.9.2';
+const APP_BUILD = 'v4.9.3';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1785,6 +1801,10 @@ function normalizeGame(v){
       if (d && d.bonus == null) d.bonus = !isStarterDieId(d.id);
     });
     if (!pl.modDie) pl.modDie = starterModDie();
+    (pl.modDie||[]).forEach(f=>{
+      if (!f) return;
+      if (f.kind==='base' && (f.level|0) > modMaxLevel(f)) f.level = modMaxLevel(f);
+    });
     if (!pl.perks) pl.perks = { freeReroll:false };
     if (pl.scars == null){
       // migrate legacy scarLv / poisonLv into scar dice count
@@ -2514,7 +2534,10 @@ function previewHumanDice(pl){
 }
 function previewModDie(pl){
   const m = deep(pl.modDie);
-  (cart.modUps||[]).forEach(idx=>{ if (m[idx] && m[idx].level<2) m[idx].level++; });
+  (cart.modUps||[]).forEach(idx=>{
+    if (!m[idx] || m[idx].kind==='scar') return;
+    if ((m[idx].level|0) < modMaxLevel(m[idx])) m[idx].level++;
+  });
   return m;
 }
 
@@ -2854,7 +2877,7 @@ function shopHTML(r, isHost){
   }
 
   const modBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('mod','Mod die')} — 4 help · 2 Scar</div>
-    <div class="si-desc">Upgrade a helpful face for 2⚡ (max L3). Scar faces can’t be upgraded — lock one and you grab a ${tip('scar','Scar')} die.</div></div><div class="si-cost">2⚡</div></div>
+    <div class="si-desc">Upgrade a helpful face for 2⚡. Energy/% go to L3. Base starts at <b>+3</b> · one upgrade → <b>+5</b>. Scar faces can’t be upgraded — lock one and you grab a ${tip('scar','Scar')} die.</div></div><div class="si-cost">2⚡</div></div>
     <div class="face-strip">${modPrev.map((f,i)=>{
       const queued = (cart.modUps||[]).filter(x=>x===i).length;
       const pick = ui.selectedModFace===i;
@@ -2974,7 +2997,7 @@ function queueModUp(){
   const pl = G.players[me];
   const preview = previewModDie(pl);
   const face = preview[ui.selectedModFace];
-  if (!face || face.kind==='scar' || face.level>=2) return;
+  if (!face || face.kind==='scar' || (face.level|0) >= modMaxLevel(face)) return;
   cart.modUps.push(ui.selectedModFace);
   render();
 }
