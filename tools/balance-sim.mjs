@@ -80,7 +80,7 @@ vm.runInContext(code, sandbox, { filename: 'index.html#script' });
 const S = sandbox.__STP;
 if (!S) throw new Error('engine bridge missing');
 const {
-  ALL_PIDS, CFG, TOTAL_ROUNDS, COLORS, SCAR_DIE_FACES,
+  ALL_PIDS, CFG, TOTAL_ROUNDS, COLORS, SCAR_DIE_FACES, MOD_LEVELS,
   newGameData, normalizeGame, resolveRound,
   hostIdForRound, roundKind, rosterOf, deep, findDie, applyForge,
   rollFace, rollIndex, rollExplodingAttack,
