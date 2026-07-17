@@ -1,8 +1,13 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v4.12.5** · Schema **v12**
+Current build: **v4.12.6** · Schema **v12**
 
 ---
+
+## v4.12.6 — Humans only
+- Removed computer / Comp players
+- New game requires a name on **every** seat (3–6 humans)
+- Copy link → each phone Joins their seat
 
 ## v4.12.5 — Phase coaching
 - Turn coach now tells you the **next step** (shop vs roll, host locks, waiting)

@@ -1121,10 +1121,10 @@ let me = localStorage.getItem('stp_me') || null;
 let cart = null;
 let cartRound = 0;
 let animating = false;
-let ui = { selectedDie: null, selectedFace: null, selectedModFace: null, showHelp: false, tipKey: null, showLog: false, showRosterPick: false, pendingCount: 4, pendingNames: ['','','',''], _botBusy: {} };
+let ui = { selectedDie: null, selectedFace: null, selectedModFace: null, showHelp: false, tipKey: null, showLog: false, showRosterPick: false, pendingCount: 4, pendingNames: ['','','',''] };
 let session = null;
 
-function newGameData(roster, names, botFlags){
+function newGameData(roster, names){
   let ids;
   if (typeof roster === 'number'){
     ids = ALL_PIDS.slice(0, Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, roster|0)));
@@ -1135,13 +1135,11 @@ function newGameData(roster, names, botFlags){
     throw new Error('Roster must be '+MIN_PLAYERS+'-'+MAX_PLAYERS+' players');
   }
   const nameList = Array.isArray(names) ? names : [];
-  const flags = Array.isArray(botFlags) ? botFlags : [];
   const players = {};
   ids.forEach((p,i)=>{
-    const isBot = !!flags[i];
     players[p] = {
-      name: cleanPlayerName(nameList[i] || '') || (isBot ? ('Comp '+(i+1)) : ''),
-      isBot,
+      name: cleanPlayerName(nameList[i] || ''),
+      isBot: false,
       pts: 0,
       energy: CFG.roundStipend,
       dice: starterDice(),
@@ -1839,7 +1837,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.12.5';
+const APP_BUILD = 'v4.12.6';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1883,15 +1881,13 @@ function normalizeGame(v){
         baseAtk:0, scars:0, perks:{ freeReroll:false },
       };
     }
-    pl.isBot = !!pl.isBot;
+    pl.isBot = false; // humans only — strip legacy computer seats
     if (pl.name == null || pl.name === ''){
-      if (pl.isBot) pl.name = 'Comp';
-      else if (LEGACY_NAMES[pid]) pl.name = LEGACY_NAMES[pid];
-      else pl.name = pl.name || '';
+      if (LEGACY_NAMES[pid]) pl.name = LEGACY_NAMES[pid];
+      else pl.name = '';
     } else {
       pl.name = cleanPlayerName(pl.name);
     }
-    if (pl.isBot && /^comp\b/i.test(pl.name) === false && !cleanPlayerName(pl.name)) pl.name = 'Comp';
     if (!pl.dice) pl.dice = starterDice();
     (pl.dice||[]).forEach(d=>{
       if (d && d.bonus == null) d.bonus = !isStarterDieId(d.id);
@@ -1917,7 +1913,14 @@ function normalizeGame(v){
 
 function applyRemoteGame(v){
   try{
-    if (!v){ startNewGame(); return; }
+    if (!v){
+      ui.showRosterPick = true;
+      ui.pendingCount = loadSavedCount();
+      ui.pendingNames = Array(ui.pendingCount).fill('');
+      G = null;
+      render();
+      return;
+    }
     if ((v.schema||1) < SCHEMA){
       G = normalizeGame({ ...v, status:'need_reset' });
       render();
@@ -1928,7 +1931,6 @@ function applyRemoteGame(v){
     if (connectTimer){ clearTimeout(connectTimer); connectTimer=null; }
     maybeResolve();
     render();
-    setTimeout(kickBots, 120);
   }catch(err){
     console.error(err);
     showConnectError(err && err.message ? err.message : String(err));
@@ -2065,7 +2067,7 @@ function submitActionFor(pid, action){
       .then(()=> restGetGame().then(applyRemoteGame))
       .catch(err=>{
         if (pid === me) showConnectError(err.message||'Could not save your turn');
-        else console.warn('bot save', err);
+        else console.warn('seat save', err);
       });
     return;
   }
@@ -2076,192 +2078,6 @@ function submitActionFor(pid, action){
   });
 }
 
-/** Apply scar effects to a roll bundle (used by bots; mirrors applyScarToSession). */
-function applyScarToBundle(rollsIn, modRollIn, scarRoll){
-  const rolls = deep(rollsIn||[]);
-  let modRoll = modRollIn ? deep(modRollIn) : null;
-  let ptsDelta = 0, scarEnergyLoss = 0;
-  if (!scarRoll) return { rolls, modRoll, ptsDelta, scarEnergyLoss };
-  const lv = scarRoll.level;
-  if (scarRoll.id==='drain'){
-    scarEnergyLoss = lv===1 ? 2 : 4;
-  } else if (scarRoll.id==='bleed'){
-    const mult = lv===1 ? 0.8 : 0.7;
-    rolls.forEach(d=>{ d.v = Math.max(0, Math.floor((d.v||0) * mult)); });
-  } else if (scarRoll.id==='static'){
-    modRoll = null;
-    if (lv===2) scarEnergyLoss += 1;
-  } else if (scarRoll.id==='fumble'){
-    const n = lv===1 ? 1 : 2;
-    for (let k=0;k<n;k++){
-      if (!rolls.length) break;
-      let hi=0; for (let i=1;i<rolls.length;i++) if ((rolls[i].v||0)>(rolls[hi].v||0)) hi=i;
-      const rf = rollFace(rolls[hi].faces);
-      rolls[hi].v = rf.value; rolls[hi].index = rf.index; rolls[hi].rerolled = true;
-    }
-  } else if (scarRoll.id==='penalty'){
-    ptsDelta = -(lv===1 ? 5 : 10);
-  } else if (scarRoll.id==='shatter'){
-    // Mark strongest die; value stays so rerolls can move which die is hit.
-    // Combat math subtracts that highest via shatterSubFromRolls / computeHumanTotal.
-    if (rolls.length){
-      let hi=0; for (let i=1;i<rolls.length;i++) if ((rolls[i].v||0)>(rolls[hi].v||0)) hi=i;
-      const lost = rolls[hi].v||0;
-      rolls[hi].scarNote = '−'+lost+' scar';
-      rolls[hi].scarZeroed = false;
-    }
-    if (lv===2) ptsDelta -= 5;
-  }
-  return { rolls, modRoll, ptsDelta, scarEnergyLoss };
-}
-
-function buildBotAction(pid){
-  const pl = G.players[pid];
-  const r = G.round;
-  const kind = roundKind(r, G);
-  const isHost = kind==='infection' && hostIdForRound(G, r)===pid;
-
-  // Light shop: sometimes forge one face if they can afford it
-  const forges = [];
-  if ((pl.energy||0) >= CFG.forgeCost && randInt(100) < 45){
-    const d = pl.dice[randInt(pl.dice.length)];
-    if (d) forges.push({ dieId:d.id, faceIndex: randInt(d.faces.length) });
-  }
-
-  let growth = null;
-  if (isHost){
-    const moves = parasiteMoveOptions(G.parasite, G);
-    const o = moves[randInt(moves.length)];
-    growth = { key:o.key, lane:o.lane, target:null };
-    if (o.key==='poison'){
-      const victims = rosterOf(G).filter(p => p !== pid);
-      if (victims.length) growth.target = victims[randInt(victims.length)];
-      else growth = { key:'feed', lane:'soft', target:null };
-    }
-  }
-
-  const dice = deep(pl.dice);
-  forges.forEach(f=>{
-    const d = findDie(dice, f.dieId);
-    applyForge(d, f.faceIndex, CFG.forgeBump);
-  });
-  let rolls = dice.map(d=>{
-    const rf = rollFace(d.faces);
-    return { dieId:d.id, color:d.color, faces:d.faces, index:rf.index, v:rf.value, first:rf.value, rerolled:false, bonus:!!d.bonus };
-  });
-  const modDie = deep(pl.modDie);
-  const mi = rollIndex(modDie.length);
-  let modRoll = { index:mi, kind:modDie[mi].kind, level:modDie[mi].level, value:modFaceValue(modDie[mi]) };
-  // Roll each Scar die in the pool
-  const scarRolls = [];
-  for (let s=0; s<scarCount(pl); s++){
-    const si = rollIndex(SCAR_DIE_FACES.length);
-    const f = SCAR_DIE_FACES[si];
-    scarRolls.push({ index:si, id:f.id, label:f.label, level:1 });
-  }
-  let ptsDelta = 0, scarEnergyLoss = 0;
-  scarRolls.forEach(sr=>{
-    if (!sr || sr.id==='blank') return;
-    const packed = applyScarToBundle(rolls, modRoll, sr);
-    rolls = packed.rolls;
-    modRoll = packed.modRoll;
-    ptsDelta += packed.ptsDelta||0;
-    scarEnergyLoss += packed.scarEnergyLoss||0;
-  });
-  // Prefer not to lock a Mod Scar face — one free reroll of mod if needed
-  let rerollBuys = 0;
-  if (modRoll && modRoll.kind==='scar' && (pl.energy||0) > forges.length * CFG.forgeCost){
-    const mi2 = rollIndex(modDie.length);
-    modRoll = { index:mi2, kind:modDie[mi2].kind, level:modDie[mi2].level, value:modFaceValue(modDie[mi2]) };
-    rerollBuys = 1;
-  }
-  const gainScar = !!(modRoll && modRoll.kind==='scar');
-  let healScars = 0;
-  const scarsNow = scarCount(pl);
-  let energyLeftBot = (pl.energy||0) - forges.length * CFG.forgeCost - rerollBuys * CFG.rerollCost;
-  while (scarsNow - healScars > 0 && energyLeftBot >= (CFG.healScarCost||2) && healScars < 2){
-    healScars++;
-    energyLeftBot -= (CFG.healScarCost||2);
-  }
-
-  const action = {
-    phase:'locked',
-    role: isHost ? 'host' : 'human',
-    at: Date.now(),
-    forges,
-    modUps: [],
-    addDie: null,
-    buyFreeReroll: false,
-    rerollBuys,
-    healScars,
-    gainScar,
-    rolls,
-    modRoll,
-    scarRolls,
-    ptsDelta,
-    scarEnergyLoss,
-    bot: true,
-  };
-  if (isHost && growth){
-    action.growth = growth;
-    const fake = deep(G.parasite);
-    applyParasiteMove(fake, growth.key, pl, { poisonTarget: growth.target });
-    action.aRolls = (fake.attack||[]).map(d=>{
-      const er = rollExplodingAttack(d.faces);
-      return { dieId:d.id, faces:d.faces, index:er.index, v:er.value, shown:er.shown, exploded:er.exploded, first:er.value, rerolled:false };
-    });
-    const pMod = (fake.mod && fake.mod.faces) || [];
-    const pi = rollIndex(Math.max(1, pMod.length));
-    action.pModRoll = deep(pMod[pi] || { type:'flat', n:5 });
-    action.pModRoll.index = pi;
-    const inst = fake.instinct || INSTINCT_FACES.map(f=>f.id);
-    const ii = rollIndex(inst.length);
-    action.instinctRoll = inst[ii];
-    action.instinctExtra = 0;
-    if (action.instinctRoll==='explode'){
-      action.instinctExtra = rollExplodingAttack(hotFaces()).value;
-    }
-  }
-  return action;
-}
-
-/** Only the "driver" human phone runs bots (lowest seat id among humans). */
-function botDriverId(){
-  if (!G) return null;
-  const humans = rosterOf(G).filter(p => G.players[p] && !G.players[p].isBot);
-  if (!humans.length) return null;
-  return humans.slice().sort()[0];
-}
-function kickBots(){
-  if (!G || G.status !== 'active') return;
-  if (!me || me !== botDriverId()) return;
-  const r = G.round;
-  if (G.rounds[r] && G.rounds[r].result) return;
-  if (!G.rounds[r]) G.rounds[r] = { actions:{} };
-  if (!G.rounds[r].actions) G.rounds[r].actions = {};
-  if (!ui._botBusy) ui._botBusy = {};
-  let any = false;
-  rosterOf(G).forEach(pid=>{
-    const pl = G.players[pid];
-    if (!pl || !pl.isBot) return;
-    if (actionLocked(G.rounds[r].actions[pid])) return;
-    const key = pid+':'+r+':'+(G.createdAt||0);
-    if (ui._botBusy[key]) return;
-    ui._botBusy[key] = true;
-    try{
-      const action = buildBotAction(pid);
-      submitActionFor(pid, action);
-      any = true;
-    }catch(err){
-      console.warn('bot failed', pid, err);
-      ui._botBusy[key] = false;
-    }
-  });
-  if (any) setTimeout(()=>{ maybeResolve(); render(); }, 50);
-}
-function isComputer(pid){
-  return !!(G && G.players && G.players[pid] && G.players[pid].isBot);
-}
 function loadSavedCount(){
   try{
     const n = parseInt(localStorage.getItem('stp_table_n')||'4', 10);
@@ -2269,12 +2085,12 @@ function loadSavedCount(){
   }catch(e){}
   return 4;
 }
-function startNewGame(roster, names, botFlags){
+function startNewGame(roster, names){
   const count = typeof roster === 'number' ? roster : (Array.isArray(roster) ? roster.length : (ui.pendingCount || loadSavedCount()));
   const ids = Array.isArray(roster) ? roster.filter(knownSeat) : ALL_PIDS.slice(0, count);
   let data;
   try{
-    data = normalizeGame(newGameData(ids, names, botFlags));
+    data = normalizeGame(newGameData(ids, names));
   }catch(err){
     alert(err.message || 'Bad table');
     ui.showRosterPick = true;
@@ -2283,20 +2099,22 @@ function startNewGame(roster, names, botFlags){
   }
   localStorage.setItem('stp_table_n', String(ids.length));
   if (me && !ids.includes(me)){ me = null; localStorage.removeItem('stp_me'); }
-  // Solo test: if exactly one human seat, claim it automatically
-  const humans = ids.filter(p => data.players[p] && !data.players[p].isBot);
-  if (humans.length === 1){
-    me = humans[0];
-    localStorage.setItem('stp_me', me);
-    localStorage.setItem('stp_myname', data.players[me].name || '');
-  }
+  // If this phone already has a matching saved name, claim that seat
+  try{
+    const saved = cleanPlayerName(localStorage.getItem('stp_myname')||'');
+    if (saved){
+      const match = ids.find(p => cleanPlayerName((data.players[p]&&data.players[p].name)||'').toLowerCase() === saved.toLowerCase());
+      if (match){
+        me = match;
+        localStorage.setItem('stp_me', me);
+      }
+    }
+  }catch(e){}
   session = null; cart = null;
   try{ localStorage.removeItem('stp_seen_'+(G && G.createdAt)); }catch(e){}
   ui.showRosterPick = false;
-  ui._botBusy = {};
   G = data;
   render();
-  setTimeout(kickBots, 200);
   const save = ()=> {
     if (gameRef && !usingRest){
       return gameRef.set(data).catch(()=> restPut('games/current', data));
@@ -2308,7 +2126,11 @@ function startNewGame(roster, names, botFlags){
 function confirmResetGame(){
   ui.pendingCount = (G && G.roster && G.roster.length) ? G.roster.length : loadSavedCount();
   if (G && G.players){
-    ui.pendingNames = rosterOf(G).map(pid => cleanPlayerName((G.players[pid]&&G.players[pid].name)||''));
+    ui.pendingNames = rosterOf(G).map(pid => {
+      const nm = cleanPlayerName((G.players[pid]&&G.players[pid].name)||'');
+      // Drop legacy Comp labels so New game starts clean for humans
+      return /^comp(?:\s*\d+)?$/i.test(nm) ? '' : nm;
+    });
   } else {
     ui.pendingNames = Array(ui.pendingCount).fill('');
   }
@@ -2343,42 +2165,22 @@ function confirmRosterAndStart(){
     return;
   }
   const names = [];
-  const botFlags = [];
-  let botN = 0;
   for (let i=0;i<n;i++){
     const el = document.getElementById('roster-name-'+i);
     const typed = cleanPlayerName(el && el.value);
-    if (typed){
-      names.push(typed);
-      botFlags.push(false);
-    } else {
-      botN++;
-      names.push('Comp '+botN);
-      botFlags.push(true);
+    if (!typed){
+      alert('Type a name for every seat (P'+(i+1)+').');
+      return;
     }
+    names.push(typed);
   }
-  // Solo-friendly: if every seat is blank, seat 1 is you and the rest are computers
-  if (!botFlags.some(x => !x)){
-    names[0] = 'You';
-    botFlags[0] = false;
-    botN = 0;
-    for (let i=1;i<n;i++){
-      botN++;
-      names[i] = 'Comp '+botN;
-      botFlags[i] = true;
-    }
-  }
-  const humanNames = names.filter((_,i)=>!botFlags[i]).map(x=>x.toLowerCase());
-  if (new Set(humanNames).size !== humanNames.length){
-    alert('Each human player needs a different name.');
+  const lower = names.map(x=>x.toLowerCase());
+  if (new Set(lower).size !== lower.length){
+    alert('Each player needs a different name.');
     return;
   }
-  const bots = botFlags.filter(Boolean).length;
-  const msg = bots
-    ? 'Start with you + '+bots+' computer(s)? This wipes the current run.'
-    : 'Start a fresh Schema v'+SCHEMA+' game with '+n+' players? This wipes the current run.';
-  if (!confirm(msg)) return;
-  startNewGame(ALL_PIDS.slice(0, n), names, botFlags);
+  if (!confirm('Start a fresh Schema v'+SCHEMA+' game with '+n+' players? This wipes the current run.')) return;
+  startNewGame(ALL_PIDS.slice(0, n), names);
 }
 function cancelRosterPick(){ ui.showRosterPick = false; render(); }
 function rosterPickModalHTML(){
@@ -2395,13 +2197,13 @@ function rosterPickModalHTML(){
     rows.push(`<div class="roster-name-row">
       ${crewImg(pid,'')}
       <span class="seat-label">P${i+1}</span>
-      <input id="roster-name-${i}" class="claim-name" maxlength="16" placeholder="${i===0?'Your name (or leave blank)':'Blank = computer'}" value="${val}" autocomplete="nickname" />
+      <input id="roster-name-${i}" class="claim-name" maxlength="16" placeholder="Player name" value="${val}" autocomplete="nickname" />
     </div>`);
   }
   return `<div class="modal-back" onclick="if(event.target===this)cancelRosterPick()">
     <div class="modal-sheet" role="dialog" aria-label="Table size">
       <h2>Who's playing?</h2>
-      <p class="small">Pick <b>3–6</b>. Type your name in any seat (or leave <b>all blank</b>: P1 = you, others = computers). Blank seats are Comp players. Host seats stay random (max 2 each).</p>
+      <p class="small">Pick <b>3–6</b> human players and type <b>every</b> name. Then <b>Copy link</b> so each phone can Join their seat. Host seats stay random (max 2 each).</p>
       <div class="roster-count">${countBtns}</div>
       <div class="roster-names">${rows.join('')}</div>
       <div class="roster-meta"><b>${n}</b> players · Base Atk ${t.startBaseAttack}${(n-4)*(t.basePerSeat||0)?` · seat ${(n-4)>=0?'+':''}${(n-4)*(t.basePerSeat||0)} this round`:''} · loss bump +${t.baseLossBump} · boss HP ${t.hpBase}+${t.hpPerMeter}/meter</div>
@@ -2524,7 +2326,7 @@ function instructionsModalHTML(){
       <h3>1. Start the table</h3>
       <ol class="help-steps">
         <li>Tap <b>New game</b> → pick <b>3–6</b> players.</li>
-        <li>Type names (blank seats = computers).</li>
+        <li>Type a name for <b>every</b> seat (humans only).</li>
         <li>Tap <b>Start</b>, then <b>Copy link</b> and text it to friends. Each phone claims a seat.</li>
       </ol>
 
@@ -2789,18 +2591,9 @@ function charSelectScreen(){
   const cards = pool.map(p=>{
     const pl = G.players[p]||{};
     const nm = cleanPlayerName(pl.name||'');
-    const bot = !!pl.isBot;
-    if (bot){
-      return `<div class="char-card claim">
-        ${crewImg(p)}
-        <div class="cname">${esc(nm||'Comp')}</div>
-        <div class="ctitle">Computer</div>
-        <div class="small" style="margin-top:8px;color:var(--dim)">Auto-plays each round</div>
-      </div>`;
-    }
     return `<div class="char-card claim">
       ${crewImg(p)}
-      <div class="cname ${nm?'':'empty'}">${nm ? esc(nm) : 'Your seat'}</div>
+      <div class="cname ${nm?'':'empty'}">${nm ? esc(nm) : 'Open seat'}</div>
       <div class="ctitle">${seatMeta(p).title}</div>
       <div class="claim-row">
         <input id="claim-${p}" class="claim-name" maxlength="16" placeholder="Your name" value="${esc(nm)}" autocomplete="nickname" />
@@ -2808,19 +2601,14 @@ function charSelectScreen(){
       </div>
     </div>`;
   }).join('');
-  const bots = pool.filter(p => G.players[p] && G.players[p].isBot).length;
-  const note = bots
-    ? `This table is <b>${pool.length}</b> (${bots} computer). Join your human seat — comps play themselves.`
-    : `This table is <b>${pool.length} players</b>. Type <b>your</b> name on your seat, then Join.`;
   return `<div class="center" style="padding-top:4vh">
     <h1 class="brand-hero">SPACE TRIBES: <span>PARASITE</span></h1>
-    <p class="small">${note}</p>
+    <p class="small">This table is <b>${pool.length} players</b>. Type <b>your</b> name on your seat, then Join.</p>
     <div class="char-grid">${cards}</div>
   </div>`;
 }
 function claimSeat(pid){
   if (!G || !rosterOf(G).includes(pid)) return;
-  if (G.players[pid] && G.players[pid].isBot){ alert('That seat is a computer player.'); return; }
   const el = document.getElementById('claim-'+pid);
   const name = cleanPlayerName(el && el.value);
   if (!name){ alert('Type your name first.'); return; }
@@ -2911,12 +2699,10 @@ function standingsBarHTML(){
     const pts = G.players[p].pts||0;
     const sc = scarCount(G.players[p]);
     const scar = sc ? `${sc} scar${sc>1?'s':''}` : '';
-    const bot = !!G.players[p].isBot;
     const cls = (p===me?'me':'') + (pts===leadPts && leadPts>0?' lead':'');
     return `<div class="sb-chip ${cls}">
       <div class="sb-name">${crewImg(p)}<span>${esc(playerShort(p))}</span></div>
       <div class="sb-pts">${pts}</div>
-      ${bot?`<div class="sb-meta">COMP</div>`:''}
       ${scar?`<div class="sb-meta" style="color:#ff8a9a">${esc(scar)}</div>`:''}
     </div>`;
   }).join('');
@@ -3074,7 +2860,6 @@ function gameScreen(){
   if (locked) body = waitingHTML(r);
   else if (session.phase==='roll') body = rollPhaseHTML(r, isHost);
   else body = shopHTML(r, isHost);
-  setTimeout(kickBots, 60);
 
   return `${chromeHTML()}
     ${roundStripHTML()}
@@ -3858,7 +3643,6 @@ function lockIn(){
   session = { round:r, phase:'upgrade', rolls:null, paidRerolls:0, freeLeft:0, shake:false, selectedRoll:null };
   cart = freshCart();
   render();
-  setTimeout(kickBots, 80);
 }
 
 function waitingHTML(r){
@@ -3868,9 +3652,9 @@ function waitingHTML(r){
     <h3 class="center">Waiting on the crew…</h3>
     ${rosterOf(G).map(p=>{
       const ok = actionLocked(actions[p]);
-      const tag = (hostId===p ? ' · HOST' : '') + (isComputer(p) ? ' · COMP' : '');
+      const tag = hostId===p ? ' · HOST' : '';
       return `<div class="wait-row">${whoHTML(p)}${tag}
-        <span class="st ${ok?'in':'thinking'}">${ok?'LOCKED':(isComputer(p)?'PLAYING…':'…')}</span></div>`;
+        <span class="st ${ok?'in':'thinking'}">${ok?'LOCKED':'…'}</span></div>`;
     }).join('')}
   </div>`;
 }

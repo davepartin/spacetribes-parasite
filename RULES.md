@@ -2,7 +2,7 @@
 
 **3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
 
-**v4.12.5** — Clearer in-game coaching + Help dictionary. Schema **v12**. See [CHANGELOG.md](CHANGELOG.md).
+**v4.12.6** — Humans only (no computer seats). Schema **v12**. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Goal
 
@@ -152,8 +152,8 @@ HP = **table base + (per-meter × Boss Meter)**. Clear it for hero bonuses. Fail
 
 1. Tap **New game**
 2. Pick **3–6** players
-3. **Type each player's name** (blank seats = computers; all blank → you + comps)
-4. **Start** — each phone opens the same link, taps **Join** on their seat
+3. **Type every player's name** (humans only — no computer seats)
+4. **Start** — **Copy link**, each phone opens it and taps **Join** on their seat
 
 **Copy link** at the bottom copies the game URL so you can text it anytime.
 
