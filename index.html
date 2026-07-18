@@ -537,7 +537,7 @@ const ALL_PIDS = ['p1','p2','p3','p4','p5','p6'];
 const MIN_PLAYERS = 3;
 const MAX_PLAYERS = 6;
 const DEFAULT_ROSTER = ['p1','p2','p3','p4'];
-const INFECTION_SLOTS = 8; // rounds 2–9
+// v5: infection slots are dynamic — infectionSlots(g) = 2 × table size
 function seatMeta(id){
   return SEAT_META[id] || LEGACY_META[id] || { color:'#4db8ff', shape:'circle', title:'Seat' };
 }
@@ -633,116 +633,82 @@ const COLOR_META = {
 /** Paths removed in v4.8 — three die types only: Attack / Mod / Scar. */
 
 
-const TOTAL_ROUNDS = 10;
-const SCHEMA = 12;
+const SCHEMA = 13;
+/** v5: rounds scale with the table — everyone hosts twice, then the boss. */
+function totalRounds(g){ const n = g ? tableSize(g) : MAX_PLAYERS; return 2*n + 1; }
+function infectionSlots(g){ return totalRounds(g) - 1; }
+function lateFrom(g){ return infectionSlots(g)/2 + 1; } // second half pays more
+const TOTAL_ROUNDS = 13; // display fallback (6p); prefer totalRounds(g)
 
 const CFG = {
-  roundStipend: 5,
+  roundStipend: 6,
+  underdogEn: 2,          // last place banks +2⚡ each round
   forgeCost: 1,
   forgeBump: 2,
-  addDieCost: 3,
+  addDieCost: 4,
+  sizeUpCost: 3,          // d6→d8→d10 per step
+  maxDieSize: 10,
   rerollCost: 1,
   rerollAllCost: 2,
-  freeRerollPerkCost: 0, // removed — everyone gets 1 free reroll each round
-  freeRerollsPerRound: 1,
   modUpgradeCost: 2,
   faceCap: 0,
   maxDicePerColor: 2,
-  maxParAttack: 4,
-  hostParStipend: 7, // baseline; actual stipend scales with table size
-  parRerollCost: 1,
   healScarCost: 3,
   maxScars: 6,
-  // points
-  trainRankPts: [6,4,2,1],
-  humanWinPts: r => r >= 6 ? 12 : 8,
-  hostWinPts:  r => r >= 6 ? 10 : 8,
-  mvpPts:      r => r >= 6 ? 5 : 3,
-  catPts:      r => r >= 6 ? 3 : 2,
-  heroBonus:   [12, 8, 5, 3],
-  heroFailBonus:[4, 3, 2, 1],
+  // points — late = second half of infection rounds (r >= lateFrom)
+  humanWinPts: (r,g) => r >= lateFrom(g) ? 8 : 6,
+  ladderPts:   (r,g) => r >= lateFrom(g) ? [6,4,2] : [5,3,1],
+  hostWinPts:  (r,g) => r >= lateFrom(g) ? 10 : 8,
+  catPts:      (r,g) => r >= lateFrom(g) ? 3 : 2,
   killBlowPts: 5,
   winEn: 2,
   catEn: 1,
-  lossEn: 0,
-  // parasite — 4p baseline package; table size + losses dial Base Attack
-  startFusion: 0.50,
-  fusionCap: 0.80,
-  fusionStep: 0.10,
-  startAura: 0,
-  auraGain: 1,            // 6p gets +1 more via tuning (Feed +2 there)
-  // Base Attack — 6p-first seat map (absolute this-round bonus)
-  parBaseAttack: -4,      // lean 4p start; losses climb back
-  // Absolute seat bonuses (not per-seat × count). Tuned for 6p drama ~45% host wins.
-  parSeatBonus: { 3: -18, 4: 0, 5: 18, 6: 30 },
-  // Legacy aliases kept for older UI copy / tooling
-  parBasePerSeatUp: 15,   // ~6p/2; not used when seat map present
-  parBasePerSeatDown: 18,
-  parBasePerSeat: 15,
-  parBaseLossBump: 2,     // 4p +2; +2 more per seat above 4 (5p +4 · 6p +6)
-  softMeter: 1,
-  heavyMeter: 3,
-  poisonMeter: 2,
-  outbreakTonight: 4,
-  winMeter: 1,
-  hpBase: 80,
-  hpPerMeter: 1,
+  // parasite — MIRROR base: beta × previous round's true crew total.
+  // Per-table beta: small crews carry proportionally more parasite (dice/channel don't shrink).
+  mirrorBeta: 0.47,
+  mirrorBetaBy: { 3: 0.45, 4: 0.45, 5: 0.45, 6: 0.47 },
+  mirrorOffsetBy: { 3: -42, 4: -30, 5: -16, 6: 0 },
+  holdBumpBy: { 3: 2, 4: 3, 5: 4, 6: 4 },
+  mirrorSeedPerCrew: 10,  // round-1 seed ≈ 10 × crew count
+  holdBump: 4,            // permanent bump each time the crew holds (late-game catch-up)
+  parStipend: 7,          // parasite ⚡ per host turn (shop + rerolls; leftover banks)
+  parMaxDice: 4,
+  parMaxDieSize: 12,
+  parRerollCost: 1,
+  // channels
+  ravageMult: 2.0,        // 🔴 2× your red total · scars EVERYONE (crew + you)
+  crushMult: 1.75,        // 🔵 1.75× your blue total · scar 1 chosen crewmate (+you)
+  severN: 2,              // 🟢 cancel crew's 2 highest dice · no self add (+you scarred)
+  poisonGuardScars: 2,    // Crush can't target crew already at 2+ scars
+  // boss — HP mirrors final crew strength + meter (meter = scars created + host wins)
+  bossHpMult: 0.95,
+  hpPerMeter: 1.5,
 };
 
-/** Scale parasite + boss to table size. 6p-first: seat map + stronger catch-up on bigger tables. */
+/** v5 tuning — the MIRROR does the table scaling; only the stipend varies. */
 function parasiteTuning(n){
-  n = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n|0 || 4));
-  const crew = n - 1;
-  const k = crew / 3;
-  const seatsAbove = Math.max(0, n - 4);
-  const seatMap = CFG.parSeatBonus || {};
-  let seatBonus = seatMap[n];
-  if (seatBonus == null){
-    // fallback: legacy per-seat dial
-    const seats = n - 4;
-    const per = seats >= 0
-      ? (CFG.parBasePerSeatUp != null ? CFG.parBasePerSeatUp : CFG.parBasePerSeat)|0
-      : (CFG.parBasePerSeatDown != null ? CFG.parBasePerSeatDown : CFG.parBasePerSeat)|0;
-    seatBonus = seats * per;
-  }
+  n = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n|0 || 6));
   return {
-    n, crew, k,
-    // Bigger tables start with a bit more human-share (6p ~62%)
-    startFusion: Math.min(CFG.fusionCap, (CFG.startFusion || 0.5) + seatsAbove * 0.06),
-    fusionCap: CFG.fusionCap,
-    fusionStep: CFG.fusionStep,
-    startAura: CFG.startAura,
-    // 6p Feed hits harder so late infection stays contested
-    auraGain: (CFG.auraGain || 1) + (n >= 6 ? 1 : 0),
-    startBaseAttack: CFG.parBaseAttack|0,
-    seatBonus: seatBonus|0,
-    basePerSeatUp: CFG.parBasePerSeatUp != null ? (CFG.parBasePerSeatUp|0) : (CFG.parBasePerSeat|0),
-    basePerSeatDown: CFG.parBasePerSeatDown != null ? (CFG.parBasePerSeatDown|0) : (CFG.parBasePerSeat|0),
-    basePerSeat: CFG.parBasePerSeatUp != null ? (CFG.parBasePerSeatUp|0) : (CFG.parBasePerSeat|0),
-    // Crew holds grow the bug faster when more humans are scoring against it
-    baseLossBump: (CFG.parBaseLossBump|0) + seatsAbove * 2,
-    atkDice: 2,
-    faceBonus: 0,
-    hpBase: Math.round(CFG.hpBase * n / 4),
-    hpPerMeter: Math.max(1, Math.round(CFG.hpPerMeter * n / 4)),
-    parStipend: ({3:5, 4:6, 5:7, 6:7})[n] || 6,
+    n, crew: n - 1,
+    parStipend: ({3:5, 4:6, 5:7, 6:7})[n] || 7,
+    mirrorSeed: CFG.mirrorSeedPerCrew * (n - 1),
   };
 }
-/** Permanent Base Attack + this-round seat bonus (4p = no seat bonus). */
+/** MIRROR Base — beta × previous round's true crew total, + permanent hold bumps. */
+function mirrorBetaFor(n){
+  const map = CFG.mirrorBetaBy || {};
+  return map[n] != null ? map[n] : CFG.mirrorBeta;
+}
 function parasiteBaseAttackNow(parasite, n){
-  const t = parasiteTuning(n || (parasite && parasite.balanceN) || 4);
-  const stored = (parasite && parasite.baseAttack != null) ? (parasite.baseAttack|0) : (t.startBaseAttack|0);
-  const seatBonus = (t.seatBonus != null ? t.seatBonus : 0)|0;
-  return { stored, seatBonus, total: stored + seatBonus };
+  const t = parasiteTuning(n || (parasite && parasite.balanceN) || 6);
+  const prevCrew = (parasite && parasite.prevCrew != null) ? parasite.prevCrew : t.mirrorSeed;
+  const offset = ((CFG.mirrorOffsetBy||{})[t.n]|0);
+  const mirror = Math.round(mirrorBetaFor(t.n) * prevCrew) + offset;
+  const stored = (parasite && parasite.holdBumps)|0;
+  return { stored, seatBonus: mirror, mirror, prevCrew, total: mirror + stored };
 }
 function hostParStipendNow(){
-  const t = parasiteTuning(tableSize(G));
-  let e = t.parStipend != null ? t.parStipend : (CFG.hostParStipend || 7);
-  // Already-grown parasites with many Attack dice get slightly fewer rerolls
-  const atk = parAttackCount(G && G.parasite);
-  if (atk >= 3) e = Math.max(3, e - 1);
-  if (atk >= 4) e = Math.max(3, e - 1);
-  return e;
+  return parasiteTuning(tableSize(G)).parStipend;
 }
 function rankPtsFor(n, high, low){
   n = Math.max(1, n|0);
@@ -759,21 +725,25 @@ function ordinalPlace(place){
   return place+'th';
 }
 
+/** v5 STACKING ChemDice — locking a claim face ADDS its value permanently, every time. */
 const MOD_LEVELS = {
-  energy: [2, 3, 4],       // +2⚡ → +3⚡ → +4⚡
-  pct:    [10, 20, 25],    // +10% → +20% → +25%
-  base:   [3, 4, 5],       // claim permanent Base to 3 → 4 → 5
-  points: [3, 4, 5],       // +3 / +4 / +5 personal score (no combat help)
+  atk:    [3, 4, 5],       // Base Attack +3/+4/+5 per lock
+  energy: [1, 2, 3],       // stipend +1/+2/+3⚡ per lock
+  reroll: [1, 1, 2],       // 🎲 token base +1/+1/+2 per lock
+  pct:    [10, 15, 20],    // permanent +% of attack per lock
+  points: [3, 4, 5],       // one-shot personal score (greed, no combat)
+  base:   [3, 4, 5],       // legacy alias
 };
+const CLAIM_KINDS = ['atk', 'energy', 'reroll', 'pct'];
 
-/** One shared Scar die — grab from the table into your pool. 3 blanks + 3 hurts. */
+/** v5 Scar die — one blank, five hurts. Color faces scale with your own build. */
 const SCAR_DIE_FACES = [
-  { id:'blank',   label:'—',        desc:'Nothing this roll' },
-  { id:'blank',   label:'—',        desc:'Nothing this roll' },
-  { id:'blank',   label:'—',        desc:'Nothing this roll' },
-  { id:'drain',   label:'−2⚡',      desc:'Lose 2 Energy' },
-  { id:'bleed',   label:'−20%',     desc:'−20% attack' },
+  { id:'blank',   label:'—',            desc:'Inert — nothing this roll' },
+  { id:'drain',   label:'−2⚡',          desc:'Lose 2 Energy' },
   { id:'shatter', label:'− highest\ndice', desc:'− your highest Attack die from the total (die stays)' },
+  { id:'red',     label:'−50%\n🔴',      desc:'Weapons malfunction — half your red dice total off your combat total' },
+  { id:'blue',    label:'−50%\n🔵',      desc:'Weakness — half your blue dice total off your combat total' },
+  { id:'green',   label:'−50%\n🟢',      desc:'Slowed — half your green dice total off your combat total' },
 ];
 // legacy aliases
 const SCAR_FACES = { 1: SCAR_DIE_FACES, 2: SCAR_DIE_FACES };
@@ -792,32 +762,28 @@ const INSTINCT_FACES = [
 
 
 const TIPS = {
-  mod: { title:'Mod die', body:'Energy (+2/3/4⚡), % (+10/20/25), Base (claim permanent Base to +3/4/5), Points (+3/4/5 personal score — no combat help), and 2 Scar faces. Points = greed: take score instead of helping the fight. Header Base starts at 0 — roll Base to raise it. Lock a Scar face → grab a Scar die. Upgrade helpful faces for 2⚡.' },
-  modDie: { title:'Mod die', body:'Energy (+2/3/4⚡), % (+10/20/25), Base (claim permanent Base to +3/4/5), Points (+3/4/5 personal score — no combat help), and 2 Scar faces. Points = greed: take score instead of helping the fight. Header Base starts at 0 — roll Base to raise it. Lock a Scar face → grab a Scar die. Upgrade helpful faces for 2⚡.' },
-  modPoints: { title:'Points face', body:'Lock this face for personal score (+3 → +4 → +5 as upgraded). It does not add to your combat total — you’re taking points instead of helping the team fight. Reroll if you need combat more.' },
-  baseAtkHuman: { title:'Your Base', body:'Starts at 0. When you lock a Base face on your Mod die, your permanent Base rises to that face’s value (3 → 4 → 5 as you upgrade). It adds to every combat total after that.' },
-  scar: { title:'Scar die', body:'All Scar dice are the same: 3 blanks + 3 hurts (−2⚡, −20%, − highest dice). You pick them up into your pool (from Mod Scar faces, Outbreak, or Poison). Each Scar die rolls every turn. Heal one for 3⚡ in the shop.' },
-  scarDie: { title:'Scar die', body:'All Scar dice are the same: 3 blanks + 3 hurts (−2⚡, −20%, − highest dice). You pick them up into your pool (from Mod Scar faces, Outbreak, or Poison). Each Scar die rolls every turn. Heal one for 3⚡ in the shop.' },
-  healScar: { title:'Heal scar', body:'Spend 3⚡ in the shop to remove one Scar die from your pool.' },
-  fusion: { title:'Human share', body:'On host turns, part of your human attack is added into the parasite total.' },
-  aura: { title:'Aura', body:'A permanent flat number added to the parasite total every host turn. Feed raises it.' },
-  baseAtk: { title:'Base Attack', body:'Flat parasite power. Tuned for 6-player tables first (this-round seat bonus: 3p −18 · 4p 0 · 5p +18 · 6p +30). When the crew holds, Base Attack grows forever (+2 at 4p, +4 at 5p, +6 at 6p).' },
-  boss: { title:'Boss meter / Round 10 HP', body:'Tracks how much the table fed the parasite. Round 10 HP scales with table size + Boss Meter. Feed/Harden +1, Poison +2, Outbreak +3, host win +1.' },
-  instinct: { title:'Specialty die', body:'Extra parasite die. Faces: +8, +25% atk, +lowest, +your high, blank, or +extra die.' },
-  host: { title:'Host turn', body:'You are infected. Pick one of 4 parasite moves, then roll human + parasite separately, lock each, and Submit both.' },
-  poison: { title:'Poison', body:'Host move: pick a crewmate. They add one Scar die to their pool (same Scar dice as everyone else).' },
-  moves: { title:'Parasite moves', body:'Every host turn pick exactly one: Feed, Harden, Outbreak, or Poison.' },
-  feed: { title:'Feed', body:'Safer. Permanent +aura (usually +1; +2 at 6 players). Boss +1. No Scar.' },
-  harden: { title:'Harden', body:'Safer. +1 on every Attack face. Boss +1. No Scar.' },
-  outbreak: { title:'Outbreak', body:'+1 Attack die (if room), +4 tonight, and you take a Scar die. Boss +3.' },
-  forge: { title:'Forge', body:'Spend 1⚡ to permanently +2 a face on an Attack die.' },
-  heal: { title:'Heal scar', body:'Spend 3⚡ in the shop to remove one Scar die from your pool.' },
-  energy: { title:'Energy', body:'+5 each round (banks). Win +2. Category +1. Forge 1 · Mod upgrade 2 · Extra die 3 · Heal scar 3. Reroll a section 1⚡ (1 free section reroll each round). Reroll all dice 2⚡.' },
-  rerollSec: { title:'Reroll section', body:'Rerolls every die in that section (Attack, Mod, or Scar) for 1⚡. Your first section reroll each round is free.' },
-  rerollAll: { title:'Reroll all', body:'Rerolls Attack + Mod + Scar (or the whole parasite package) for 2⚡. Free section reroll does not apply — All always costs 2⚡.' },
-  explode: { title:'Bonus re-roll', body:'If a parasite attack die hits its highest face, bonus re-roll and add once.' },
-  lock: { title:'Lock in', body:'Confirms your roll. If your Mod shows Scar and you lock it, you gain a Scar die. On host turns lock human + parasite, then Submit both.' },
-  attack: { title:'Attack dice', body:'Your colored crew dice (Weapons / Strength / Agility). Forge faces, buy extras. They make your combat total.' },
+  mod: { title:'ChemDice', body:'Six faces: Base Attack (B+3/4/5), Energy (+1/2/3 per round), Reroll (+1/1/2 tokens per round), % (+10/15/20 of attack), Points (+3/4/5 personal score), and one scar face. STACKING: every time you lock a claim face its value is added permanently — no cap, the face never goes dead. Upgrade a face for 2 Energy to raise its per-lock gain.' },
+  modDie: { title:'ChemDice', body:'Lock a claim face to BANK it forever — every lock adds. Upgrade faces 2 Energy to raise the per-lock amount. One scar face: lock it and you grab a Scar die.' },
+  modPoints: { title:'Points face', body:'Lock this face for personal score (+3/4/5 as upgraded). No combat help — pure greed. Reroll it if the team needs your total tonight.' },
+  baseAtkHuman: { title:'Your Base', body:'Starts at 0. Every time you lock the Base Attack face it ADDS (+3/4/5 per lock, stacking forever). Added to every combat total.' },
+  scar: { title:'Scar die', body:'One blank + five hurts: lose 2 Energy, minus your highest die, or minus 50 percent of your red / blue / green dice total (the parasite sabotages what you built). Each Scar die rolls every turn. Heal one for 3 Energy.' },
+  scarDie: { title:'Scar die', body:'One blank + five hurts (drain, shatter, or half a color off your total). Heal for 3 Energy in the shop. Sources: hosting (always), the host Channel, or locking your Mod scar face.' },
+  healScar: { title:'Heal scar', body:'Spend 3 Energy in the shop to remove one Scar die from your pool.' },
+  baseAtk: { title:'Mirror Base', body:'The parasite Base Attack MIRRORS the crew: about 47 percent of the previous round total crew score, plus a permanent bump every time the crew holds. It grows because you grow.' },
+  boss: { title:'Boss Meter / final round', body:'Every scar created and every host win feeds the meter. The final-round boss HP mirrors the crew strength plus the meter. A reckless table builds its own nightmare.' },
+  instinct: { title:'Specialty die', body:'Extra parasite die: +8, +25 percent of attack, +lowest attack die again, +your highest human die, blank, or +extra die.' },
+  host: { title:'Host turn', body:'You are infected. Shop human, grow the parasite (must buy at least one thing), roll human, pick a Channel, roll parasite, lock both, submit. Hosting always costs you one scar.' },
+  channel: { title:'Channels', body:'Pick AFTER seeing your human roll. RAVAGE: 2x your red total, everyone gets a scar (crew and you). CRUSH: 1.75x your blue total, you plus one chosen crewmate get scars. SEVER: cancels the crew top 2 dice (no attack bonus), only you get a scar. More power = more collateral.' },
+  crit: { title:'CRIT', body:'When a parasite die rolls its maximum face, it CRITS: roll that die once more and add it.' },
+  sizeUp: { title:'Size up', body:'3 Energy grows a die to the next size (d6 to d8 to d10; parasite caps at d12). Adds the next two faces — same floor, higher ceiling. Ceiling wins categories.' },
+  parShopDie: { title:'Parasite die', body:'A hot die (faces 3-10) that CRITS on its max face. The parasite can hold 4.' },
+  forge: { title:'Forge', body:'Spend 1 Energy to permanently add +2 to one face on one Attack die (any size).' },
+  heal: { title:'Heal scar', body:'Spend 3 Energy in the shop to remove one Scar die from your pool.' },
+  energy: { title:'Energy', body:'+6 each round, plus your banked Base Energy, plus +2 underdog if you are last. Win +2, category +1. Forge 1 / Mod upgrade 2 / size-up 3 / extra die 4 / heal 3. Unspent banks.' },
+  rerollSec: { title:'Section reroll', body:'Rerolls every die in that section (Attack, Mod, or Scar). Spends a reroll token first; only when you have no tokens does it cost 1 Energy.' },
+  rerollAll: { title:'Reroll all', body:'Rerolls everything for 2 Energy. Always energy — tokens never apply.' },
+  lock: { title:'Lock in', body:'Confirms your roll. Locking a ChemDice claim face BANKS it permanently. Locking the scar face grabs a Scar die. On host turns lock human + parasite, then Submit both.' },
+  attack: { title:'Attack dice', body:'Your colored crew dice (Weapons / Strength / Agility). Forge faces, size them up, buy extras. They make your combat total — and your host Channels feed on them.' },
 };
 function tip(key, label){
   // span (not button) so tips work inside cards/buttons without nested-button bugs
@@ -855,45 +821,61 @@ const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&
 const deep = o => JSON.parse(JSON.stringify(o));
 const uid = (p) => p + '_' + Math.random().toString(36).slice(2,7);
 function stdFaces(){ return [1,2,3,4,5,6]; }
-function hotFaces(){ return [3,4,5,6,7,8]; } // middle-balance starter
+function hotFaces(){ return [3,4,5,6,7,8,9,10]; } // parasite PREDATOR die (crits on max)
+function dieSizeOf(d){ return (d && d.size) || ((d && d.faces && d.faces.length >= 7) ? d.faces.length : 6); }
+/** Size-up a die: d6→d8→d10 (crew) or →d12 (parasite). Adds the next two pip faces. */
+function applySizeUp(die, cap){
+  if (!die) return false;
+  const size = dieSizeOf(die);
+  const max = cap || CFG.maxDieSize;
+  if (size >= max) return false;
+  for (let s = size + 1; s <= size + 2; s++) die.faces.push(s);
+  die.size = size + 2;
+  return true;
+}
 function shuffle(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=randInt(i+1);[a[i],a[j]]=[a[j],a[i]];} return a; }
 
 function starterDice(){
   return [
-    { id:'w1', color:'red',   faces:stdFaces(), bonus:false },
-    { id:'s1', color:'blue',  faces:stdFaces(), bonus:false },
-    { id:'a1', color:'green', faces:stdFaces(), bonus:false },
+    { id:'w1', color:'red',   faces:stdFaces(), size:6, bonus:false },
+    { id:'s1', color:'blue',  faces:stdFaces(), size:6, bonus:false },
+    { id:'a1', color:'green', faces:stdFaces(), size:6, bonus:false },
   ];
 }
 function isStarterDieId(id){ return id==='w1' || id==='s1' || id==='a1'; }
 function isBonusDie(d){ return !!(d && (d.bonus || d.tempNew || d.id==='preview')); }
 function starterModDie(){
-  // Energy · % · Base · Points · Scar · Scar
+  // v5: Base Attack · Base Energy · Base Reroll · Base % · Points · Scar (one)
   return [
+    { kind:'atk', level:0 },
     { kind:'energy', level:0 },
+    { kind:'reroll', level:0 },
     { kind:'pct', level:0 },
-    { kind:'base', level:0 },
     { kind:'points', level:0 },
-    { kind:'scar', level:0 },
     { kind:'scar', level:0 },
   ];
 }
-/** Migrate legacy Mod dice (2× Energy, old ladders) and clamp levels. */
+function starterAcc(){ return { atk:0, energy:0, reroll:0, pct:0 }; }
+function accOf(pl){
+  if (!pl.acc) pl.acc = starterAcc();
+  CLAIM_KINDS.forEach(k=>{ if (pl.acc[k] == null) pl.acc[k] = 0; });
+  return pl.acc;
+}
+function tokensBase(pl){ return 1 + (accOf(pl).reroll|0); }
+/** Migrate legacy Mod dice to the v5 face set and clamp levels. */
 function normalizeHumanModDie(pl){
   if (!pl) return;
   if (!pl.modDie || !pl.modDie.length) pl.modDie = starterModDie();
-  const die = pl.modDie;
-  let sawEnergy = false;
-  die.forEach(f=>{
+  const kinds = (pl.modDie||[]).map(f=>f && f.kind);
+  const wanted = ['atk','energy','reroll','pct','points','scar'];
+  const isV5 = wanted.every(k => kinds.includes(k)) && pl.modDie.length === 6;
+  if (!isV5) pl.modDie = starterModDie();
+  pl.modDie.forEach(f=>{
     if (!f) return;
-    // Second Energy face → Points (v4.10)
-    if (f.kind==='energy'){
-      if (sawEnergy){ f.kind = 'points'; f.level = Math.min(f.level|0, 2); }
-      else sawEnergy = true;
-    }
     if (f.kind!=='scar' && (f.level|0) > modMaxLevel(f)) f.level = modMaxLevel(f);
     if ((f.level|0) < 0) f.level = 0;
   });
+  accOf(pl);
 }
 function scarCount(pl){ return Math.max(0, (pl && pl.scars)|0); }
 function addScarDie(pl){
@@ -910,82 +892,51 @@ function healOneScar(pl){
 }
 
 function starterParasite(n){
-  const t = parasiteTuning(n || 4);
-  const faces = hotFaces().map(v => v + (t.faceBonus||0));
-  const attack = [];
-  for (let i=0;i<t.atkDice;i++) attack.push({ id:'atk'+(i+1), faces: faces.slice() });
+  const t = parasiteTuning(n || 6);
   return {
     mutations: 0,
     bossMeter: 0,
-    fusionPct: t.startFusion,
-    fusionCap: t.fusionCap,
-    fusionStep: t.fusionStep,
-    auraFlat: t.startAura,
-    auraGain: t.auraGain,
-    baseAttack: t.startBaseAttack|0,
-    attack,
-    // shared mod die (3 faces) — grows via soft/heavy
-    mod: {
-      id:'pmod',
-      faces: [
-        { type:'flat', n:5 },
-        { type:'flat', n:8 },
-        { type:'pct', n:20 },
-      ],
-    },
+    // PREDATOR: 2 hot dice (3–10), CRIT on max face (bonus roll added once)
+    attack: [
+      { id:'atk1', faces: hotFaces(), size: 8 },
+      { id:'atk2', faces: hotFaces(), size: 8 },
+    ],
+    bank: 0,                 // parasite ⚡ bank (stipend + leftovers across hosts)
+    prevCrew: t.mirrorSeed,  // MIRROR: last round's true crew total
+    holdBumps: 0,            // permanent +2 per crew hold
     instinct: INSTINCT_FACES.map(f => f.id),
-    hpBase: t.hpBase,
-    hpPerMeter: t.hpPerMeter,
     balanceN: t.n,
   };
 }
 
 function hostIdForRound(g, r){
-  if (!g || r < 2 || r > 9) return null;
-  const slot = (g.schedule || [])[r-2];
+  if (!g || r < 1) return null;
+  if (r > infectionSlots(g)) return null;
+  const slot = (g.schedule || [])[r-1];
   return slot || null;
 }
 function roundKind(r, g){
   g = g || (typeof G !== 'undefined' ? G : null);
-  if (r === 1) return 'training';
-  if (r === 10) return 'boss';
-  if (r >= 2 && r <= 9){
-    return hostIdForRound(g, r) ? 'infection' : 'skirmish';
-  }
+  const total = totalRounds(g);
+  if (r === total) return 'boss';
+  if (r >= 1 && r < total) return 'infection';
   return 'over';
 }
+/** Boss HP mirrors final crew strength (all N players) + the Boss Meter. */
 function bossHP(g){
-  const t = parasiteTuning(tableSize(g));
+  const n = tableSize(g);
   const p = g && g.parasite;
-  const base = (p && p.hpBase != null) ? p.hpBase : t.hpBase;
-  const per = (p && p.hpPerMeter != null) ? p.hpPerMeter : t.hpPerMeter;
-  return base + per * ((p && p.bossMeter) || 0);
+  const t = parasiteTuning(n);
+  const prevCrew = (p && p.prevCrew != null) ? p.prevCrew : t.mirrorSeed;
+  const crewAllEst = prevCrew * n / Math.max(1, n - 1);
+  return Math.round(CFG.bossHpMult * crewAllEst) + Math.round(CFG.hpPerMeter * ((p && p.bossMeter) || 0));
 }
 
-/** Build up to 8 infection hosts. Max 2 each. Leftover slots (3p) are skirmish (null). */
+/** v5: 2×N infection slots — everyone hosts exactly twice, no back-to-back repeats. */
 function buildHostSchedule(roster){
   const ids = roster.slice();
-  const N = ids.length;
-  const hostSlots = Math.min(INFECTION_SLOTS, N * 2);
-  const counts = {};
-  ids.forEach(p => counts[p] = 0);
-  // Give everyone one host when possible
-  let left = hostSlots;
-  const bag = [];
-  if (hostSlots >= N){
-    ids.forEach(p => { counts[p] = 1; bag.push(p); });
-    left -= N;
-  }
-  // Second hosts to a random subset — never a third
-  const seconds = shuffle(ids);
-  for (let i=0;i<left;i++){
-    counts[seconds[i]] = 2;
-    bag.push(seconds[i]);
-  }
-  // Arrange with no adjacent duplicate hosts when possible
-  let order = arrangeHosts(bag);
-  while (order.length < INFECTION_SLOTS) order.push(null); // skirmish slots (3-player tables)
-  return order;
+  const bag = [...ids, ...ids];
+  return arrangeHosts(bag);
 }
 function arrangeHosts(bag){
   const items = bag.slice();
@@ -1025,18 +976,20 @@ function modFaceLabel(face){
   if (!face) return '?';
   if (face.kind==='scar') return 'gain\nscar';
   const v = modFaceValue(face);
+  if (face.kind==='atk' || face.kind==='base') return 'B+'+v;
   if (face.kind==='energy') return '+'+v+'⚡';
+  if (face.kind==='reroll') return '+'+v+'🎲';
   if (face.kind==='pct') return '+'+v+'%';
-  if (face.kind==='base') return 'B'+v;
   if (face.kind==='points') return '+'+v+' pts';
   return '?';
 }
 function modFaceClass(face){
   if (!face) return 'blank';
   if (face.kind==='scar') return 'scar';
+  if (face.kind==='atk' || face.kind==='base') return 'base-face';
   if (face.kind==='energy') return 'energy-face';
+  if (face.kind==='reroll') return 'energy-face';
   if (face.kind==='pct') return 'pct';
-  if (face.kind==='base') return 'base-face';
   if (face.kind==='points') return 'points-face';
   return 'blank';
 }
@@ -1060,21 +1013,8 @@ function instinctDesc(id){
   return f ? f.desc : 'Specialty effect this roll.';
 }
 function growthTitle(key){
-  const map = {
-    feed: 'Feed',
-    harden: 'Harden',
-    outbreak: 'Outbreak',
-    poison: 'Poison',
-    // legacy soft/heavy keys
-    surge: '+1 all faces (1 atk die)',
-    push_mod: 'Upgrade parasite mod',
-    fusion: `Human share +${Math.round(CFG.fusionStep*100)}%`,
-    aura: `Permanent +${CFG.auraGain} aura`,
-    new_die: '+1 attack die',
-    ribcage: '+2 all attack faces',
-    full_fusion: '100% human share tonight',
-    instinct_up: 'Blank → +25% atk',
-  };
+  const map = { ravage:'🔴 RAVAGE', crush:'🔵 CRUSH', sever:'🟢 SEVER',
+    feed:'Feed', harden:'Harden', outbreak:'Outbreak', poison:'Poison' };
   return map[key] || key;
 }
 
@@ -1181,7 +1121,8 @@ function newGameData(roster, names){
       energy: CFG.roundStipend,
       dice: starterDice(),
       modDie: starterModDie(),
-      baseAtk: 0,
+      acc: starterAcc(),   // v5 stacking claims: Base atk / energy / reroll / pct
+      baseAtk: 0,          // legacy
       scars: 0,
       perks: { freeReroll:false },
     };
@@ -1193,7 +1134,7 @@ function newGameData(roster, names){
     round: 1,
     roster: ids.slice(),
     playerIds: ids.slice(),
-    schedule: buildHostSchedule(ids), // length 8; null = skirmish (3p tables)
+    schedule: buildHostSchedule(ids), // length 2N — everyone hosts twice
     players,
     parasite: starterParasite(ids.length),
     rounds: {},
@@ -1215,134 +1156,60 @@ function canAddColor(pl, color, pendingColor){
 }
 function actionLocked(a){ return a && a.phase === 'locked'; }
 
-/* ================= PARASITE MOVES (host) ================= */
+/* ================= HOST TURN: CHANNELS + PARASITE SHOP ================= */
+const CHANNELS = {
+  ravage: { name:'RAVAGE', color:'red',   icon:'🔴', desc:'2× your Weapons total — everyone gets a scar (crew AND you). Reckless.' },
+  crush:  { name:'CRUSH',  color:'blue',  icon:'🔵', desc:'1.75× your Strength total — you + one crewmate you choose get scars.' },
+  sever:  { name:'SEVER',  color:'green', icon:'🟢', desc:'Cancel the crew’s 2 highest dice. No attack bonus. Only you get a scar.' },
+};
+function channelAddFor(key, rolls){
+  const sum = c => (rolls||[]).filter(d=>d.color===c).reduce((s,d)=>s+(d.v||0),0);
+  if (key==='ravage') return Math.round(CFG.ravageMult * sum('red'));
+  if (key==='crush') return Math.round(CFG.crushMult * sum('blue'));
+  return 0; // sever adds nothing — it cancels
+}
+function channelScarNote(key){
+  if (key==='ravage') return 'Everyone scarred (crew + you)';
+  if (key==='crush') return 'You + your chosen target scarred';
+  return 'Only you scarred';
+}
+/** Parasite shop: buys apply to a working copy; committed at resolve. */
+function parShopCost(buys){
+  buys = buys || {};
+  return (buys.dice|0) * CFG.addDieCost + (buys.sizes|0) * CFG.sizeUpCost + (buys.forges|0) * CFG.forgeCost;
+}
+function applyParShop(parasite, buys){
+  buys = buys || {};
+  let spent = 0;
+  for (let i=0; i<(buys.dice|0); i++){
+    if ((parasite.attack||[]).length >= CFG.parMaxDice) break;
+    parasite.attack.push({ id: uid('atk'), faces: hotFaces(), size: 8 });
+    spent += CFG.addDieCost;
+  }
+  for (let i=0; i<(buys.sizes|0); i++){
+    const d = (parasite.attack||[]).filter(d=>dieSizeOf(d) < CFG.parMaxDieSize).sort((a,b)=>dieSizeOf(a)-dieSizeOf(b))[0];
+    if (!d) break;
+    applySizeUp(d, CFG.parMaxDieSize);
+    spent += CFG.sizeUpCost;
+  }
+  for (let i=0; i<(buys.forges|0); i++){
+    const dice = parasite.attack||[];
+    if (!dice.length) break;
+    let best = dice[0], bi = 0;
+    dice.forEach(d=> d.faces.forEach((v,j)=>{ if (v < best.faces[bi]){ best = d; bi = j; } }));
+    best.faces[bi] += CFG.forgeBump;
+    spent += CFG.forgeCost;
+  }
+  parasite.mutations = (parasite.mutations||0) + 1;
+  return spent;
+}
 function parAttackCount(p){ return ((p && p.attack) || []).length; }
-function canAddParAttackDie(p){ return parAttackCount(p) < CFG.maxParAttack; }
+function canAddParAttackDie(p){ return parAttackCount(p) < CFG.parMaxDice; }
 function tryAddParAttackDie(parasite, faces){
   if (!parasite.attack) parasite.attack = [];
-  if (parasite.attack.length >= CFG.maxParAttack) return false;
-  parasite.attack.push({ id: uid('atk'), faces: (faces || hotFaces()).slice() });
+  if (parasite.attack.length >= CFG.parMaxDice) return false;
+  parasite.attack.push({ id: uid('atk'), faces: (faces || hotFaces()).slice(), size: 8 });
   return true;
-}
-/** Always exactly 4 moves — the host’s attack menu. */
-function parasiteMoveOptions(p, g){
-  const auraGain = (p && p.auraGain != null) ? p.auraGain : CFG.auraGain;
-  const n = parAttackCount(p);
-  const room = canAddParAttackDie(p);
-  const tonight = CFG.outbreakTonight || 10;
-  return [
-    { key:'feed', lane:'soft', title:'Feed',
-      desc:`Safer. Permanent +${auraGain} aura. Round-10 boss +1.` },
-    { key:'harden', lane:'soft', title:'Harden',
-      desc:'Safer. +1 on every face of all Attack dice. Round-10 boss +1.' },
-    { key:'outbreak', lane:'heavy', title:'Outbreak',
-      desc:(room?`+1 Attack die (${n}→${n+1}). `:`Attack dice maxed (${n}). `)+`+${tonight} tonight. You take Scar. Round-10 boss +3.` },
-    { key:'poison', lane:'strike', title:'Poison',
-      desc:'Pick a crewmate — they grab a Scar die into their pool. No Scar on you. Round-10 boss +2.', needsTarget:true },
-  ];
-}
-function softGrowthOptions(p){ return parasiteMoveOptions(p).filter(o=>o.lane==='soft'); }
-function heavyGrowthOptions(p){ return parasiteMoveOptions(p).filter(o=>o.lane!=='soft'); }
-
-function applyParasiteMove(parasite, key, hostPl, opts){
-  opts = opts || {};
-  let fusionOverride = null;
-  let tonightFlat = 0;
-  let poisonTarget = opts.poisonTarget || null;
-  parasite.mutations = (parasite.mutations||0) + 1;
-
-  if (key==='feed'){
-    parasite.bossMeter = (parasite.bossMeter||0) + CFG.softMeter;
-    parasite.auraFlat = (parasite.auraFlat||0) + (parasite.auraGain!=null?parasite.auraGain:CFG.auraGain);
-    return { key, lane:'soft', fusionOverride, tonightFlat, poisonTarget };
-  }
-  if (key==='harden'){
-    parasite.bossMeter = (parasite.bossMeter||0) + CFG.softMeter;
-    (parasite.attack||[]).forEach(d=>{ d.faces = d.faces.map(v=>v+1); });
-    return { key, lane:'soft', fusionOverride, tonightFlat, poisonTarget };
-  }
-  if (key==='outbreak'){
-    parasite.bossMeter = (parasite.bossMeter||0) + CFG.heavyMeter;
-    tryAddParAttackDie(parasite);
-    tonightFlat = CFG.outbreakTonight || 10;
-    if (hostPl) addScarDie(hostPl);
-    return { key, lane:'heavy', fusionOverride, tonightFlat, poisonTarget, scars: hostPl?scarCount(hostPl):0 };
-  }
-  if (key==='poison'){
-    parasite.bossMeter = (parasite.bossMeter||0) + (CFG.poisonMeter||2);
-    return { key, lane:'strike', fusionOverride, tonightFlat, poisonTarget };
-  }
-  // Legacy soft keys
-  if (key==='surge' || key==='push_mod' || key==='fusion' || key==='aura'){
-    return applySoftGrowth(parasite, key);
-  }
-  // Legacy heavy
-  return applyHeavyGrowth(parasite, key, hostPl);
-}
-function applySoftGrowth(parasite, key){
-  parasite.bossMeter = (parasite.bossMeter||0) + CFG.softMeter;
-  parasite.mutations = (parasite.mutations||0) + 1;
-  if (key==='surge'){
-    const d = (parasite.attack||[])[0];
-    if (d) d.faces = d.faces.map(v=>v+1);
-    return { key, lane:'soft' };
-  }
-  if (key==='push_mod'){
-    const faces = parasite.mod.faces;
-    const rank = f => {
-      if (!f || f.type==='blank') return 0;
-      if (f.type==='flat') return 1 + (f.n>=8?1:0);
-      if (f.type==='pct') return 3 + (f.n>=25?1:0) + (f.n>=35?1:0);
-      return 5;
-    };
-    let bi = 0;
-    for (let i=1;i<faces.length;i++) if (rank(faces[i]) < rank(faces[bi])) bi = i;
-    const r = rank(faces[bi]);
-    const ladder = [
-      { type:'flat', n:5 }, { type:'flat', n:8 },
-      { type:'pct', n:15 }, { type:'pct', n:25 }, { type:'pct', n:35 },
-    ];
-    faces[bi] = deep(ladder[Math.min(r, ladder.length-1)]);
-    return { key, lane:'soft' };
-  }
-  if (key==='fusion'){
-    parasite.fusionPct = Math.min((parasite.fusionCap!=null?parasite.fusionCap:CFG.fusionCap), (parasite.fusionPct||CFG.startFusion) + (parasite.fusionStep!=null?parasite.fusionStep:CFG.fusionStep));
-    return { key, lane:'soft' };
-  }
-  if (key==='aura' || key==='feed'){
-    parasite.auraFlat = (parasite.auraFlat||0) + (parasite.auraGain!=null?parasite.auraGain:CFG.auraGain);
-    return { key, lane:'soft' };
-  }
-  if (key==='harden'){
-    (parasite.attack||[]).forEach(d=>{ d.faces = d.faces.map(v=>v+1); });
-    return { key, lane:'soft' };
-  }
-  return null;
-}
-function applyHeavyGrowth(parasite, key, hostPl){
-  parasite.bossMeter = (parasite.bossMeter||0) + CFG.heavyMeter;
-  parasite.mutations = (parasite.mutations||0) + 1;
-  if (hostPl) addScarDie(hostPl);
-  let fusionOverride = null;
-  let tonightFlat = 0;
-  tryAddParAttackDie(parasite);
-  if (key==='new_die' || key==='outbreak'){
-    if (key==='outbreak') tonightFlat = CFG.outbreakTonight || 10;
-  } else if (key==='ribcage'){
-    (parasite.attack||[]).forEach(d=>{ d.faces = d.faces.map(v=>v+2); });
-  } else if (key==='full_fusion'){
-    fusionOverride = 1.0;
-  } else if (key==='instinct_up'){
-    const inst = parasite.instinct || INSTINCT_FACES.map(f=>f.id);
-    const bi = inst.indexOf('blank');
-    if (bi>=0) inst[bi] = 'fever';
-    else {
-      const gi = inst.indexOf('gnash');
-      if (gi>=0) inst[gi] = 'fever';
-    }
-    parasite.instinct = inst;
-  }
-  return { key, lane:'heavy', fusionOverride, tonightFlat, scars: hostPl ? scarCount(hostPl) : 0 };
 }
 
 /* ================= COMBAT HELPERS ================= */
@@ -1365,109 +1232,99 @@ function shatterSubFromScarRolls(rolls, scarRolls, combatVals){
     : rolls.reduce((m,d)=> Math.max(m, d.v||0), 0);
   return hi * hits;
 }
+/** v5 human combat: attack + Base(acc.atk, incl. this lock) + %(acc.pct) − scar hits. */
 function computeHumanTotal(rolls, modRoll, scarRollOrList, _unused, opts){
   opts = opts || {};
   const scarRolls = Array.isArray(scarRollOrList)
     ? scarRollOrList
     : (scarRollOrList ? [scarRollOrList] : (opts.scarRolls || []));
   modRoll = normalizeModRoll(modRoll);
-  // Scar face on mod ignores helpful mod
-  if (modRoll && modRoll.kind==='scar') modRoll = null;
-  // Attack sum (die faces may already include bleed). Shatter comes off the final total
-  // so Mod % is based on dice, not dice-after-shatter.
+  const acc = opts.acc || { atk:0, energy:0, reroll:0, pct:0 };
   let attack = (rolls||[]).reduce((s,d)=>s+(d.v||0), 0);
-  const vals = (rolls||[]).map(d=>d.v||0);
-  const shatterSub = shatterSubFromScarRolls(rolls, scarRolls, vals);
-  let total = attack;
-  let pendingEnergy = 0;
-  let modAdd = 0;
-  let scorePts = 0; // Mod Points face → personal score, not combat
-  let modLabel = 'no mod';
-  // Permanent Base (header) — starts 0; Base face claims a higher floor
-  let permBase = Math.max(0, opts.baseAtk|0);
-  let claimedBase = 0;
-  if (modRoll && modRoll.kind==='base'){
-    claimedBase = modRoll.value|0;
-    permBase = Math.max(permBase, claimedBase);
-  }
-  if (permBase){
-    total += permBase;
-  }
-  if (modRoll && modRoll.kind==='energy'){
-    pendingEnergy = modRoll.value|0;
-    modLabel = '+'+pendingEnergy+'⚡ next';
-  } else if (modRoll && modRoll.kind==='pct'){
-    modAdd = Math.floor(attack * (modRoll.value|0) / 100);
-    total += modAdd;
-    modLabel = '+'+modRoll.value+'% → +'+modAdd;
+  const colorSum = c => (rolls||[]).filter(d=>d.color===c).reduce((s,d)=>s+(d.v||0), 0);
+
+  // Claim preview: locking a claim face banks it THIS round (stacking — always adds)
+  let claim = null, scorePts = 0, modLabel = 'no mod', gainScar = false;
+  let permBase = Math.max(0, (acc.atk|0));
+  let pctNow = Math.max(0, (acc.pct|0));
+  if (modRoll && modRoll.kind==='scar'){ gainScar = true; modLabel = 'gain scar'; }
+  else if (modRoll && modRoll.kind==='points'){ scorePts = modRoll.value|0; modLabel = '+'+scorePts+' pts (no combat)'; }
+  else if (modRoll && CLAIM_KINDS.includes(modRoll.kind)){
+    claim = { kind: modRoll.kind, value: modRoll.value|0 };
+    if (modRoll.kind==='atk'){ permBase += claim.value; modLabel = 'Bank Base +'+claim.value; }
+    else if (modRoll.kind==='pct'){ pctNow += claim.value; modLabel = 'Bank +'+claim.value+'%'; }
+    else if (modRoll.kind==='energy'){ modLabel = 'Bank +'+claim.value+'⚡/round'; }
+    else if (modRoll.kind==='reroll'){ modLabel = 'Bank +'+claim.value+'🎲/round'; }
   } else if (modRoll && modRoll.kind==='base'){
-    modLabel = claimedBase > (opts.baseAtk|0)
-      ? ('Base → +'+claimedBase)
-      : ('Base +'+permBase);
-  } else if (modRoll && modRoll.kind==='points'){
-    scorePts = modRoll.value|0;
-    modLabel = '+'+scorePts+' pts (no combat)';
-  } else if (!modRoll){
-    modLabel = 'scar / off';
-  } else if (permBase && modLabel==='no mod'){
-    modLabel = 'Base +'+permBase;
+    // legacy face
+    claim = { kind:'atk', value: modRoll.value|0 };
+    permBase += claim.value;
+    modLabel = 'Bank Base +'+claim.value;
   }
-  if (shatterSub) total = Math.max(0, total - shatterSub);
-  const scarLabels = scarRolls.filter(s=>s && s.id!=='blank').map(s=>s.label).filter(Boolean);
+
+  // Scar hits — drain hits energy, shatter/− color hit the total
+  let shatterSub = 0, colorSub = 0, pendingDrain = 0;
+  (scarRolls||[]).forEach(s=>{
+    if (!s || s.id==='blank') return;
+    if (s.id==='drain') pendingDrain += 2;
+    else if (s.id==='shatter') shatterSub += Math.max(0, ...(rolls||[]).map(d=>d.v||0));
+    else if (s.id==='red' || s.id==='blue' || s.id==='green') colorSub += Math.floor(0.5 * colorSum(s.id));
+    else if (s.id==='bleed') colorSub += Math.floor(0.2 * attack); // legacy face safety
+  });
+
+  const modAdd = Math.floor(attack * pctNow / 100);
+  let total = attack + permBase + modAdd - shatterSub - colorSub;
+  total = Math.max(0, total);
+  const scarLabels = (scarRolls||[]).filter(s=>s && s.id!=='blank').map(s=>s.label).filter(Boolean);
   return {
-    attack, total, pendingEnergy, modAdd, scorePts, modLabel,
-    permBase, claimedBase,
-    scarLabel: scarLabels.join(' · '),
-    shatterSub, scarRolls,
+    attack, total, modAdd, scorePts, modLabel, claim, gainScar,
+    permBase, pctNow, claimedBase: claim && claim.kind==='atk' ? claim.value : 0,
+    pendingEnergy: 0, pendingDrain,
+    scarLabel: scarLabels.join(' · ').replace(/\n/g,' '),
+    shatterSub, colorSub, scarRolls,
   };
 }
 
 /** Build display math from clean base dice + current mod/scar (for the big blue total). */
 function liveHumanBreakdown(){
   if (!session || !session.rolls){
-    return { rawAttack:0, attack:0, modAdd:0, modLabel:'—', pendingEnergy:0, scorePts:0, scarLabel:'', total:0, ptsDelta:0, energyLoss:0, shatterSub:0, permBase:0 };
+    return { rawAttack:0, attack:0, modAdd:0, modLabel:'—', pendingEnergy:0, scorePts:0, scarLabel:'', total:0, ptsDelta:0, energyLoss:0, shatterSub:0, colorSub:0, permBase:0, claim:null };
   }
   const base = session.baseRolls || session.rolls || [];
   const rawAttack = base.reduce((s,d)=>s+(d.v||0), 0);
-  const perm = (G && me && G.players[me]) ? (G.players[me].baseAtk|0) : 0;
-  const br = computeHumanTotal(session.rolls||[], session.modRoll, session.scarRolls||[], 0, { baseAtk: perm });
+  const acc = (G && me && G.players[me]) ? accOf(G.players[me]) : null;
+  const br = computeHumanTotal(session.rolls||[], session.modRoll, session.scarRolls||[], 0, { acc });
   return {
     rawAttack,
     attack: br.attack,
     modAdd: br.modAdd,
     modLabel: br.modLabel,
-    pendingEnergy: br.pendingEnergy,
+    pendingEnergy: 0,
     scorePts: br.scorePts||0,
     scarLabel: br.scarLabel,
     total: br.total,
     permBase: br.permBase||0,
     claimedBase: br.claimedBase||0,
+    claim: br.claim || null,
     ptsDelta: session.ptsDelta||0,
-    energyLoss: session.scarEnergyLoss||0,
+    energyLoss: br.pendingDrain||0,
     shatterSub: br.shatterSub||0,
+    colorSub: br.colorSub||0,
   };
 }
 /** Live parasite package math on host roll screen (before lock-in). */
 function liveParasiteBreakdown(humanAttack, humanRolls){
   const par = session._previewPar || G.parasite;
   const rolls = humanRolls || session.rolls || [];
-  // Shatter subtracts highest from human total but the face still counts for Specialty "your high"
   const highest = rolls.reduce((m,d)=> Math.max(m, d.v||0), 0);
-  const fusionOverride = (cart && cart.growth && cart.growth.key==='full_fusion') ? 1.0 : null;
-  const part = computeParasitePortion(
-    par, session.aRolls, session.pModRoll, session.instinctRoll,
-    humanAttack||0, highest, fusionOverride, { n: tableSize(G) }
-  );
-  if (session.instinctRoll==='explode' && session.instinctExtra){
-    part.instinctAdd = session.instinctExtra|0;
-    part.total = part.atk + part.flat + part.pctAdd + part.fusion + part.instinctAdd + part.aura + (part.baseAtk||0);
-  }
-  const tf = session._previewTonight || 0;
-  if (tf){
-    part.tonightFlat = tf;
-    part.total = (part.total||0) + tf;
-  }
-  return part;
+  const channel = (cart && cart.channel) || null;
+  return computeParasitePortion(par, session.aRolls, session.instinctRoll, {
+    n: tableSize(G),
+    hostRolls: rolls,
+    channel,
+    highestHumanDie: highest,
+    instinctExtra: session.instinctExtra|0,
+  });
 }
 
 function modStatusLine(pl){
@@ -1478,73 +1335,57 @@ function modStatusLine(pl){
 
 function diceRowMiniHTML(rolls){
   return `<div class="dice-row" style="margin:6px 0">${(rolls||[]).map(d=>
-    `<div class="die-wrap">${dieHTML(d.color||'red', d.v, '', {bonus:isBonusDie(d)})}${d.scarNote?`<div class="die-sub">${esc(d.scarNote)}</div>`:''}${isBonusDie(d)?`<div class="die-sub">bonus</div>`:''}</div>`
+    `<div class="die-wrap">${dieHTML(d.color||'red', d.v, '', {bonus:isBonusDie(d)})}${d.severed?`<div class="die-sub" style="color:#9aefc8">SEVERED</div>`:''}${d.scarNote?`<div class="die-sub">${esc(d.scarNote)}</div>`:''}${isBonusDie(d)?`<div class="die-sub">bonus</div>`:''}</div>`
   ).join('')}</div>`;
 }
 
-function computeParasitePortion(parasite, aRolls, modRoll, instinctRoll, humanAttack, highestHumanDie, fusionOverride, opts){
+/** v5 parasite portion: MIRROR base + attack dice (CRITs) + Specialty + Channel. */
+function computeParasitePortion(parasite, aRolls, instinctRoll, opts){
   opts = opts || {};
-  let atk = (aRolls||[]).reduce((s,d)=>s+(d.v||0), 0);
-  let flat = 0, pctAdd = 0;
-  if (modRoll){
-    if (modRoll.type==='flat') flat += modRoll.n;
-    if (modRoll.type==='pct') pctAdd += Math.floor(atk * modRoll.n / 100);
-  }
-  const fusionPct = fusionOverride != null ? fusionOverride : (parasite.fusionPct||CFG.startFusion);
-  const fusion = Math.floor(humanAttack * fusionPct);
+  const atk = (aRolls||[]).reduce((s,d)=>s+(d.v||0), 0);
   let instinctAdd = 0;
   let instinctNote = instinctRoll;
-  if (instinctRoll === 'gnash') instinctAdd = 8;
-  else if (instinctRoll === 'fever') instinctAdd = Math.floor(atk * 0.25);
-  else if (instinctRoll === 'twin'){
+  const instId = instinctRoll && instinctRoll.id ? instinctRoll.id : instinctRoll;
+  if (instId === 'gnash') instinctAdd = 8;
+  else if (instId === 'fever') instinctAdd = Math.floor(atk * 0.25);
+  else if (instId === 'twin'){
     const vals = (aRolls||[]).map(d=>d.v||0);
     instinctAdd = vals.length ? Math.min(...vals) : 0;
-  } else if (instinctRoll === 'echo'){
-    instinctAdd = highestHumanDie || 0;
-  } else if (instinctRoll === 'explode'){
-    // resolve uses instinctExplodeV if provided on roll payload
-  } else if (instinctRoll && typeof instinctRoll === 'object' && instinctRoll.id==='explode'){
-    instinctAdd = instinctRoll.extra || 0;
+  } else if (instId === 'echo'){
+    instinctAdd = opts.highestHumanDie || 0;
+  } else if (instId === 'explode'){
+    instinctAdd = opts.instinctExtra|0;
     instinctNote = 'explode';
   }
-  const aura = parasite.auraFlat || 0;
-  const n = opts.n != null ? opts.n : (parasite.balanceN || 4);
+  const n = opts.n != null ? opts.n : (parasite.balanceN || 6);
   const baseInfo = parasiteBaseAttackNow(parasite, n);
   const baseAtk = baseInfo.total;
-  const total = atk + flat + pctAdd + fusion + instinctAdd + aura + baseAtk;
+  const channel = opts.channel || null;
+  const chanAdd = channel ? channelAddFor(channel, opts.hostRolls||[]) : 0;
+  const total = baseAtk + atk + instinctAdd + chanAdd;
   return {
-    atk, flat, pctAdd, fusion, fusionPct, instinctAdd, aura,
-    baseAtk, baseStored: baseInfo.stored, baseSeatBonus: baseInfo.seatBonus,
-    total, instinctNote,
+    atk, instinctAdd, instinctNote, chanAdd, channel,
+    baseAtk, baseMirror: baseInfo.mirror, baseStored: baseInfo.stored,
+    flat: 0, pctAdd: 0, fusion: 0, aura: 0, tonightFlat: 0,
+    total,
   };
 }
 
 function expectedParThreat(p, n){
   const atk = (p.attack||[]).reduce((s,d)=>s+faceAvg(d.faces),0);
-  let flatExp=0, pctExp=0;
-  (p.mod && p.mod.faces || []).forEach(f=>{
-    const len = (p.mod.faces||[]).length || 1;
-    if (f.type==='flat') flatExp += f.n / len;
-    if (f.type==='pct') pctExp += (atk * f.n / 100) / len;
-  });
-  const fusion = Math.floor(22 * (p.fusionPct||CFG.startFusion));
-  const base = parasiteBaseAttackNow(p, n || p.balanceN || tableSize(G) || 4).total;
-  return Math.round(atk + flatExp + pctExp + fusion + (p.auraFlat||0) + base + 5);
+  const base = parasiteBaseAttackNow(p, n || p.balanceN || tableSize(G) || 6).total;
+  return Math.round(base + atk + 5 + 14); // + instinct est + typical channel
 }
 
 function resolvePlayerBundle(g, pid, action){
   const pl = g.players[pid];
   const a = action || {};
   const scarRolls = a.scarRolls || (a.scarRoll ? [a.scarRoll] : []);
-  const br = computeHumanTotal(a.rolls, a.modRoll||null, scarRolls, 0, { baseAtk: pl.baseAtk|0 });
-  const scarLoss = a.scarEnergyLoss||0;
-  const pendingRaw = br.pendingEnergy||0;
-  // Drain eats Mod Energy first; leftover hits the banked energy pool
-  const pending = Math.max(0, pendingRaw - scarLoss);
-  const drainDebt = Math.max(0, scarLoss - pendingRaw);
+  const br = computeHumanTotal(a.rolls, a.modRoll||null, scarRolls, 0, { acc: accOf(pl) });
+  const drainDebt = br.pendingDrain||0;
   const ptsDelta = a.ptsDelta||0;
   const scorePts = br.scorePts||0;
-  return { br, pending, ptsDelta, scorePts, scarLoss, drainDebt };
+  return { br, pending: 0, ptsDelta, scorePts, scarLoss: drainDebt, drainDebt };
 }
 
 /* ================= ROUND RESOLUTION ================= */
@@ -1556,19 +1397,22 @@ function resolveRound(g){
   if (g.rounds[r].result) return g;
 
   const kind = roundKind(r, g);
-  const hostId = hostIdForRound(g, r);
+  const hostId = kind==='infection' ? hostIdForRound(g, r) : null;
+  const n = roster.length;
 
-  // Apply human spends for everyone
+  // --- 1) apply everyone's shop spends ---
   roster.forEach(pid=>{
     const a = actions[pid], pl = g.players[pid];
+    accOf(pl);
     let spent = 0;
-    const forges = a.forges || [];
-    spent += forges.length * CFG.forgeCost;
-    forges.forEach(f=>{
-      const d = findDie(pl.dice, f.dieId);
-      applyForge(d, f.faceIndex, CFG.forgeBump);
+    (a.sizeUps||[]).forEach(dieId=>{
+      const d = findDie(pl.dice, dieId);
+      if (d && applySizeUp(d, CFG.maxDieSize)) spent += CFG.sizeUpCost;
     });
-    // mod upgrades
+    (a.forges||[]).forEach(f=>{
+      const d = findDie(pl.dice, f.dieId);
+      if (d && applyForge(d, f.faceIndex, CFG.forgeBump)) spent += CFG.forgeCost;
+    });
     (a.modUps||[]).forEach(idx=>{
       const face = pl.modDie[idx];
       if (face && face.kind!=='scar' && (face.level|0) < modMaxLevel(face)){
@@ -1579,237 +1423,173 @@ function resolveRound(g){
     if (a.addDie && canAddColor(pl, a.addDie, null)){
       spent += CFG.addDieCost;
       const fromRoll = (a.rolls||[]).find(d=>d.tempNew);
-      pl.dice.push({ id: fromRoll ? fromRoll.dieId : uid(a.addDie[0]), color: a.addDie, faces: stdFaces(), bonus: true });
+      pl.dice.push({ id: fromRoll ? fromRoll.dieId : uid(a.addDie[0]), color: a.addDie, faces: stdFaces(), size: 6, bonus: true });
     }
     spent += Math.max(0, a.rerollBuys||0) * CFG.rerollCost;
     const healN = Math.max(0, a.healScars||0);
     spent += healN * (CFG.healScarCost||3);
     for (let h=0; h<healN; h++) healOneScar(pl);
-    // free-reroll perk purchase removed — everyone gets CFG.freeRerollsPerRound each round
     pl.energy = Math.max(0, (pl.energy||0) - spent);
-    // Mod Scar face locked in → pick up a Scar die
-    if (a.gainScar) addScarDie(pl);
-    // Base face locked in → raise permanent Base (header)
-    if (a.modRoll && a.modRoll.kind==='base'){
-      const claim = (a.modRoll.value != null) ? (a.modRoll.value|0) : modFaceValue(a.modRoll);
-      pl.baseAtk = Math.max(pl.baseAtk|0, claim);
+  });
+
+  // --- 2) bundles (claim previews included in totals) ---
+  const rolls = {}, bundles = {}, breakdown = {};
+  roster.forEach(pid=>{
+    const a = actions[pid];
+    rolls[pid] = deep(a.rolls||[]);
+    bundles[pid] = resolvePlayerBundle(g, pid, a);
+  });
+
+  // --- 3) bank claims / scars from the Mod lock (STACKING — every lock adds) ---
+  roster.forEach(pid=>{
+    const a = actions[pid], pl = g.players[pid];
+    const mr = normalizeModRoll(a.modRoll);
+    if (mr && mr.kind==='scar') addScarDie(pl);
+    else if (mr && (CLAIM_KINDS.includes(mr.kind) || mr.kind==='base')){
+      const k = mr.kind==='base' ? 'atk' : mr.kind;
+      accOf(pl)[k] += Math.max(0, mr.value|0);
+      pl.baseAtk = accOf(pl).atk; // legacy header mirror
     }
   });
 
-  // Host parasite move
-  let growthResult = null;
-  let fusionOverride = null;
-  let tonightFlat = 0;
-  if (kind==='infection' && hostId){
-    const a = actions[hostId];
-    const growth = a.growth;
-    if (growth && growth.key){
-      const MOVE_KEYS = { feed:1, harden:1, outbreak:1, poison:1 };
-      if (MOVE_KEYS[growth.key]){
-        growthResult = applyParasiteMove(g.parasite, growth.key, g.players[hostId], {
-          poisonTarget: growth.target || null,
-        });
-        fusionOverride = growthResult.fusionOverride;
-        tonightFlat = growthResult.tonightFlat || 0;
-        if (growth.key==='poison' && growth.target && g.players[growth.target] && growth.target !== hostId){
-          addScarDie(g.players[growth.target]);
-          growthResult.poisonTarget = growth.target;
-          growthResult.scars = scarCount(g.players[growth.target]);
-        }
-      } else if (growth.lane==='heavy'){
-        growthResult = applyHeavyGrowth(g.parasite, growth.key, g.players[hostId]);
-        fusionOverride = growthResult.fusionOverride;
-        tonightFlat = growthResult.tonightFlat || 0;
-      } else {
-        growthResult = applySoftGrowth(g.parasite, growth.key);
-      }
-    }
-  }
-
   const awards = {};
   roster.forEach(p=> awards[p]={pts:0, energy:0, tags:[], pendingEnergy:0});
-
-  // --- TRAINING / SKIRMISH (no host) ---
-  if (kind==='training' || kind==='skirmish'){
-    const totals = {};
-    const rolls = {};
-    const breakdown = {};
-    roster.forEach(pid=>{
-      const a = actions[pid];
-      rolls[pid] = deep(a.rolls||[]);
-      const pack = resolvePlayerBundle(g, pid, a);
-      const br = pack.br;
-      totals[pid] = br.total;
-      breakdown[pid] = {
-        attack: br.attack, total: br.total, modAdd: br.modAdd, modLabel: br.modLabel,
-        permBase: br.permBase||0, claimedBase: br.claimedBase||0, scorePts: pack.scorePts||0,
-        modRoll: deep(a.modRoll||null), scarRoll: deep(a.scarRoll||null),
-        pendingEnergy: pack.pending, ptsDelta: pack.ptsDelta,
-        scars: scarCount(g.players[pid]), scarRolls: deep(a.scarRolls||[]),
-      };
-      awards[pid].pendingEnergy = pack.pending;
-      awards[pid].drainDebt = pack.drainDebt||0;
-      if (pack.ptsDelta) awards[pid].pts += pack.ptsDelta;
-      if (pack.scorePts){ awards[pid].pts += pack.scorePts; awards[pid].tags.push('mod-pts'); }
-    });
-    const order = roster.slice().sort((a,b)=> totals[b]-totals[a]);
-    const trainPts = rankPtsFor(roster.length, 6, 1);
-    order.forEach((pid,i)=>{ awards[pid].pts += trainPts[i]||1; awards[pid].tags.push(kind==='skirmish'?'skirmish':'train'); });
-    // categories
-    const cats = {};
-    COLORS.forEach(c=>{
-      const best = roster.map(h=>{
-        const vals = (rolls[h]||[]).filter(d=>d.color===c).map(d=>d.v);
-        return { h, v: vals.length ? Math.max(...vals) : -1 };
-      }).sort((a,b)=>b.v-a.v);
-      if (best.length>=2 && best[0].v > best[1].v && best[0].v >= 0){
-        cats[c] = best[0].h;
-        awards[best[0].h].pts += CFG.catPts(r);
-        awards[best[0].h].energy += CFG.catEn;
-        awards[best[0].h].tags.push('cat-'+c);
-      } else cats[c] = null;
-    });
-    roster.forEach(p=>{
-      awards[p].energy += CFG.roundStipend;
-      g.players[p].pts = Math.max(0, g.players[p].pts + awards[p].pts);
-      g.players[p].energy += awards[p].energy + (awards[p].pendingEnergy||0);
-      if (awards[p].drainDebt) g.players[p].energy = Math.max(0, g.players[p].energy - awards[p].drainDebt);
-    });
-    g.rounds[r].result = {
-      kind, rolls, totals, breakdown, cats, awards,
-      growth: null, hostId: null,
-      resolvedAt: Date.now(),
+  roster.forEach(pid=>{
+    const pack = bundles[pid];
+    breakdown[pid] = {
+      attack: pack.br.attack, total: pack.br.total, modAdd: pack.br.modAdd, modLabel: pack.br.modLabel,
+      permBase: pack.br.permBase||0, claimedBase: pack.br.claimedBase||0, scorePts: pack.scorePts||0,
+      claim: pack.br.claim||null,
+      modRoll: deep(actions[pid].modRoll||null), scarRoll: deep(actions[pid].scarRoll||null),
+      pendingEnergy: 0, ptsDelta: pack.ptsDelta,
+      scars: scarCount(g.players[pid]), scarRolls: deep(actions[pid].scarRolls||[]),
+      shatterSub: pack.br.shatterSub||0, colorSub: pack.br.colorSub||0,
     };
-  }
+    awards[pid].drainDebt = pack.drainDebt||0;
+    if (pack.ptsDelta) awards[pid].pts += pack.ptsDelta;
+    if (pack.scorePts){ awards[pid].pts += pack.scorePts; awards[pid].tags.push('mod-pts'); }
+  });
 
   // --- INFECTION ---
-  else if (kind==='infection'){
+  if (kind==='infection'){
     const humans = roster.filter(p=>p!==hostId);
-    const rolls = {};
-    const humanTotals = {};
-    const breakdown = {};
-    let crewTotal = 0;
-    humans.forEach(h=>{
-      const a = actions[h];
-      rolls[h] = deep(a.rolls||[]);
-      const pack = resolvePlayerBundle(g, h, a);
-      const br = pack.br;
-      humanTotals[h] = { attack: br.attack, total: br.total };
-      breakdown[h] = {
-        attack: br.attack, total: br.total, modAdd: br.modAdd, modLabel: br.modLabel,
-        permBase: br.permBase||0, claimedBase: br.claimedBase||0, scorePts: pack.scorePts||0,
-        modRoll: deep(a.modRoll||null), scarRoll: deep(a.scarRoll||null),
-        pendingEnergy: pack.pending, ptsDelta: pack.ptsDelta,
-        scars: scarCount(g.players[h]), scarRolls: deep(a.scarRolls||[]),
-      };
-      crewTotal += br.total;
-      awards[h].pendingEnergy = pack.pending;
-      awards[h].drainDebt = pack.drainDebt||0;
-      if (pack.ptsDelta) awards[h].pts += pack.ptsDelta;
-      if (pack.scorePts){ awards[h].pts += pack.scorePts; awards[h].tags.push('mod-pts'); }
-    });
-
     const hAct = actions[hostId];
-    rolls[hostId] = deep(hAct.rolls||[]);
-    const hostPack = resolvePlayerBundle(g, hostId, hAct);
-    const hostHuman = hostPack.br;
-    breakdown[hostId] = {
-      attack: hostHuman.attack, total: hostHuman.total, modAdd: hostHuman.modAdd, modLabel: hostHuman.modLabel,
-      permBase: hostHuman.permBase||0, claimedBase: hostHuman.claimedBase||0, scorePts: hostPack.scorePts||0,
-      modRoll: deep(hAct.modRoll||null), scarRoll: deep(hAct.scarRoll||null),
-      pendingEnergy: hostPack.pending, ptsDelta: hostPack.ptsDelta,
-      scars: scarCount(g.players[hostId]), scarRolls: deep(hAct.scarRolls||[]),
-      aRolls: deep(hAct.aRolls||[]), pModRoll: deep(hAct.pModRoll||null),
-      instinctRoll: hAct.instinctRoll, instinctExtra: hAct.instinctExtra||0,
-    };
-    awards[hostId].pendingEnergy = hostPack.pending;
-    awards[hostId].drainDebt = hostPack.drainDebt||0;
-    if (hostPack.ptsDelta) awards[hostId].pts += hostPack.ptsDelta;
-    if (hostPack.scorePts){ awards[hostId].pts += hostPack.scorePts; awards[hostId].tags.push('mod-pts'); }
+    const channel = hAct.channel || (hAct.growth && hAct.growth.key) || 'sever';
+    const chosenTarget = hAct.channelTarget || (hAct.growth && hAct.growth.target) || null;
 
+    // parasite shop: stipend + bank pay for buys and rerolls; leftover banks
+    g.parasite.bank = (g.parasite.bank||0) + parasiteTuning(n).parStipend;
+    const spentPar = applyParShop(g.parasite, hAct.parBuys||{});
+    const parRerolls = Math.max(0, hAct.parRerolls||0);
+    g.parasite.bank = Math.max(0, g.parasite.bank - spentPar - parRerolls);
+
+    // crew total (+ SEVER cancels the crew's top dice)
+    const humanTotals = {};
+    let crewTotalRaw = 0;
+    humans.forEach(h=>{
+      humanTotals[h] = { attack: bundles[h].br.attack, total: bundles[h].br.total };
+      crewTotalRaw += bundles[h].br.total;
+    });
+    let severed = [], severSub = 0;
+    if (channel==='sever'){
+      const all = [];
+      humans.forEach(h=> (rolls[h]||[]).forEach((d,di)=> all.push({ pid:h, di, v:d.v||0 })));
+      all.sort((a,b)=> b.v - a.v);
+      severed = all.slice(0, CFG.severN).map(x=>({ pid:x.pid, di:x.di, v:x.v }));
+      severSub = severed.reduce((s,x)=> s + x.v, 0);
+      severed.forEach(x=>{ if (rolls[x.pid] && rolls[x.pid][x.di]) rolls[x.pid][x.di].severed = true; });
+    }
+    const crewTotal = Math.max(0, crewTotalRaw - severSub);
+
+    const hostHuman = bundles[hostId].br;
     const highestHumanDie = Math.max(0, ...(hAct.rolls||[]).map(d=>d.v||0));
-    let instinctPayload = hAct.instinctRoll;
-    if (instinctPayload === 'explode' || (instinctPayload && instinctPayload.id==='explode')){
-      // use extra from action
-      instinctPayload = { id:'explode', extra: (hAct.instinctExtra||0) };
-    }
-    const parPart = computeParasitePortion(
-      g.parasite,
-      hAct.aRolls || [],
-      hAct.pModRoll || null,
-      instinctPayload,
-      hostHuman.attack,
-      highestHumanDie,
-      fusionOverride,
-      { n: roster.length }
-    );
-    // if explode was rolled in session with extra already in instinctExtra
-    if (hAct.instinctRoll==='explode' && hAct.instinctExtra){
-      parPart.instinctAdd = hAct.instinctExtra;
-      parPart.total = parPart.atk + parPart.flat + parPart.pctAdd + parPart.fusion + parPart.instinctAdd + parPart.aura + (parPart.baseAtk||0);
-    }
-    if (tonightFlat){
-      parPart.tonightFlat = tonightFlat;
-      parPart.total = (parPart.total||0) + tonightFlat;
-    }
-
+    const parPart = computeParasitePortion(g.parasite, hAct.aRolls||[], hAct.instinctRoll, {
+      n, hostRolls: hAct.rolls||[], channel, highestHumanDie, instinctExtra: hAct.instinctExtra|0,
+    });
     const hostTotal = hostHuman.total + parPart.total;
-    const hostWins = hostTotal > crewTotal; // ties → crew
+    const hostWins = hostTotal > crewTotal; // ties go to the crew
 
-    let mvp = null;
-    let baseAttackBump = 0;
-    if (!hostWins){
+    // scars: host ALWAYS takes one; Ravage scars every crew; Crush scars the chosen target
+    let scarsCreated = 0;
+    let target = null;
+    if (addScarDie(g.players[hostId])) scarsCreated++;
+    if (channel==='ravage'){
+      humans.forEach(h=>{ if (addScarDie(g.players[h])) scarsCreated++; });
+    } else if (channel==='crush'){
+      target = (chosenTarget && chosenTarget!==hostId && g.players[chosenTarget]) ? chosenTarget : null;
+      if (!target || scarCount(g.players[target]) > CFG.maxScars - 1){
+        const cands = humans.filter(h=> scarCount(g.players[h]) < CFG.poisonGuardScars);
+        const pool = cands.length ? cands : humans;
+        target = pool.slice().sort((a,b)=> (g.players[b].pts||0)-(g.players[a].pts||0))[0] || null;
+      }
+      if (target && addScarDie(g.players[target])) scarsCreated++;
+    }
+
+    // outcome
+    if (hostWins){
+      awards[hostId].pts += CFG.hostWinPts(r, g);
+      awards[hostId].energy += CFG.winEn;
+    } else {
       humans.forEach(h=>{
-        awards[h].pts += CFG.humanWinPts(r);
+        awards[h].pts += CFG.humanWinPts(r, g);
         awards[h].energy += CFG.winEn;
       });
-      mvp = humans.reduce((a,b)=> (humanTotals[b].total > humanTotals[a].total ? b : a));
-      awards[mvp].pts += CFG.mvpPts(r);
-      awards[mvp].tags.push('mvp');
-      // Catch-up: crew holds → parasite Base Attack grows forever
-      baseAttackBump = parasiteTuning(roster.length).baseLossBump|0;
-      g.parasite.baseAttack = (g.parasite.baseAttack|0) + baseAttackBump;
-    } else {
-      awards[hostId].pts += CFG.hostWinPts(r);
-      awards[hostId].energy += CFG.winEn;
-      g.parasite.bossMeter = (g.parasite.bossMeter||0) + CFG.winMeter;
+      const ladder = CFG.ladderPts(r, g);
+      const ladderWinners = humans.slice().sort((a,b)=> humanTotals[b].total - humanTotals[a].total).slice(0, ladder.length);
+      ladderWinners.forEach((h,i)=>{
+        awards[h].pts += ladder[i];
+        awards[h].tags.push('ladder-'+(i+1));
+      });
+      g.parasite.holdBumps = (g.parasite.holdBumps|0) + ((CFG.holdBumpBy||{})[n] != null ? CFG.holdBumpBy[n] : CFG.holdBump);
     }
+    g.parasite.bossMeter = (g.parasite.bossMeter||0) + scarsCreated + (hostWins ? 1 : 0);
 
+    // categories among crew — severed dice don't count
     const cats = {};
     COLORS.forEach(c=>{
-      const pool = humans; // categories among crew only
-      const best = pool.map(h=>{
-        const vals = (rolls[h]||[]).filter(d=>d.color===c).map(d=>d.v);
+      const best = humans.map(h=>{
+        const vals = (rolls[h]||[]).filter(d=>d.color===c && !d.severed).map(d=>d.v);
         return { h, v: vals.length ? Math.max(...vals) : -1 };
       }).sort((a,b)=>b.v-a.v);
-      if (best.length>=2 && best[0].v > best[1].v && best[0].v >= 0){
-        cats[c] = best[0].h;
-        awards[best[0].h].pts += CFG.catPts(r);
-        awards[best[0].h].energy += CFG.catEn;
-        awards[best[0].h].tags.push('cat-'+c);
-      } else if (best.length===1 && best[0].v>=0){
-        cats[c] = best[0].h;
-        awards[best[0].h].pts += CFG.catPts(r);
-        awards[best[0].h].energy += CFG.catEn;
-        awards[best[0].h].tags.push('cat-'+c);
-      } else cats[c] = null;
+      if (best.length>=2 && best[0].v > best[1].v && best[0].v >= 0) cats[c] = best[0].h;
+      else if (best.length===1 && best[0].v>=0) cats[c] = best[0].h;
+      else cats[c] = null;
+      if (cats[c]){
+        awards[cats[c]].pts += CFG.catPts(r, g);
+        awards[cats[c]].energy += CFG.catEn;
+        awards[cats[c]].tags.push('cat-'+c);
+      }
     });
 
+    // MIRROR remembers true crew strength (pre-Sever)
+    g.parasite.prevCrew = crewTotalRaw;
+    g.parasite.mutations = (g.parasite.mutations||0) + (channel==='ravage'?2:1);
+
+    // points, then next-round income (stipend + Base Energy + underdog)
     roster.forEach(p=>{
-      awards[p].energy += CFG.roundStipend;
       g.players[p].pts = Math.max(0, g.players[p].pts + awards[p].pts);
-      g.players[p].energy += awards[p].energy + (awards[p].pendingEnergy||0);
+    });
+    const minPts = Math.min(...roster.map(p=>g.players[p].pts||0));
+    roster.forEach(p=>{
+      awards[p].energy += CFG.roundStipend + (accOf(g.players[p]).energy|0);
+      if ((g.players[p].pts||0) === minPts){
+        awards[p].energy += CFG.underdogEn;
+        awards[p].tags.push('underdog');
+      }
+      g.players[p].energy += awards[p].energy;
       if (awards[p].drainDebt) g.players[p].energy = Math.max(0, g.players[p].energy - awards[p].drainDebt);
     });
 
     g.rounds[r].result = {
       kind, hostId, hostWins, crewSize: humans.length,
-      crewTotal, hostTotal,
+      crewTotal, crewTotalRaw, hostTotal,
       hostHuman: hostHuman.total, hostAttack: hostHuman.attack,
-      parPart, growth: growthResult,
-      baseAttackBump,
-      rolls, humanTotals, breakdown, cats, mvp, awards,
-      aRolls: hAct.aRolls||[], pModRoll: hAct.pModRoll||null,
+      parPart, growth: { key: channel, target: target || null },
+      channel, channelTarget: target || null,
+      severed, severSub, scarsCreated,
+      baseAttackBump: hostWins ? 0 : CFG.holdBump,
+      rolls, humanTotals, breakdown, cats, mvp: null, awards,
+      aRolls: hAct.aRolls||[], pModRoll: null,
       instinctRoll: hAct.instinctRoll, instinctExtra: hAct.instinctExtra||0,
       bossMeter: g.parasite.bossMeter,
       parasiteAfter: deep(g.parasite),
@@ -1819,34 +1599,17 @@ function resolveRound(g){
 
   // --- BOSS ---
   else if (kind==='boss'){
-    const rolls = {};
     const totals = {};
-    const breakdown = {};
     let crewTotal = 0;
     roster.forEach(pid=>{
-      const a = actions[pid];
-      rolls[pid] = deep(a.rolls||[]);
-      const pack = resolvePlayerBundle(g, pid, a);
-      const br = pack.br;
-      totals[pid] = br.total;
-      breakdown[pid] = {
-        attack: br.attack, total: br.total, modAdd: br.modAdd, modLabel: br.modLabel,
-        permBase: br.permBase||0, claimedBase: br.claimedBase||0, scorePts: pack.scorePts||0,
-        modRoll: deep(a.modRoll||null), scarRoll: deep(a.scarRoll||null),
-        pendingEnergy: pack.pending, ptsDelta: pack.ptsDelta,
-        scars: scarCount(g.players[pid]), scarRolls: deep(a.scarRolls||[]),
-      };
-      crewTotal += br.total;
-      awards[pid].pendingEnergy = pack.pending;
-      awards[pid].drainDebt = pack.drainDebt||0;
-      if (pack.ptsDelta) awards[pid].pts += pack.ptsDelta;
-      if (pack.scorePts){ awards[pid].pts += pack.scorePts; awards[pid].tags.push('mod-pts'); }
+      totals[pid] = bundles[pid].br.total;
+      crewTotal += totals[pid];
     });
     const hp = bossHP(g);
     const cleared = crewTotal >= hp;
     g.escaped = !cleared;
     const order = roster.slice().sort((a,b)=> totals[b]-totals[a]);
-    const bonus = rankPtsFor(roster.length, cleared ? 12 : 4, cleared ? 3 : 1);
+    const bonus = rankPtsFor(roster.length, cleared ? 12 : 4, 1);
     order.forEach((pid,i)=>{
       awards[pid].pts += bonus[i]||1;
       awards[pid].tags.push(cleared ? 'hero' : 'escape');
@@ -1856,9 +1619,7 @@ function resolveRound(g){
       awards[order[0]].tags.push('kill');
     }
     roster.forEach(p=>{
-      // no next-round stipend
       g.players[p].pts = Math.max(0, g.players[p].pts + awards[p].pts);
-      g.players[p].energy += (awards[p].pendingEnergy||0);
       if (awards[p].drainDebt) g.players[p].energy = Math.max(0, g.players[p].energy - awards[p].drainDebt);
     });
     g.rounds[r].result = {
@@ -1868,13 +1629,13 @@ function resolveRound(g){
     };
   }
 
-  if (r >= TOTAL_ROUNDS) g.status = 'over';
+  if (r >= totalRounds(g)) g.status = 'over';
   else g.round = r + 1;
   return g;
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v4.12.11';
+const APP_BUILD = 'v5.0.0';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -1895,19 +1656,18 @@ function normalizeGame(v){
   }
   g.roster = g.roster.filter(p => knownSeat(p));
   g.playerIds = g.roster.slice();
-  if (!Array.isArray(g.schedule) || g.schedule.length !== INFECTION_SLOTS){
-    // keep existing if plausible; otherwise rebuild from roster
-    if (!Array.isArray(g.schedule) || !g.schedule.length) g.schedule = buildHostSchedule(g.roster);
+  if (!Array.isArray(g.schedule) || g.schedule.length !== infectionSlots(g)){
+    // keep existing if plausible; otherwise rebuild from roster (2N slots, everyone twice)
+    if (!Array.isArray(g.schedule) || g.schedule.length !== infectionSlots(g)) g.schedule = buildHostSchedule(g.roster);
   }
   if (!g.parasite) g.parasite = starterParasite(g.roster.length);
   else {
     const t = parasiteTuning(g.roster.length);
-    if (g.parasite.fusionCap == null) g.parasite.fusionCap = t.fusionCap;
-    if (g.parasite.fusionStep == null) g.parasite.fusionStep = t.fusionStep;
-    if (g.parasite.auraGain == null) g.parasite.auraGain = t.auraGain;
-    if (g.parasite.baseAttack == null) g.parasite.baseAttack = t.startBaseAttack|0;
-    if (g.parasite.hpBase == null) g.parasite.hpBase = t.hpBase;
-    if (g.parasite.hpPerMeter == null) g.parasite.hpPerMeter = t.hpPerMeter;
+    if (g.parasite.prevCrew == null) g.parasite.prevCrew = t.mirrorSeed;
+    if (g.parasite.holdBumps == null) g.parasite.holdBumps = 0;
+    if (g.parasite.bank == null) g.parasite.bank = 0;
+    if (!Array.isArray(g.parasite.attack) || !g.parasite.attack.length) g.parasite.attack = starterParasite(g.roster.length).attack;
+    (g.parasite.attack||[]).forEach(d=>{ if (d && d.size == null) d.size = d.faces && d.faces.length >= 7 ? d.faces.length : 8; });
     if (g.parasite.balanceN == null) g.parasite.balanceN = t.n;
   }
   rosterOf(g).forEach(pid=>{
@@ -1915,7 +1675,7 @@ function normalizeGame(v){
     if (!pl){
       pl = g.players[pid] = {
         name:'', isBot:false, pts:0, energy:CFG.roundStipend, dice:starterDice(), modDie:starterModDie(),
-        baseAtk:0, scars:0, perks:{ freeReroll:false },
+        acc: starterAcc(), baseAtk:0, scars:0, perks:{ freeReroll:false },
       };
     }
     pl.isBot = false; // humans only — strip legacy computer seats
@@ -1931,8 +1691,9 @@ function normalizeGame(v){
     });
     if (!pl.modDie) pl.modDie = starterModDie();
     normalizeHumanModDie(pl);
-    if (pl.baseAtk == null || pl.baseAtk < 0) pl.baseAtk = 0;
-    else pl.baseAtk = pl.baseAtk|0;
+    accOf(pl);
+    pl.baseAtk = accOf(pl).atk|0; // legacy header mirror
+    (pl.dice||[]).forEach(d=>{ if (d && d.size == null) d.size = (d.faces && d.faces.length >= 7) ? d.faces.length : 6; });
     if (!pl.perks) pl.perks = { freeReroll:false };
     if (pl.scars == null){
       // migrate legacy scarLv / poisonLv into scar dice count
@@ -2358,124 +2119,69 @@ function logModalHTML(){
 
 function instructionsModalHTML(){
   if (!ui.showHelp) return '';
+  const n = G ? tableSize(G) : 6;
   return `<div class="modal-back" onclick="if(event.target===this)closeInstructions()">
-    <div class="modal-sheet" role="dialog" aria-label="How to play">
-      <h2>How to play</h2>
-      <p class="help-lead"><b>Goal:</b> score the most <b>points</b> after 10 rounds. If Round 10 fails, the parasite escapes — you still get a score, but it’s a hollow win.</p>
-      <p class="small">Tap any dotted gold word in the game for a tip. This Help page is the full guide.</p>
+    <div class="modal-sheet" role="dialog" aria-label="Instructions">
+      <h2>How to play — v5</h2>
+      <p><b>${n} players · ${2*n} infection rounds (everyone hosts twice) · round ${2*n+1} boss.</b> Open scores. Most points wins.</p>
 
-      <h3>1. Start the table</h3>
-      <ol class="help-steps">
-        <li>Tap <b>New game</b> → pick <b>3–6</b> players.</li>
-        <li>Type a name for <b>every</b> seat (humans only).</li>
-        <li>Tap <b>Start</b>, then <b>Copy link</b> and text it to friends. Each phone claims a seat.</li>
-      </ol>
-
-      <h3>2. Every round (what you do)</h3>
-      <ol class="help-steps">
-        <li><b>Shop</b> — spend ${tip('energy','Energy')} to ${tip('forge','Forge')}, upgrade your ${tip('mod','Mod')}, ${tip('heal','heal scars')}, or buy an extra ${tip('attack','Attack')} die. Then continue.</li>
-        <li><b>Roll</b> — roll your dice. Use <b>Reroll</b> on a section (Attack / Mod / Scar) for 1⚡, or <b>Reroll all</b> for 2⚡. You get <b>1 free section reroll</b> each round.</li>
-        <li><b>Lock in</b> — sends your roll. If Mod shows <b>gain scar</b> and you lock it, you pick up a ${tip('scar','Scar')} die.</li>
-      </ol>
-
-      <h3>3. Round types</h3>
+      <h3>Each round</h3>
       <ul>
-        <li><b>R1 Training</b> — everyone rolls. Best totals and color categories score.</li>
-        <li><b>R2–9 Infection</b> — one random ${tip('host','Host')} each round. Host = human dice + parasite package vs the rest of the crew. Crew holds → everyone on crew scores. Host feasts → host scores alone.</li>
-        <li><b>R10 Boss</b> — whole crew totals vs Boss HP. Clear it for hero bonuses.</li>
+        <li>One player is the <b>host</b> (fog of war — you only see this round's host).</li>
+        <li>Everyone: <b>Shop → Roll → Lock in</b>. Crew totals combine vs the host + parasite.</li>
+        <li>Ties go to the crew. Crew holds: everyone scores + top-3 damage ladder. Host wins: host scores alone.</li>
       </ul>
 
-      <h3>4. If you are the Host</h3>
-      <ol class="help-steps">
-        <li>In the shop, pick exactly one parasite move: ${tip('feed','Feed')} · ${tip('harden','Harden')} · ${tip('outbreak','Outbreak')} · ${tip('poison','Poison')}.</li>
-        <li><b>Roll / Lock human</b>, then <b>Roll / Lock parasite</b> (parasite uses its own ⚡).</li>
-        <li><b>Submit both rolls</b>.</li>
-      </ol>
-
-      <h3>5. Scoring (quick)</h3>
+      <h3>Energy ⚡ & tokens 🎲</h3>
       <ul>
-        <li><b>Crew holds</b> — each crewmate gets a big point payout (+ MVP for highest crew total).</li>
-        <li><b>Host feasts</b> — host alone gets the host payout.</li>
-        <li><b>Categories</b> — best Weapons / Strength / Agility die among the crew scores a little.</li>
-        <li>${tip('modPoints','Mod Points')} face — personal score if you lock it (no combat help that roll).</li>
+        <li><b>+6⚡</b> each round (+ banked Base Energy; last place +2 underdog). Unspent banks.</li>
+        <li><b>🎲 tokens</b> pay section rerolls first, then energy (1⚡). Reroll all = always 2⚡.</li>
+        <li>Shop: forge 1⚡ (+2 a face) · mod upgrade 2⚡ · size-up 3⚡ (d6→d8→d10) · extra die 4⚡ · heal scar 3⚡.</li>
       </ul>
 
-      <h3>Dictionary</h3>
-      <dl class="help-dict">
-        <dt>${tip('energy','Energy')} (⚡)</dt>
-        <dd>Your spend bank. +5 each round. Used for forge, mod upgrades, extra dice, heal, and rerolls.</dd>
+      <h3>ChemDice — lock to BANK</h3>
+      <ul>
+        <li>Claim faces <b>stack forever</b>: Base +3/4/5 · Energy +1/2/3⚡ · Reroll +1🎲 · % +10/15/20. Every lock adds.</li>
+        <li><b>Points</b> face = personal score, no combat (greed). <b>Scar</b> face = lock it, take a Scar die.</li>
+      </ul>
 
-        <dt>${tip('attack','Attack dice')}</dt>
-        <dd>Your colored crew dice — Weapons (red), Strength (blue), Agility (green). They make most of your combat total.</dd>
+      <h3>Scars</h3>
+      <ul>
+        <li>1 blank + 5 hurts: −2⚡ · −highest die · −50% of your red / blue / green dice.</li>
+        <li>Heal 3⚡. They come from hosting, the host's Channel, or your own Mod die.</li>
+      </ul>
 
-        <dt>${tip('mod','Mod die')}</dt>
-        <dd>Always rolls with you. Helpful faces: Energy, %, Base, Points. Two faces say <b>gain scar</b>.</dd>
+      <h3>Host turn</h3>
+      <ul>
+        <li>The parasite <b>shops like you</b> (7⚡ + bank) and <b>must buy something</b>. Its dice CRIT on max.</li>
+        <li>Roll your dice, then pick a <b>Channel</b>: 🔴 RAVAGE 2×red, scars everyone · 🔵 CRUSH 1.75×blue, scar one chosen · 🟢 SEVER cancels crew's top 2 dice, scar only you.</li>
+        <li>Hosting <b>always</b> costs you a scar. Parasite Base <b>mirrors</b> the crew (~47% of last round's total).</li>
+      </ul>
 
-        <dt>${tip('modPoints','Points')} (Mod face)</dt>
-        <dd>Greed face. Lock it for +3/+4/+5 <b>score</b>. Does <b>not</b> help combat — reroll if the team needs your total.</dd>
-
-        <dt>${tip('baseAtkHuman','Your Base')}</dt>
-        <dd>Header number starting at <b>+0</b>. Locking a Mod Base face raises it (B3→B4→B5). Adds to every fight after that.</dd>
-
-        <dt>${tip('scar','Scar die')}</dt>
-        <dd>Bad die in your pool. Same for everyone: 3 blanks + −2⚡ + −20% + − highest dice. From Mod gain scar, Outbreak, or Poison. Heal for 3⚡.</dd>
-
-        <dt>${tip('forge','Forge')}</dt>
-        <dd>Spend 1⚡ to permanently +2 one face on an Attack die.</dd>
-
-        <dt>${tip('rerollSec','Section reroll')} / ${tip('rerollAll','Reroll all')}</dt>
-        <dd>Section = reroll Attack, Mod, or Scar for 1⚡ (1 free per round). All = everything for 2⚡ (no free).</dd>
-
-        <dt>${tip('lock','Lock in')} / Submit</dt>
-        <dd>Confirms your roll for the round. Hosts lock human and parasite separately, then Submit both.</dd>
-
-        <dt>${tip('host','Host')}</dt>
-        <dd>The infected player this round. Rolls human + parasite vs the crew’s combined human totals.</dd>
-
-        <dt>${tip('moves','Parasite moves')}</dt>
-        <dd>${tip('feed','Feed')} = safer aura. ${tip('harden','Harden')} = +1 all Attack faces. ${tip('outbreak','Outbreak')} = big power + Scar on you. ${tip('poison','Poison')} = Scar on a crewmate.</dd>
-
-        <dt>${tip('baseAtk','Base Attack')} (parasite)</dt>
-        <dd>Flat parasite power. Tuned for 4 players. Extra seats boost it this round. Crew holds → it grows forever.</dd>
-
-        <dt>${tip('fusion','Human share')}</dt>
-        <dd>On host turns, part of the host’s human attack is added into the parasite total.</dd>
-
-        <dt>${tip('aura','Aura')}</dt>
-        <dd>Permanent flat add to the parasite every host turn. Raised by Feed.</dd>
-
-        <dt>${tip('instinct','Specialty')}</dt>
-        <dd>Extra parasite die (+8, +25% atk, +lowest, +your high, blank, or +extra die).</dd>
-
-        <dt>${tip('boss','Boss Meter')} / Round 10 HP</dt>
-        <dd>Tracks how much the table fed the bug. Round 10 HP = table base + meter (4p: 80 + 1×Meter).</dd>
-
-        <dt>Category</dt>
-        <dd>Best single die in a color (Weapons / Strength / Agility) among the crew that round — small points + 1⚡.</dd>
-
-        <dt>MVP</dt>
-        <dd>When the crew holds, the crewmate with the highest total gets bonus points.</dd>
-
-        <dt>${tip('explode','Bonus re-roll')}</dt>
-        <dd>Parasite Attack die hits its max face → bonus re-roll and add once.</dd>
-      </dl>
+      <h3>The boss</h3>
+      <ul>
+        <li>Every scar created + host win feeds the <b>Boss Meter</b>. Final round: all ${n} of you vs mirrored HP.</li>
+        <li>Clear it → hero ladder + kill blow. Fail → it escapes; consolation points only.</li>
+      </ul>
 
       <button class="btn modal-close" onclick="closeInstructions()">Got it</button>
     </div>
   </div>`;
 }
-
 function freshCart(isHost){
   return {
-    forges: [], modUps: [], addDie: null, buyFreeReroll: false,
+    forges: [], modUps: [], sizeUps: [], addDie: null, buyFreeReroll: false,
     healScars: 0,
-    growth: null, // host only {key, lane, target?}
+    parBuys: { dice:0, sizes:0, forges:0 }, // host: parasite shop
+    channel: null, channelTarget: null,      // host: picked in roll phase
+    growth: null,
   };
 }
 function cartCost(){
   let c = 0;
   c += (cart.forges||[]).length * CFG.forgeCost;
   c += (cart.modUps||[]).length * CFG.modUpgradeCost;
+  c += (cart.sizeUps||[]).length * CFG.sizeUpCost;
   if (cart.addDie) c += CFG.addDieCost;
   c += Math.max(0, cart.healScars||0) * (CFG.healScarCost||3);
   return c;
@@ -2488,7 +2194,8 @@ function forgedSetFromCart(){
   return s;
 }
 function freeRerollThisRound(){
-  return CFG.freeRerollsPerRound || 1;
+  const pl = (G && me && G.players) ? G.players[me] : null;
+  return pl ? tokensBase(pl) : 1; // 🎲 token base — grows via Base Reroll claims
 }
 function isParasiteRollType(type){ return type==='a' || type==='m' || type==='i'; }
 function isHumanRollType(type){ return type==='h' || type==='hm' || type==='s'; }
@@ -2555,11 +2262,15 @@ function markSeen(r){ localStorage.setItem(seenKey(), String(r)); }
 
 function previewHumanDice(pl){
   const dice = deep(pl.dice);
+  (cart.sizeUps||[]).forEach(dieId=>{
+    const d = findDie(dice, dieId);
+    if (d) applySizeUp(d, CFG.maxDieSize);
+  });
   (cart.forges||[]).forEach(f=>{
     const d = findDie(dice, f.dieId);
     applyForge(d, f.faceIndex, CFG.forgeBump);
   });
-  if (cart.addDie) dice.push({ id:'preview', color: cart.addDie, faces:stdFaces(), bonus:true });
+  if (cart.addDie) dice.push({ id:'preview', color: cart.addDie, faces:stdFaces(), size:6, bonus:true });
   return dice;
 }
 function previewModDie(pl){
@@ -2583,7 +2294,7 @@ function render(){
   if (G.status==='need_reset'){
     app.innerHTML = `<div class="panel center">
       <h2>Schema v${SCHEMA}</h2>
-      <p class="small">3–6 players. Training → Infection → Boss. Host = you + the monster. Start a fresh game.</p>
+      <p class="small">v5: 3–6 players, everyone hosts twice, boss finale. Channels, ChemDice banking, reroll tokens. Start a fresh game.</p>
       <button class="btn" onclick="confirmResetGame()">Start new game</button>
     </div>${bottomDockHTML()}${rosterPickModalHTML()}`;
     return;
@@ -2593,10 +2304,10 @@ function render(){
   }
   if (!me){ app.innerHTML = charSelectScreen() + rosterPickModalHTML(); return; }
   if (G.status==='over'){
-    // show final if R10 resolved
-    const res = G.rounds[10] && G.rounds[10].result;
-    if (res && lastSeen() < 10){
-      app.innerHTML = chromeHTML() + verdictHTML(10) + bottomDockHTML() + instructionsModalHTML() + tipModalHTML() + logModalHTML();
+    const TR = totalRounds(G);
+    const res = G.rounds[TR] && G.rounds[TR].result;
+    if (res && lastSeen() < TR){
+      app.innerHTML = chromeHTML() + verdictHTML(TR) + bottomDockHTML() + instructionsModalHTML() + tipModalHTML() + logModalHTML();
       return;
     }
     app.innerHTML = chromeHTML() + finalScreen() + bottomDockHTML();
@@ -2689,10 +2400,10 @@ function pickChar(p){
 
 /** Permanent human Base (header). Starts at 0; rises when you lock a Base mod face. */
 function myBaseAttackValue(pl){
-  let v = Math.max(0, (pl && pl.baseAtk)|0);
-  // Live preview while a Base face is showing this roll
-  if (session && session.phase==='roll' && session.modRoll && session.modRoll.kind==='base'){
-    v = Math.max(v, session.modRoll.value|0);
+  let v = pl ? Math.max(0, accOf(pl).atk|0) : 0;
+  // Live preview while a Base Attack face is showing this roll (stacking — adds)
+  if (session && session.phase==='roll' && session.modRoll && (session.modRoll.kind==='atk' || session.modRoll.kind==='base')){
+    v += Math.max(0, session.modRoll.value|0);
   }
   return v;
 }
@@ -2720,10 +2431,13 @@ function topbarHTML(){
   }
   const scars = scarCount(pl);
   const scarChip = scars ? `<div class="stat-chip" style="color:#ff8a9a" title="Scar dice in your pool">${tip('scar','Scar')} ${scars}</div>` : '';
+  const tok = (session && session.phase==='roll') ? (session.freeLeft||0) : (pl && pl.modDie ? tokensBase(pl) : 1);
+  const tokChip = `<div class="stat-chip" style="color:#9ad7ff" title="Reroll tokens — spent before energy; base grows via Base Reroll locks">🎲 ${tok}</div>`;
   return `<div class="topbar">
     <button class="me-chip" onclick="switchChar()">${whoHTML(me)}</button>
     ${scarChip}
     <div class="stat-chip energy">${tip('energy','⚡')} ${showLeft}${showLeft!==(pl.energy||0)?`<span style="color:var(--dim);font-size:10px">/${pl.energy||0}</span>`:''}</div>
+    ${tokChip}
     <div class="stat-chip base${baseN?'':' dim'}" title="Starts at 0. Lock a Base face on your Mod die to raise it for the rest of the game">${tip('baseAtkHuman', baseLab)}</div>
     ${parChip}
     <div class="stat-chip pts">${pl.pts||0} pts</div>
@@ -2756,7 +2470,9 @@ function standingsBarHTML(){
 function modStatusBarHTML(){
   if (!G || !me || !G.players || !G.players[me]) return '';
   const pl = G.players[me];
-  return `<div class="mod-status-line">${tip('mod','Mod die')}: ${esc(modStatusLine(pl))}</div>`;
+  const a = accOf(pl);
+  const banked = `Banked: B+${a.atk} · +${a.energy}⚡/rd · 🎲${tokensBase(pl)} · +${a.pct}%`;
+  return `<div class="mod-status-line">${tip('mod','ChemDice')}: ${esc(modStatusLine(pl))} · <b style="color:var(--energy)">${esc(banked)}</b></div>`;
 }
 function chromeHTML(){
   // Sticky: only you / energy / base / pts. Standings + mod faces scroll away.
@@ -2768,10 +2484,11 @@ function scoreboardHTML(){
 
 function roundStripHTML(){
   let nodes = '';
-  for (let r=1;r<=TOTAL_ROUNDS;r++){
+  const TR = totalRounds(G);
+  for (let r=1;r<=TR;r++){
     const kind = roundKind(r);
     const now = r===G.round;
-    const done = r < G.round || (G.status==='over' && r<=TOTAL_ROUNDS);
+    const done = r < G.round || (G.status==='over' && r<=TR);
     let label = '';
     let cls = '';
     if (kind==='training'){ label = 'Train'; cls='train'; }
@@ -2802,14 +2519,12 @@ function parasitePanelHTML(){
   const evo = evoStage(p.mutations||0);
   const n = tableSize(G);
   const base = parasiteBaseAttackNow(p, n);
-  const seatNote = base.seatBonus
-    ? ` <span style="color:var(--dim)">(stored ${base.stored}${base.seatBonus>=0?'+':''}${base.seatBonus} seats)</span>`
-    : '';
+  const diceLab = (p.attack||[]).map(d=>'d'+dieSizeOf(d)).join(' · ');
   return `<div class="panel">
     <div class="parasite-stage">${parasiteArtHTML(evo.size, evo.stage)}
       <div class="p-name">${evo.name}</div>
       <div class="p-tagline">${evo.tag}</div>
-      <div class="p-base">${tip('baseAtk','Base Atk')} <b>+${base.total}</b>${seatNote} · ${tip('fusion','Share')} <b>${Math.round((p.fusionPct||0)*100)}%</b> · ${tip('aura','Aura')} <b>+${p.auraFlat||0}</b> · Threat ~<b>${expectedParThreat(p, n)}</b></div>
+      <div class="p-base">${tip('baseAtk','Mirror')} <b>+${base.total}</b> <span style="color:var(--dim)">(${Math.round(mirrorBetaFor(n)*100)}% of crew ${base.prevCrew||0}${base.stored?` · holds +${base.stored}`:''})</span> · Dice <b>${diceLab||'—'}</b> · Bank <b>⚡${p.bank||0}</b> · Threat ~<b>${expectedParThreat(p, n)}</b></div>
       <div class="evo-tags"><span class="evo-tag">${tip('boss','Boss')} ${p.bossMeter||0}</span><span class="evo-tag">HP ${bossHP(G)}</span><span class="evo-tag">${n}p table</span></div>
     </div>
   </div>`;
@@ -2869,7 +2584,7 @@ function turnCoachHTML(r, isHost){
       }
     } else {
       title = 'You are the HOST';
-      how = `1) Pick one ${tip('moves','move')}: ${tip('feed','Feed')} / ${tip('harden','Harden')} / ${tip('outbreak','Outbreak')} / ${tip('poison','Poison')}. 2) Shop. 3) <b>Continue to rolls</b>.`;
+      how = `1) Shop your human dice. 2) Grow the parasite — it <b>must</b> buy at least one thing. 3) <b>Continue to rolls</b> — pick your ${tip('channel','Channel')} after you see your roll.`;
     }
   } else {
     const hid = hostIdForRound(G, r);
@@ -2936,11 +2651,15 @@ function shopHTML(r, isHost){
       ${facesStripHTML(sel.faces, { dieId:sel.id, selectable:true, picked: ui.selectedFace, forgedSet: forged, color: sel.color })}
       <button class="buy-btn primary" onclick="queueForge()" ${!ui.selectedFace || left < CFG.forgeCost?'disabled':''}>Forge +2</button>
       ${(cart.forges||[]).length?`<button class="buy-btn" onclick="undoForge()">Undo last forge (${cart.forges.length})</button>`:''}
+      <div class="si-top" style="margin-top:10px"><div><div class="si-name">${tip('sizeUp','Size up')} — d${dieSizeOf(sel)} → d${Math.min(CFG.maxDieSize, dieSizeOf(sel)+2)}</div>
+        <div class="si-desc">Bigger die: adds the next two faces (${dieSizeOf(sel)+1}, ${dieSizeOf(sel)+2}). Cap d${CFG.maxDieSize}. Ceiling wins categories.</div></div><div class="si-cost">${CFG.sizeUpCost}⚡</div></div>
+      <button class="buy-btn primary" onclick="queueSizeUp()" ${dieSizeOf(sel)>=CFG.maxDieSize || left < CFG.sizeUpCost?'disabled':''}>Size up · ${CFG.sizeUpCost}⚡</button>
+      ${(cart.sizeUps||[]).length?`<button class="buy-btn" onclick="undoSizeUp()">Undo size-up (${cart.sizeUps.length})</button>`:''}
     </div>`;
   }
 
-  const modBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('mod','Mod die')} — 4 help · 2 Scar</div>
-    <div class="si-desc">Upgrade a helpful face for 2⚡ (two upgrades each). Energy <b>+2→+3→+4⚡</b> · % <b>+10→+20→+25</b> · Base claim <b>B3→B4→B5</b> · ${tip('modPoints','Points')} <b>+3→+4→+5 score</b> (greed — no combat). Header ${tip('baseAtkHuman','Base')} starts at <b>0</b>. <b>gain scar</b> faces can’t be upgraded — lock one and you grab a ${tip('scar','Scar')} die.</div></div><div class="si-cost">2⚡</div></div>
+  const modBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('mod','ChemDice')} — lock to BANK, forever</div>
+    <div class="si-desc">Every lock <b>adds permanently</b> (stacking): Base <b>+3/4/5</b> · Energy <b>+1/2/3⚡ per round</b> · Reroll <b>+1/1/2🎲 per round</b> · % <b>+10/15/20 of attack</b> · ${tip('modPoints','Points')} <b>+3/4/5 score</b> (greed). Upgrade a face 2⚡ to raise its per-lock gain. Lock the <b>scar</b> face and you grab a ${tip('scar','Scar')} die.</div></div><div class="si-cost">2⚡</div></div>
     <div class="face-strip">${modPrev.map((f,i)=>{
       const queued = (cart.modUps||[]).filter(x=>x===i).length;
       const pick = ui.selectedModFace===i;
@@ -2955,10 +2674,10 @@ function shopHTML(r, isHost){
     const lab = f.id==='blank' ? '—' : esc(f.label);
     return `<div class="face-chip scar" title="${esc(f.desc||f.label)}">${lab}</div>`;
   }).join('')}</div>
-  <div class="si-desc" style="margin-top:6px">Scar die faces (all the same): <b>3 blanks</b> · −2⚡ · −20% · − highest dice</div>`;
+  <div class="si-desc" style="margin-top:6px">Scar die faces: <b>1 blank</b> · −2⚡ · − highest die · −50% of your 🔴 / 🔵 / 🟢 dice (the parasite sabotages what you built)</div>`;
   const healCost = CFG.healScarCost||3;
   const healBlock = `<div class="shop-item"><div class="si-top"><div><div class="si-name">${tip('heal','Heal scar')} / ${tip('scar','Scar')} die</div>
-    <div class="si-desc">You have <b>${myScars}</b> Scar die${myScars===1?'':'s'} in your pool. Heal one for ${healCost}⚡. Lock a Mod <b>gain scar</b> face (or Outbreak / Poison) and you pick up a die with these faces:</div></div><div class="si-cost">${healCost}⚡</div></div>
+    <div class="si-desc">You have <b>${myScars}</b> Scar die${myScars===1?'':'s'} in your pool. Heal one for ${healCost}⚡. Scars come from hosting, the host's channel, or locking your Mod scar face:</div></div><div class="si-cost">${healCost}⚡</div></div>
     ${scarFacesStrip}
     <div class="row" style="gap:8px;margin-top:10px">
       <button class="buy-btn" onclick="queueHealScar(-1)" ${healQueued<1?'disabled':''}>−</button>
@@ -2968,46 +2687,57 @@ function shopHTML(r, isHost){
   </div>`;
 
   const extras = `<div class="shop-item"><div class="si-top"><div><div class="si-name">Extra ${tip('attack','Attack')} die</div>
-    <div class="si-desc">Add one more die in a category (3⚡). Everyone already gets <b>1 free reroll</b> each round.</div></div><div class="si-cost">3⚡</div></div>
+    <div class="si-desc">Add one more die in a category. Enters as a plain d6 — size it up later.</div></div><div class="si-cost">${CFG.addDieCost}⚡</div></div>
     <div class="cat-picks">${COLORS.map(c=>{
       const ok = canAddColor(pl, c, cart.addDie);
       const picked = cart.addDie===c;
       return `<button class="cat-pick ${c} ${picked?'picked':''}" ${!ok && !picked?'disabled':''} onclick="setAddDie('${c}')">
-        <span class="cp-name">${COLOR_META[c].name}</span><span class="cp-meta">${picked?'QUEUED':'3⚡'}</span></button>`;
+        <span class="cp-name">${COLOR_META[c].name}</span><span class="cp-meta">${picked?'QUEUED':CFG.addDieCost+'⚡'}</span></button>`;
     }).join('')}</div>
     ${cart.addDie?`<button class="buy-btn" onclick="clearAddDie()">Clear extra die</button>`:''}
   </div>`;
 
   let growthBlock = '';
+  let parReady = true;
   if (isHost){
-    const moves = parasiteMoveOptions(G.parasite, G);
-    const atkN = parAttackCount(G.parasite);
-    const crew = rosterOf(G).filter(p => p !== me);
-    const poisonOn = cart.growth && cart.growth.key==='poison';
-    const targetRow = poisonOn ? `<div class="small" style="margin-top:8px">${tip('poison','Poison target')}:</div>
-      <div class="target-row">${crew.map(pid=>{
-        const on = cart.growth && cart.growth.target===pid;
-        return `<button type="button" class="btn target ${on?'on':''}" onclick="pickPoisonTarget('${pid}')">${whoHTML(pid,{short:true})}${scarCount(G.players[pid])?` · ${scarCount(G.players[pid])} scar`:''}</button>`;
-      }).join('')}</div>` : '';
+    const pb = cart.parBuys || (cart.parBuys = { dice:0, sizes:0, forges:0 });
+    const bank = (G.parasite.bank||0) + hostParStipendNow();
+    const pcost = parShopCost(pb);
+    const pleft = bank - pcost;
+    const nBuys = (pb.dice|0)+(pb.sizes|0)+(pb.forges|0);
+    parReady = nBuys >= 1 && pleft >= 0;
+    const prevPar = deep(G.parasite);
+    applyParShop(prevPar, pb);
+    const parDiceRow = (prevPar.attack||[]).map(d=>`<div class="die-wrap">${dieHTML('attack', Math.max(...d.faces))}
+      <div class="die-label" style="color:#ffb090">d${dieSizeOf(d)}</div>
+      <div class="die-faces">${esc(d.faces.join('·'))}</div></div>`).join('');
+    const stepper = (label, desc, cost, key, plus, minus) => `<div class="shop-item"><div class="si-top"><div><div class="si-name">${label}</div>
+      <div class="si-desc">${desc}</div></div><div class="si-cost">${cost}⚡</div></div>
+      <div class="row" style="gap:8px;margin-top:8px">
+        <button class="buy-btn" onclick="parBuy('${key}',-1)" ${(pb[key]|0)<1?'disabled':''}>−</button>
+        <div class="si-desc" style="flex:1;text-align:center"><b>${pb[key]|0}</b> queued</div>
+        <button class="buy-btn primary" onclick="parBuy('${key}',1)" ${plus?'':'disabled'}>+</button>
+      </div></div>`;
+    const canDie = (parAttackCount(G.parasite) + (pb.dice|0)) < CFG.parMaxDice && pleft >= CFG.addDieCost;
+    const canSize = (prevPar.attack||[]).some(d=>dieSizeOf(d) < CFG.parMaxDieSize) && pleft >= CFG.sizeUpCost;
+    const canForge = pleft >= CFG.forgeCost;
     growthBlock = `<div class="panel" style="border-color:#8dff6a44">
-      <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('moves','Parasite move')} — pick one</div>
-      <div class="small">Four attacks. ${tip('feed','Feed')}/${tip('harden','Harden')} are safer. ${tip('outbreak','Outbreak')} is big power + ${tip('scar','Scar')} on you. ${tip('poison','Poison')} hits a crewmate. Tap gold words for tips.</div>
-      <div class="spent-preview" style="color:var(--bio)">Attack dice: <b>${atkN}</b> / ${CFG.maxParAttack} · Par ⚡ ${hostParStipendNow()}</div>
-      <div class="move-grid">${moves.map(o=>{
-        const picked = cart.growth && cart.growth.key===o.key;
-        return `<button class="growth-opt move ${o.key} ${picked?'picked':''}" onclick="pickGrowth('${o.key}','${o.lane}')">
-          <div class="go-title">${tip(o.key, o.title)}</div><div class="go-desc">${o.desc}</div></button>`;
-      }).join('')}</div>
-      ${targetRow}
-      ${myScars?`<div class="warn-box">You carry ${myScars} ${tip('scar','Scar')} die${myScars>1?'s':''}. ${tip('outbreak','Outbreak')} adds another.</div>`:''}
+      <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('host','You are the HOST')} — grow the parasite</div>
+      <div class="small">The parasite shops like you do — and it <b>must</b> buy at least one thing. Purchases are permanent for every future host. Leftover ⚡ pays parasite rerolls, then banks.</div>
+      <div class="spent-preview" style="color:var(--bio)">Parasite ⚡ ${bank} − shop ${pcost} = <b>${pleft}</b> for rerolls / bank</div>
+      <div class="dice-row par-row">${parDiceRow}</div>
+      ${stepper(tip('parShopDie','Extra attack die'), 'New hot die (3–10), CRITs on max. Max '+CFG.parMaxDice+' dice.', CFG.addDieCost, 'dice', canDie)}
+      ${stepper(tip('sizeUp','Size up'), 'Smallest die grows two faces. Cap d'+CFG.parMaxDieSize+'.', CFG.sizeUpCost, 'sizes', canSize)}
+      ${stepper(tip('forge','Forge'), 'Lowest face anywhere +2.', CFG.forgeCost, 'forges', canForge)}
+      <div class="small" style="color:var(--dim)">You pick your <b>Channel</b> (Ravage / Crush / Sever) after you see your roll.</div>
+      ${myScars?`<div class="warn-box">You carry ${myScars} ${tip('scar','Scar')} die${myScars>1?'s':''} — and hosting always adds one more.</div>`:''}
     </div>`;
   }
 
-  const moveReady = !isHost || (cart.growth && cart.growth.key && (cart.growth.key!=='poison' || cart.growth.target));
-  const canRoll = moveReady;
+  const canRoll = parReady;
   const parStip = hostParStipendNow();
   const startLabel = isHost
-    ? (!cart.growth ? 'Pick a move first' : (cart.growth.key==='poison' && !cart.growth.target ? 'Pick who to Poison' : 'Continue to rolls'))
+    ? (!parReady ? 'Grow the parasite first (buy ≥1)' : 'Continue to rolls')
     : 'Roll dice';
   const startFn = isHost ? 'startHostRollPhase()' : 'beginRoll()';
   return `${growthBlock}
@@ -3088,36 +2818,48 @@ function setAddDie(c){
   render();
 }
 function clearAddDie(){ cart.addDie=null; render(); }
-function pickGrowth(key, lane){
-  const prevTarget = (cart.growth && cart.growth.key==='poison') ? cart.growth.target : null;
-  cart.growth = { key, lane, target: key==='poison' ? prevTarget : null };
+function queueSizeUp(){
+  if (!ui.selectedDie) return;
+  const pl = G.players[me];
+  const preview = previewHumanDice(pl);
+  const d = findDie(preview, ui.selectedDie);
+  if (!d || dieSizeOf(d) >= CFG.maxDieSize) return;
+  if (energyLeft() < CFG.sizeUpCost) return;
+  cart.sizeUps.push(ui.selectedDie);
+  ui.selectedFace = null;
   render();
 }
-function pickPoisonTarget(pid){
-  if (!cart.growth || cart.growth.key!=='poison') return;
-  if (pid === me) return;
-  cart.growth.target = pid;
+function undoSizeUp(){ cart.sizeUps.pop(); ui.selectedFace=null; render(); }
+function parBuy(key, delta){
+  const pb = cart.parBuys || (cart.parBuys = { dice:0, sizes:0, forges:0 });
+  pb[key] = Math.max(0, (pb[key]|0) + (delta|0));
+  const bank = (G.parasite.bank||0) + hostParStipendNow();
+  while (parShopCost(pb) > bank && pb[key] > 0) pb[key]--;
   render();
 }
+function pickChannel(key){
+  if (!CHANNELS[key]) return;
+  if (!session || !session.humanRolled) return; // see your roll first
+  cart.channel = key;
+  if (key !== 'crush') cart.channelTarget = null;
+  render();
+}
+function pickChannelTarget(pid){
+  if (!cart || cart.channel !== 'crush') return;
+  if (pid === me || !G.players[pid]) return;
+  if (scarCount(G.players[pid]) >= CFG.poisonGuardScars) return; // guardrail
+  cart.channelTarget = pid;
+  render();
+}
+// v5: growth picks replaced by the Channel system (pickChannel / pickChannelTarget)
 
 /* ================= ROLL ================= */
 function prepareHostGrowthPreview(){
   const fake = deep(G.parasite);
-  if (cart && cart.growth && cart.growth.key){
-    const hostFake = { scars: scarCount(G.players[me]) };
-    const MOVE_KEYS = { feed:1, harden:1, outbreak:1, poison:1 };
-    if (MOVE_KEYS[cart.growth.key]){
-      const res = applyParasiteMove(fake, cart.growth.key, hostFake, { poisonTarget: cart.growth.target });
-      session._previewTonight = res.tonightFlat || 0;
-    } else if (cart.growth.lane==='soft'){
-      applySoftGrowth(fake, cart.growth.key);
-      session._previewTonight = 0;
-    } else {
-      const res = applyHeavyGrowth(fake, cart.growth.key, hostFake);
-      session._previewTonight = (res && res.tonightFlat) || 0;
-    }
-  }
+  applyParShop(fake, (cart && cart.parBuys) || {});
+  session._previewTonight = 0;
   session._previewPar = fake;
+  session._parBudget = Math.max(0, ((G.parasite.bank||0) + hostParStipendNow()) - parShopCost(cart && cart.parBuys));
   return fake;
 }
 function rollHumanBundle(){
@@ -3157,12 +2899,9 @@ function rollParasiteBundle(){
   const fake = session._previewPar || prepareHostGrowthPreview();
   session.aRolls = (fake.attack||[]).map(d=>{
     const er = rollExplodingAttack(d.faces);
-    return { dieId:d.id, faces:d.faces, index:er.index, v:er.value, shown:er.shown, exploded:er.exploded, first:er.value, rerolled:false };
+    return { dieId:d.id, faces:d.faces, size:dieSizeOf(d), index:er.index, v:er.value, shown:er.shown, exploded:er.exploded, first:er.value, rerolled:false };
   });
-  const pMod = fake.mod.faces;
-  const pi = rollIndex(pMod.length);
-  session.pModRoll = deep(pMod[pi]);
-  session.pModRoll.index = pi;
+  session.pModRoll = null;
   const inst = fake.instinct || INSTINCT_FACES.map(f=>f.id);
   const ii = rollIndex(inst.length);
   session.instinctRoll = inst[ii];
@@ -3176,8 +2915,9 @@ function rollParasiteBundle(){
 /** Host: enter roll phase without rolling yet — human and parasite roll independently. */
 function startHostRollPhase(){
   const r = G.round;
-  if (!(cart.growth && cart.growth.key)) return;
-  if (cart.growth.key==='poison' && !cart.growth.target) return;
+  const buys = (cart && cart.parBuys) || {};
+  const nBuys = (buys.dice|0)+(buys.sizes|0)+(buys.forges|0);
+  if (nBuys < 1) return; // the parasite ALWAYS grows
   prepareHostGrowthPreview();
   session.phase = 'roll';
   session.humanRolled = false;
@@ -3193,7 +2933,7 @@ function startHostRollPhase(){
   session.pModRoll = null;
   session.instinctRoll = null;
   session.instinctExtra = 0;
-  session.parEnergy = hostParStipendNow();
+  session.parEnergy = session._parBudget != null ? session._parBudget : hostParStipendNow();
   session.parRerolls = 0;
   session.freeLeft = freeRerollThisRound();
   session.paidRerolls = 0;
@@ -3210,7 +2950,7 @@ function beginHumanRoll(){
 function beginParasiteRoll(){
   if (!session || session.phase!=='roll' || session.parLocked) return;
   if (!session._previewPar) prepareHostGrowthPreview();
-  if (session.parEnergy == null) session.parEnergy = hostParStipendNow();
+  if (session.parEnergy == null) session.parEnergy = session._parBudget != null ? session._parBudget : hostParStipendNow();
   rollParasiteBundle();
   session.selectedRoll = null;
   flashRoll(['parAttack','parMod','instinct']);
@@ -3423,12 +3163,11 @@ function rollPhaseHTML(r, isHost){
       aDice = (session.aRolls||[]).map((d)=>{
         const faceLine = (d.faces||[]).join('·');
         return `<div class="die-wrap">${dieHTML('attack', d.v, shakeOf('parAttack'))}
-          <div class="die-label" style="color:#ffb090">Attack</div>
-          <div class="die-sub">${d.exploded?'+ bonus re-roll':''}</div>
+          <div class="die-label" style="color:#ffb090">d${d.size||(d.faces||[]).length} Attack</div>
+          <div class="die-sub" style="color:var(--energy)">${d.exploded?'CRIT!':''}</div>
           <div class="die-faces">${esc(faceLine)}</div></div>`;
       }).join('');
     }
-    const pModTxt = pModLabel(session.pModRoll);
     const instId = session.instinctRoll;
     const instShort = instinctShortLabel(instId);
     const instFull = instinctDesc(instId);
@@ -3442,46 +3181,56 @@ function rollPhaseHTML(r, isHost){
       const par = liveParasiteBreakdown(live.attack, session.rolls||[]);
       parTotal = Math.round(par.total||0);
       hostCombined = humanSum + parTotal;
-      const modBit = (par.flat||0) + (par.pctAdd||0);
+      const chanLab = cart.channel ? (CHANNELS[cart.channel].icon+' '+CHANNELS[cart.channel].name) : 'no channel';
       parFinal = `<div class="roll-final" style="border-color:#8dff6a44">
           <div class="roll-eq par">
-            <span class="rf">Atk <b>${par.atk||0}</b></span>
+            <span class="rf tiny">${tip('baseAtk','Mirror')} <b>${par.baseAtk||0}</b></span>
             <span class="op">+</span>
-            <span class="rf">Mod <b>${modBit}</b></span>
-            <span class="op">+</span>
-            <span class="rf tiny">${tip('baseAtk','Base')} <b>${par.baseAtk||0}</b></span>
-            <span class="op">+</span>
-            <span class="rf tiny">Share <b>${par.fusion||0}</b></span>
+            <span class="rf">Dice <b>${par.atk||0}</b></span>
             <span class="op">+</span>
             <span class="rf tiny">Spec <b>${par.instinctAdd||0}</b></span>
             <span class="op">+</span>
-            <span class="rf tiny">Aura <b>${par.aura||0}</b></span>
-            ${par.tonightFlat?`<span class="op">+</span><span class="rf tiny">Tonight <b>${par.tonightFlat}</b></span>`:''}
+            <span class="rf tiny">${esc(chanLab)} <b>${par.chanAdd||0}</b></span>
             <span class="op">=</span>
             <span class="rf total">Par <b>${parTotal}</b></span>
           </div>
+          ${cart.channel==='sever'?`<div class="small center" style="margin-top:4px;color:#9aefc8">SEVER also cancels the crew's ${CFG.severN} highest dice at the reveal.</div>`:''}
           <div class="small center" style="margin-top:6px">Host total = human <b>${humanSum}</b> + parasite <b>${parTotal}</b> = <b style="color:var(--bio)">${hostCombined}</b></div>
         </div>`;
     }
+    // Channel — pick AFTER seeing your human roll
+    const crew = rosterOf(G).filter(p=>p!==me);
+    const chanTargets = cart.channel==='crush' ? `<div class="small" style="margin-top:8px">Crush target (2+-scar crew are protected):</div>
+      <div class="target-row">${crew.map(pid=>{
+        const sc = scarCount(G.players[pid]);
+        const blocked = sc >= CFG.poisonGuardScars;
+        const on = cart.channelTarget===pid;
+        return `<button type="button" class="btn target ${on?'on':''}" ${blocked?'disabled':''} onclick="pickChannelTarget('${pid}')">${whoHTML(pid,{short:true})}${sc?` · ${sc} scar`:''}</button>`;
+      }).join('')}</div>` : '';
+    const chanBlock = `<div class="panel" style="border-color:#8dff6a44">
+      <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('channel','Channel')} — what does it drink?</div>
+      ${!humanRolled?`<div class="small">Roll your human dice first — the channel feeds on your actual roll.</div>`:''}
+      <div class="growth-grid">${['ravage','crush','sever'].map(k=>{
+        const c = CHANNELS[k];
+        const on = cart.channel===k;
+        const est = humanRolled ? (k==='sever' ? `cancel crew's top ${CFG.severN} dice` : '+'+channelAddFor(k, session.rolls||[])) : '…';
+        return `<button class="growth-opt ${on?'picked':''}" ${!humanRolled?'disabled':''} onclick="pickChannel('${k}')">
+          <div class="go-title">${c.icon} ${c.name} · ${est}</div><div class="go-desc">${c.desc}</div></button>`;
+      }).join('')}</div>
+      ${chanTargets}
+      <div class="small" style="color:#ff8a9a;margin-top:6px">${cart.channel?channelScarNote(cart.channel):'Hosting always costs you one scar. The channel decides who else bleeds.'}</div>
+    </div>`;
     let parActions = '';
     if (!parRolled){
       parActions = `<button class="btn par-reroll" onclick="beginParasiteRoll()">Roll parasite dice</button>
         <div class="explain-box"><div class="ex-title">Parasite roll</div>
-        <p>Roll Attack / Mod / Specialty separately from your human dice. Spend parasite ⚡ to reroll sections, then <b>Lock parasite roll</b>.</p></div>`;
+        <p>Its dice CRIT on their max face (bonus roll added). Spend parasite ⚡ to reroll, pick your Channel, then <b>Lock parasite roll</b>.</p></div>`;
     } else if (!parLocked){
       const atkSec = `<div class="roll-sec">
         <div class="roll-sec-head"><div class="lane-label">Attack</div>
           <button class="btn par-reroll sec" onclick="rerollParSection('attack')" ${!canParSec?'disabled':''}>${parSecLab}</button>
         </div>
         <div class="dice-row par-row">${aDice}</div>
-      </div>`;
-      const modSec = `<div class="roll-sec">
-        <div class="roll-sec-head"><div class="lane-label">Mod</div>
-          <button class="btn par-reroll sec" onclick="rerollParSection('mod')" ${!canParSec?'disabled':''}>${parSecLab}</button>
-        </div>
-        <div class="dice-row par-row"><div class="die-wrap">${dieHTML('mod', pModTxt, shakeOf('parMod'))}
-          <div class="die-label" style="color:var(--bio)">Mod</div>
-          <div class="die-sub">boost</div></div></div>
       </div>`;
       const instSec = `<div class="roll-sec">
         <div class="roll-sec-head"><div class="lane-label">${tip('instinct','Specialty')}</div>
@@ -3491,33 +3240,30 @@ function rollPhaseHTML(r, isHost){
           <div class="die-label" style="color:var(--energy)">Specialty</div>
           <div class="die-sub">${instId==='explode'&&session.instinctExtra?('+'+session.instinctExtra):''}</div></div></div>
       </div>`;
+      const chanOK = !!cart.channel && (cart.channel!=='crush' || !!cart.channelTarget);
       parActions = `<div class="roll-top-actions">
           <button class="btn par-reroll all" onclick="rerollParSection('all')" ${!canParAll?'disabled':''}>Reroll all · ⚡${CFG.rerollAllCost||2}</button>
           <div class="hint" style="margin:0">Section = ⚡${CFG.parRerollCost||1} from parasite energy. ${tip('rerollAll','All')} = ⚡${CFG.rerollAllCost||2}.</div>
         </div>
-        ${atkSec}${modSec}${instSec}
+        ${atkSec}${instSec}
         ${parFinal}
-        <button class="btn lock-side par" onclick="lockParasiteRoll()">Lock parasite roll · ${parTotal}</button>
+        <button class="btn lock-side par" onclick="lockParasiteRoll()" ${chanOK?'':'disabled'}>${chanOK?`Lock parasite roll · ${parTotal}`:(cart.channel==='crush'?'Pick a Crush target first':'Pick a Channel first')}</button>
         <div class="explain-box">
           <div class="ex-title">What these dice do</div>
-          <p><b>Attack</b> — hit power (faces under each die). Max face = ${tip('explode','+ bonus re-roll')}.</p>
-          <p><b>Mod</b> — flat or % boost. This roll: <span class="now">${esc(pModTxt)}</span>.</p>
+          <p><b>Attack</b> — hit power (faces under each die). Max face = ${tip('crit','CRIT: bonus roll added')}.</p>
           <p><b>Specialty</b> — wild card. This roll: <span class="now">${esc(instFull)}</span>.${instExtra}</p>
         </div>`;
     } else {
       parActions = `${parFinal}<button class="btn lock-side done" disabled>Parasite roll locked · ${parTotal}</button>`;
     }
     const diceRowLocked = (parRolled && parLocked) ? `<div class="dice-row par-row">${aDice}
-        <div class="die-wrap">${dieHTML('mod', pModTxt, shakeOf('parMod'))}
-          <div class="die-label" style="color:var(--bio)">Mod</div>
-          <div class="die-sub">boost</div></div>
         <div class="die-wrap">${dieHTML('instinct', instShort, shakeOf('instinct'))}
           <div class="die-label" style="color:var(--energy)">${tip('instinct','Specialty')}</div>
           <div class="die-sub">${instId==='explode'&&session.instinctExtra?('+'+session.instinctExtra):''}</div></div>
-      </div>` : '';
-    parBlock = `<div class="panel ${parLocked?'locked-side':''}" style="border-color:#8dff6a44">
+      </div>${parLocked?parFinal:''}` : '';
+    parBlock = `${chanBlock}<div class="panel ${parLocked?'locked-side':''}" style="border-color:#8dff6a44">
       <div class="lane-label" style="margin-top:0;color:var(--bio)">${tip('host','Parasite package')}${parLocked?'<span class="lock-badge">LOCKED</span>':''}</div>
-      <div class="par-energy">Parasite ⚡ ${parEn} / ${parStipMax}</div>
+      <div class="par-energy">Parasite ⚡ ${parEn}</div>
       ${diceRowLocked}
       ${parActions}
     </div>`;
@@ -3605,12 +3351,7 @@ function rerollParAttackDice(){
     Object.assign(d, { index:er.index, v:er.value, shown:er.shown, exploded:er.exploded, rerolled:true });
   });
 }
-function rerollParModDie(){
-  const faces = (session._previewPar || G.parasite).mod.faces;
-  const pi = rollIndex(faces.length);
-  session.pModRoll = deep(faces[pi]);
-  session.pModRoll.index = pi;
-}
+function rerollParModDie(){ /* v5: parasite has no mod die */ }
 function rerollParInstinct(){
   const inst = (session._previewPar || G.parasite).instinct || INSTINCT_FACES.map(f=>f.id);
   session.instinctRoll = inst[rollIndex(inst.length)];
@@ -3627,7 +3368,6 @@ function rerollParSection(section){
   if (!spendParRerollCost(cost)) return;
   const secs = [];
   if (all || section==='attack'){ rerollParAttackDice(); secs.push('parAttack'); }
-  if (all || section==='mod'){ rerollParModDie(); secs.push('parMod'); }
   if (all || section==='instinct'){ rerollParInstinct(); secs.push('instinct'); }
   flashRoll(secs);
 }
@@ -3654,6 +3394,8 @@ function lockIn(){
   if (isHost){
     if (!session.humanLocked || !session.parLocked) return;
     if (!session.rolls || !session.aRolls) return;
+    if (!cart.channel) return;
+    if (cart.channel==='crush' && !cart.channelTarget) return;
   } else if (!session.rolls){
     return;
   }
@@ -3664,6 +3406,7 @@ function lockIn(){
     at: Date.now(),
     forges: cart.forges||[],
     modUps: cart.modUps||[],
+    sizeUps: cart.sizeUps||[],
     addDie: cart.addDie||null,
     buyFreeReroll: !!cart.buyFreeReroll,
     rerollBuys: session.paidRerolls||0,
@@ -3677,9 +3420,12 @@ function lockIn(){
     scarEnergyLoss: session.scarEnergyLoss||0,
   };
   if (isHost){
-    action.growth = cart.growth;
+    action.channel = cart.channel || 'sever';
+    action.channelTarget = cart.channelTarget || null;
+    action.parBuys = cart.parBuys || {};
+    action.parRerolls = session.parRerolls||0;
+    action.growth = { key: cart.channel || 'sever', target: cart.channelTarget || null };
     action.aRolls = session.aRolls;
-    action.pModRoll = session.pModRoll;
     action.instinctRoll = session.instinctRoll;
     action.instinctExtra = session.instinctExtra||0;
   }
@@ -3727,8 +3473,8 @@ function playerReviewCardHTML(pid, res){
     const aDice = aRolls.map(d=>{
       const faceLine = (d.faces||[]).join('·');
       return `<div class="die-wrap">${dieHTML('attack', d.v)}
-        <div class="die-label" style="color:#ffb090">Attack</div>
-        <div class="die-sub">${d.exploded?'+ bonus re-roll':''}</div>
+        <div class="die-label" style="color:#ffb090">d${d.size||(d.faces||[]).length}</div>
+        <div class="die-sub" style="color:var(--energy)">${d.exploded?'CRIT!':''}</div>
         ${faceLine?`<div class="die-faces">${esc(faceLine)}</div>`:''}</div>`;
     }).join('');
     const pMod = (br && br.pModRoll) || res.pModRoll;
@@ -3739,7 +3485,7 @@ function playerReviewCardHTML(pid, res){
         ${pMod?`<div class="die-wrap">${dieHTML('mod', pModLabel(pMod))}<div class="die-label" style="color:var(--bio)">Mod</div></div>`:''}
         ${inst!=null?`<div class="die-wrap">${dieHTML('instinct', instinctShortLabel(instId))}<div class="die-label" style="color:var(--energy)">Specialty</div></div>`:''}
       </div>
-      <div class="small">${inst!=null?`Specialty: ${esc(instinctDesc(instId))}. `:''}Atk ${p.atk} + mod ${(p.flat||0)+(p.pctAdd||0)} + ${tip('baseAtk','base')} ${p.baseAtk||0} + share ${p.fusion} + specialty ${p.instinctAdd} + aura ${p.aura}${p.tonightFlat?` + tonight ${p.tonightFlat}`:''} = <b style="color:var(--bio)">${Math.round(p.total)}</b></div>
+      <div class="small">${inst!=null?`Specialty: ${esc(instinctDesc(instId))}. `:''}${tip('baseAtk','Mirror')} ${p.baseAtk||0} + dice ${p.atk} + specialty ${p.instinctAdd||0}${p.chanAdd?` + ${esc(growthTitle(p.channel||res.channel||''))} ${p.chanAdd}`:''} = <b style="color:var(--bio)">${Math.round(p.total)}</b></div>
       <div class="small">Human ${Math.round(res.hostHuman)} + Parasite ${Math.round(p.total)} = <b style="color:var(--bio)">${Math.round(res.hostTotal)}</b></div>`;
   }
   return `<div class="panel" style="padding:10px;margin-bottom:8px">
@@ -3770,8 +3516,9 @@ function verdictHTML(r){
       <div class="vs-x">vs</div>
       <div class="vs-side p"><div class="lbl">${whoHTML(res.hostId,{short:true})}+bug</div><div class="val">${Math.round(res.hostTotal)}</div></div>
     </div>
-    ${res.growth?`<div class="small center" style="margin:6px 0">Growth: <b>${esc(growthTitle(res.growth.key))}</b> · Boss Meter ${res.bossMeter}</div>`:''}
-    ${(!res.hostWins && res.baseAttackBump)?`<div class="small center" style="margin:6px 0;color:var(--bio)">${tip('baseAtk','Base Attack')} +${res.baseAttackBump} (crew held — parasite grows)</div>`:''}`;
+    ${res.channel?`<div class="small center" style="margin:6px 0">Channel: <b>${esc(growthTitle(res.channel))}</b>${res.channelTarget?` → ${whoHTML(res.channelTarget,{short:true})}`:''} · scars +${res.scarsCreated||0} · ${tip('boss','Boss Meter')} ${res.bossMeter}</div>`:''}
+    ${res.severSub?`<div class="small center" style="margin:6px 0;color:#9aefc8">🟢 SEVER cancelled the crew's top ${CFG.severN} dice — <b>−${res.severSub}</b> from the crew total</div>`:''}
+    ${(!res.hostWins && res.baseAttackBump)?`<div class="small center" style="margin:6px 0;color:var(--bio)">Crew held — the parasite hardens <b>+${res.baseAttackBump}</b> forever</div>`:''}`;
   } else if (res.kind==='boss'){
     banner = `<div class="result-banner ${res.cleared?'h':'p'}">${res.cleared ? 'THE CREW SLAYS THE BEAST' : 'THE PARASITE ESCAPES'}</div>`;
     body = `<div class="vs-bar">
@@ -3800,6 +3547,10 @@ function verdictHTML(r){
     const a = awards[p] || {pts:0,energy:0,tags:[]};
     const badges = (a.tags||[]).map(t=>{
       if (t==='mvp') return '<span class="badge mvp">MVP</span>';
+      if (t && t.indexOf('ladder-')===0) return `<span class="badge mvp">${t.slice(7)==='1'?'TOP DMG':'DMG #'+t.slice(7)}</span>`;
+      if (t==='underdog') return '<span class="badge" style="background:#3a2a1055;color:var(--energy)">underdog ⚡</span>';
+      if (t==='hero') return '<span class="badge mvp">HERO</span>';
+      if (t==='escape') return '<span class="badge" style="background:#3a121855;color:#ff8a9a">escape</span>';
       if (t==='mod-pts') return '<span class="badge" style="background:#7a4fc455;color:#e9d5ff">PTS</span>';
       if (t.startsWith('cat-')) return `<span class="badge ${t}">${t.slice(4)}</span>`;
       if (t==='kill') return '<span class="badge mvp">KILL</span>';

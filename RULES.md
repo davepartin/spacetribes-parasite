@@ -1,180 +1,98 @@
-# Space Tribes: Parasite — Crew Manual (v4.12)
+# Space Tribes: Parasite — Crew Manual (v5)
 
-**3–6 players.** Ten rounds. A parasite that rides inside you, then breaks free. Open scores. One hero — unless it escapes.
+**3–6 players.** Everyone hosts the parasite **twice**, then the whole crew fights the thing you built. Open scores. One champion — unless it escapes.
 
-**v4.12.11** — **6-player-first** parasite balance (~45% host wins). Schema **v12**. See [CHANGELOG.md](CHANGELOG.md).
+**v5.0.0** — Channels, ChemDice banking, reroll tokens, die sizes, the Mirror. Schema **v13** — start a fresh game. See [CHANGELOG.md](CHANGELOG.md).
 
-## Goal
+## The shape of the game
 
-Score the most **points**. If Round 10 fails, the parasite escapes (hollow win on points).
-
-## What to do each round
-
-1. **Shop** — Forge, upgrade Mod, heal scars, buy an extra Attack die.
-2. **Roll** — Section reroll **1⚡** (1 free) · Reroll all **2⚡**.
-3. **Lock in** — If Mod shows **gain scar** and you lock it, you pick up a Scar die.
-
-**Host rounds:** pick one parasite move in the shop → Continue to rolls → Lock human → Lock parasite → **Submit both**.
-
-## Mission map
-
-| Rounds | What |
-|---|---|
-| **1 — Training** | All crew. No parasite. Forge, roll, category scores. |
-| **2–9** | Infection rounds (a random host) and, on 3-player tables, up to **2 skirmish** rounds (no host — score like training). |
-| **10 — The Reveal** | Full boss. Collective total vs HP. Hero points. Fail → escape. |
-
-**Fog of war:** you see who is infected **this round only**. Future hosts stay hidden.
-
-**Host seats:** random each new game. Nobody hosts three times. Not everyone hosts twice (depends on table size).
-
-| Players | Host pattern (typical) |
-|---|---|
-| 3 | Six host seats (2 each) + 2 skirmish rounds |
-| 4 | Eight host seats (2 each) |
-| 5 | Three players host twice, two once |
-| 6 | Two players host twice, four once |
-
-## Energy ⚡
-
-- Everyone gets **+5⚡** each round. Unspent **banks**. Top bar counts down as you spend.
-- **Win** (crew or host): **+2⚡**
-- **Category win:** **+1⚡**
-- **Loss:** no bonus Energy
-
-### Spends
-
-| Spend | Cost | Effect |
+| Players | Infection rounds | Boss round |
 |---|---|---|
-| **Forge a face** | 1 | That Attack face **+2** |
-| **Mod upgrade** | 2 | Bump one helpful mod face one level (max L3). Scar faces can’t be upgraded |
-| **Extra die** | 3 | +1 Attack die in a category (max 2 per color) |
-| **Heal scar** | 3 | Remove one Scar die from your pool |
-| **Free section reroll** | 0 | **1 free section reroll** every round (not All) |
-| **Section reroll** | 1 | Reroll all dice in Attack, Mod, or Scar |
-| **Reroll all** | 2 | Reroll Attack + Mod + Scar together (always paid) |
+| 3 | 6 | round 7 |
+| 4 | 8 | round 9 |
+| 5 | 10 | round 11 |
+| 6 | 12 | **round 13** |
 
-**Reset choices** clears your upgrade picks before you lock a roll.
+Every round one player is the **host** (fog of war — future hosts are hidden). Everyone does **Shop → Roll → Lock in** on their phone. The crew's totals combine against the host + parasite. **Ties go to the crew.**
 
-## Three die types
+## Energy ⚡ and reroll tokens 🎲
 
-### Attack (3 colors)
+- **+6⚡ every round**, plus your banked **Base Energy**, plus **+2⚡ underdog** if you're in last place. Unspent banks.
+- **🎲 reroll tokens**: you start every round with **1** (more if you've banked Base Reroll). A section reroll **always spends a token first** — only at 🎲0 does it cost 1⚡.
+- **Reroll all = always 2⚡.** Tokens never apply.
 
-Weapons (red) · Strength (blue) · Agility (green). Forge faces, buy extras. They make your combat total.
+### The shop
 
-### Mod die (4 help · 2 Scar)
+| Buy | Cost | Effect |
+|---|---|---|
+| **Forge** | 1⚡ | +2 to one face of one Attack die (any size) |
+| **Mod upgrade** | 2⚡ | Raise a ChemDice face one tier (max 3) — raises its **per-lock** gain |
+| **Size up** | 3⚡ | d6 → d8 → d10. Adds the next two faces. Ceiling wins categories |
+| **Extra die** | 4⚡ | One more Attack die (max 2 per color). Enters as a d6 |
+| **Heal scar** | 3⚡ | Remove one Scar die from your pool |
 
-Always rolls with you. Messing with chemicals can scar you. Each helpful face has **two upgrades** (3 tiers).
+## ChemDice — lock to BANK (stacking)
 
-| Faces | Effect (tier 1 → 2 → 3) |
-|---|---|
-| **Energy** (×1) | +2 / +3 / +4⚡ next round |
-| **%** (×1) | +10% / +20% / +25% of your attack |
-| **Base** (×1) | Claim permanent **Base** to **+3 / +4 / +5** (header starts at **+0**) |
-| **Points** (×1) | **+3 / +4 / +5 personal score** — **no combat help** (greed vs team) |
-| **Scar** (×2) | No combat help. If you **lock in** on this face, grab a Scar die into your pool |
+Six faces: **Base Attack · Base Energy · Base Reroll · Base % · Points · Scar.**
 
-Upgrade helpful faces for **2⚡**. Max **level 3**.
+**Every time you lock a claim face, its value is added permanently. No cap. No dead faces.**
 
-**Your Base** (top bar) starts at **+0**. When you lock a **Base** face, your permanent Base rises to that face’s value and adds to every combat after that.
+| Face | Per-lock gain (tier 1/2/3) | Stacks into |
+|---|---|---|
+| Base Attack | +3 / +4 / +5 | Every combat total, forever |
+| Base Energy | +1 / +2 / +3⚡ | Your round stipend, forever |
+| Base Reroll | +1 / +1 / +2🎲 | Your token base each round |
+| Base % | +10 / +15 / +20% | Permanent % of your attack |
+| Points | +3 / +4 / +5 | One-shot personal score — greed, no combat |
+| Scar | — | Lock it → grab a Scar die |
 
-**Points face decision:** lock for personal score, or reroll toward Energy / % / Base to help the fight.
+Locking a claim means giving up everything else the die could have given you that round. Engine or tempo — every round.
 
-Your total = **Attack dice + permanent Base + Mod combat** (Points does not add to combat).
+## Scar dice
 
-### Scar dice (all the same)
+One blank, five hurts: **−2⚡** · **− your highest die** · **−50% of your 🔴 Weapons** · **−50% of your 🔵 Strength** · **−50% of your 🟢 Agility**. The parasite sabotages what you built — the color faces hit harder the more you've invested. Heal 3⚡. Cap 6. Reroll your Scar section like any other.
 
-You **grab them into your pool**. Sources:
+Scars come from: **hosting (always)** · the host's **Channel** · locking your own Mod scar face.
 
-- Lock a **Mod Scar** face
-- **Outbreak** (on the host)
-- **Poison** (on the chosen crewmate)
+## The host turn
 
-Every Scar die is identical: **3 blanks** + **3 hurts** (−2⚡, −20%, − highest dice). Each Scar die in your pool rolls every turn. Cap **6**.
+1. **Shop your human dice** as normal.
+2. **Grow the parasite.** It has its own ⚡ (stipend 7 at 5–6p, plus what past hosts banked) and shops with the same verbs: extra die 4⚡ (max 4) · size-up 3⚡ (cap **d12**) · forge 1⚡. **It must buy at least one thing.** Everything is permanent. Leftover pays parasite rerolls, then banks.
+3. **Roll your human dice.** Then choose what the parasite drinks:
 
-**Heal** one for **3⚡** in the shop (healed dice don’t roll that round).
+| Channel | Tonight | Scars |
+|---|---|---|
+| 🔴 **RAVAGE** | Parasite adds **2× your Weapons total** | **Everyone** — all crew and you |
+| 🔵 **CRUSH** | Parasite adds **1.75× your Strength total** | You + **one crewmate you choose** (2+-scar crew are protected) |
+| 🟢 **SEVER** | **Cancels the crew's 2 highest dice** (they lose categories too). No attack bonus | **Only you** |
 
-**− highest dice** subtracts your strongest Attack die from the combat total but **keeps the die showing**. Reroll the Attack or Scar section to move the hit.
+4. **Roll the parasite.** Its dice **CRIT** on their max face — roll again and add. Lock both, submit.
 
-## Host turn (you + the monster)
+**Hosting always costs you one scar.** The channel decides who else bleeds.
 
-When infected: shop + pick **one parasite move** → **Continue to rolls**.
+### The Mirror
 
-### Four moves (pick one)
+The parasite's Base Attack **mirrors the crew**: roughly 45–47% of the previous round's total crew score (scaled per table size), and it hardens permanently every time the crew holds. It grows because you grow. There is no outrunning it — only outrolling it.
 
-| Move | Effect | Cost | Boss |
-|---|---|---|---|
-| **Feed** | Permanent +aura (**+1**, or **+2** at 6p) | Safe | +1 |
-| **Harden** | +1 on every face of all Attack dice | Safe | +1 |
-| **Outbreak** | +1 Attack die (if room) · **+4 tonight** | **Scar die on you** | +3 |
-| **Poison** | Chosen crewmate grabs a **Scar die** | Hits them | +2 |
+## Scoring
 
-Then:
+Crew holds (host gets nothing):
 
-1. **Roll / Lock human**
-2. **Roll / Lock parasite**
-3. **Submit both rolls**
+| | First half | Second half |
+|---|---|---|
+| Every crew member | 6 | 8 |
+| Damage ladder — top 3 crew totals | +5 / +3 / +1 | +6 / +4 / +2 |
+| Category (best single die per color, crew only) | +2 (+1⚡) | +3 (+1⚡) |
 
-- Parasite ⚡ by table: **3p → 5 · 4p → 6 · 5–6p → 7**
-- Human energy and parasite ⚡ are separate
+Host wins: **8** first half / **10** second half, +2⚡.
 
-**Host total** = human total + parasite portion  
-**Crew total** = the other humans combined  
-Ties go to the **crew**.
+## The boss
 
-### Parasite package
+Every scar created and every host win feeds the **Boss Meter**. In the final round the whole table rolls together against HP that mirrors your own strength plus the meter. Clear it → hero ladder (12 down to 1) and **+5 kill blow** for the top total. Fail → the parasite escapes; consolation ranks only.
 
-Combat package is the **same at every table size**. Seat count and losses dial **Base Attack**.
+Sim-verified (300+ games per table size): host wins ~46–54% at every table size, boss clears ~50%.
 
-| Piece | Role |
-|---|---|
-| **Base Attack** | Flat power (starts at −4). This-round seat bonus: **3p −18 · 4p 0 · 5p +18 · 6p +30**. Crew holds → forever bump **+2 / +4 / +6** at 4p / 5p / 6p. |
-| **Attack dice** | 2 to start (max 4). On **max** face, **+ bonus re-roll**. |
-| **Mod die** | Flat or % of parasite attack |
-| **Human share** | Starts ~50% (higher on 5–6p). Part of host human attack added to parasite. |
-| **Aura** | Starts 0. **Feed** adds +1 (or +2 at 6p) forever |
-| **Specialty** | +8, +25% atk, +lowest, +your high, —, +extra die |
+## House rules worth trying
 
-| Players | Base this round (if never lost) | Hold bump | Par ⚡ | Boss HP base | +HP / meter |
-|---|---|---|---|---|---|
-| 3 | −4 − 18 = **−22** | +2 | 5 | 60 | +1 |
-| 4 | **−4** | +2 | 6 | 80 | +1 |
-| 5 | −4 + 18 = **+14** | +4 | 7 | 100 | +1 |
-| 6 | −4 + 30 = **+26** | +6 | 7 | 120 | +2 |
-
-Ties go to the **crew**. Crew holds → parasite Base Attack grows (catch-up; bigger bump on 5–6p).
-
-## Round 10 boss
-
-HP = **table base + (per-meter × Boss Meter)**. Clear it for hero bonuses. Fail → escape (consolation ranks).
-
-## Starting a game
-
-1. Tap **New game**
-2. Pick **3–6** players
-3. **Type every player's name** (humans only — no computer seats)
-4. **Start** — **Copy link**, each phone opens it and taps **Join** on their seat
-
-**Copy link** at the bottom copies the game URL so you can text it anytime.
-
-Your phone remembers which seat you claimed.
-
-## Dictionary
-
-| Term | Meaning |
-|---|---|
-| **Energy (⚡)** | Spend bank. +5 each round. Forge, mod upgrade, extra die, heal, rerolls. |
-| **Attack dice** | Weapons / Strength / Agility. Main combat power. |
-| **Mod die** | Energy / % / Base / Points + 2× gain scar. |
-| **Points (Mod)** | Personal score if locked. No combat help. |
-| **Your Base** | Header starts +0. Lock Mod Base to raise it for the rest of the game. |
-| **Scar die** | 3 blanks + −2⚡ + −20% + − highest dice. Heal 3⚡. |
-| **Host** | Infected player. Human + parasite vs the crew. |
-| **Feed / Harden / Outbreak / Poison** | The four parasite moves (pick one). |
-| **Base Attack** | Flat parasite power (4p-tuned; seat bonus; grows when crew holds). |
-| **Human share** | Part of host human attack added to parasite. |
-| **Aura** | Permanent flat parasite add (Feed). |
-| **Specialty** | Extra parasite die. |
-| **Boss Meter** | Feeds Round 10 HP. |
-| **Category** | Best single color die among the crew that round. |
-| **MVP** | Highest crew total when the crew holds. |
+- **Chain-crits:** a CRIT's bonus roll can crit again. Chaos night only.
+- **The Loser Hosts:** whoever finishes last buys wings.
