@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /**
- * v5 PROPOSAL Monte Carlo — standalone model of PROPOSAL-v5.md.
+ * Historical v5 proposal Monte Carlo — standalone model of PROPOSAL-v5.md.
+ * It does not model the shipped v5.1.0 forge levels, escalating dice, mandatory
+ * 1–2 target Feeding Time, or built-parasite boss. Use v5-smoke.mjs for current evidence.
  * Now models the CHANNEL host turn (Ravage/Crush/Sever + scar ladder),
  * the parasite shop, and compares parasite dice builds:
  *   SWARM    — many plain d6s
@@ -15,27 +17,28 @@ const N = 6, ROUNDS = 13, INFECT = 12, LATE_FROM = 7;
 const COLORS = ['red', 'blue', 'green'];
 
 const CFG = {
-  stipend: 6, underdogEn: 2, winEn: 2, catEn: 1,
+  stipend: 6, underdogEn: 2, winEn: 2, hostWinEn: 4, catEn: 1,
   forge: 1, forgeBump: 2, sizeUp: 3, extraDie: 4, modUp: 2, heal: 3,
   rerollSec: 1,
   maxPerColor: 2, maxSize: 10, maxScars: 6, maxDice: 6,
   flatEarly: 6, flatLate: 8,
-  ladderEarly: [5, 3, 1], ladderLate: [6, 4, 2],
+  ladderEarly: [4, 3, 2], ladderLate: [5, 4, 3],
   catEarly: 2, catLate: 3,
-  hostWinEarly: 8, hostWinLate: 10,
+  hostWinEarly: 4, hostWinLate: 5,
   heroPts: [12, 8, 5, 3, 2, 1], failPts: [4, 3, 2, 2, 1, 1], killBlow: 5,
   stackClaims: true,
   // parasite
   mirrorBeta: 0.50, mirrorSeed: 55, holdBump: 2,
   parStipend: 7,
-  // channels
-  ravageMult: 2.0, crushMult: 1.75, severN: 2,
-  // boss: HP mirrors round-12 crew + meter (meter = scars created + host wins)
+  // pre-roll parasite paths
+  ravageMult: 2.5, crushMult: 1.5, severMult: 1.5, severN: 1, bluePathRerolls: 3,
+  // boss: crew mirror + wounds created + host wins
   bossHpMult: 0.92, hpPerMeter: 1.5,
+  woundAttack: 2,
   parVariant: 'PREDATOR',
 };
 
-const LAD = { atk: [3, 4, 5], energy: [1, 2, 3], reroll: [2, 3, 4], pct: [10, 15, 20], points: [3, 4, 5] };
+const LAD = { atk: [3, 4, 5], energy: [2, 3, 4], reroll: [2, 3, 4], pct: [10, 15, 20], points: [3, 4, 5] };
 const MOD_KINDS = ['atk', 'energy', 'reroll', 'pct', 'points', 'scar'];
 const SCAR_FACES = ['inert', 'drain', 'shatter', 'red', 'blue', 'green'];
 const CLAIM_KINDS = ['atk', 'energy', 'reroll', 'pct'];
@@ -54,12 +57,12 @@ function rollDie(d) { return d.faces[ri(d.faces.length)]; }
 
 /* ---------- strategies ---------- */
 const STRATS = {
-  RUSHER:  { buys: ['die', 'forge'],            claimPri: ['atk', 'energy'], reserve: 1, healAt: 3, greedy: false, sizeSmallFirst: true },
-  GAMBLER: { buys: ['size', 'die', 'forge'],    claimPri: ['reroll', 'pct'], reserve: 2, healAt: 2, greedy: false, sizeSmallFirst: false },
-  SNIPER:  { buys: ['forgeTop', 'die', 'size'], claimPri: ['atk', 'pct'],    reserve: 2, healAt: 2, greedy: false, sizeSmallFirst: false },
-  ENGINE:  { buys: ['modup', 'die', 'forge'],   claimPri: ['energy', 'pct'], reserve: 2, healAt: 2, greedy: false, sizeSmallFirst: true, modupOnly: ['energy', 'pct'] },
-  MEDIC:   { buys: ['die', 'size', 'forge'],    claimPri: ['energy', 'atk'], reserve: 2, healAt: 1, greedy: false, sizeSmallFirst: true },
-  HOARDER: { buys: ['size', 'die', 'forge'],    claimPri: ['pct', 'atk'],    reserve: 4, healAt: 2, greedy: true, sizeSmallFirst: true },
+  RUSHER:  { buys: ['die', 'forge'],            claimPri: ['atk', 'energy'], reserve: 1, healAt: 3, greedy: false, parGreed: .75, sizeSmallFirst: true },
+  GAMBLER: { buys: ['size', 'die', 'forge'],    claimPri: ['reroll', 'pct'], reserve: 2, healAt: 2, greedy: false, parGreed: .70, sizeSmallFirst: false },
+  SNIPER:  { buys: ['forgeTop', 'die', 'size'], claimPri: ['atk', 'pct'],    reserve: 2, healAt: 2, greedy: false, parGreed: .55, sizeSmallFirst: false },
+  ENGINE:  { buys: ['modup', 'die', 'forge'],   claimPri: ['energy', 'pct'], reserve: 2, healAt: 2, greedy: false, parGreed: .45, sizeSmallFirst: true, modupOnly: ['energy', 'pct'] },
+  MEDIC:   { buys: ['die', 'size', 'forge'],    claimPri: ['energy', 'atk'], reserve: 2, healAt: 1, greedy: false, parGreed: .25, sizeSmallFirst: true },
+  HOARDER: { buys: ['size', 'die', 'forge'],    claimPri: ['pct', 'atk'],    reserve: 4, healAt: 2, greedy: true, parGreed: .90, sizeSmallFirst: true },
 };
 const STRAT_NAMES = Object.keys(STRATS);
 
@@ -271,16 +274,26 @@ function rollParDice(par) {
   });
   return sum;
 }
+function expectedParDice(par) {
+  return par.dice.reduce((sum,d)=>{
+    const avg = mean(d.faces);
+    return sum + avg + avg / d.faces.length; // max face CRITs for one extra average roll
+  }, 0);
+}
+function rollBlueParDice(par) {
+  let total = rollParDice(par);
+  const expected = expectedParDice(par);
+  const thresholds = [1.15, 1.08, 1.0];
+  for (let i=0; i<CFG.bluePathRerolls; i++){
+    if (total >= expected * thresholds[Math.min(i, thresholds.length-1)]) break;
+    total = rollParDice(par);
+  }
+  return total;
+}
 
-/* ---------- channels ---------- */
-function chooseChannel(hostB, estTop3) {
-  // host sees own roll only; estimates Sever from last round's crew
-  const ravage = CFG.ravageMult * hostB.colorTotal.red;
-  const crush = CFG.crushMult * hostB.colorTotal.blue;
-  const sever = estTop3; // pure denial, no self add
-  // aversion: ravage sprays scars (incl. you) → biggest penalty; crush 1 target → small; sever safe
-  const adj = { ravage: ravage - 6, crush: crush - 2, sever: sever };
-  return Object.keys(adj).sort((a, b) => adj[b] - adj[a])[0];
+/* ---------- pre-roll parasite paths ---------- */
+function choosePath() {
+  return ['ravage','crush','sever'][ri(3)];
 }
 
 function schedule12(ids) {
@@ -299,7 +312,6 @@ function playGame(collect) {
   const par = mkParasite();
   const sched = schedule12(players.map(p => p.id));
   let underdogs = new Set();
-  let estTop3 = 18; // rolling estimate of crew top-3 dice for Sever choice
   let scarsCreated = 0;
 
   for (let r = 1; r <= ROUNDS; r++) {
@@ -308,6 +320,8 @@ function playGame(collect) {
       pl.energy += CFG.stipend + claimVal(pl, 'energy') + (underdogs.has(pl.id) ? CFG.underdogEn : 0);
     });
     players.forEach(pl => shop(pl));
+    const host = r === ROUNDS ? null : players.find(p => p.id === sched[r - 1]);
+    const channel = host ? choosePath() : null; // committed before this round's dice
     const bundles = {};
     players.forEach(pl => { bundles[pl.id] = rollBundle(pl, r); pl.pts += bundles[pl.id].ptsGain; });
 
@@ -323,42 +337,37 @@ function playGame(collect) {
       break;
     }
 
-    const host = players.find(p => p.id === sched[r - 1]);
     const crew = players.filter(p => p !== host);
-    // parasite shop (mandatory growth)
+    // parasite shop: every host must buy at least one permanent upgrade
     parShop(par);
     const hostB = bundles[host.id];
-    const channel = chooseChannel(hostB, estTop3);
-
     // channel effects
-    let chanAdd = 0, severSub = 0;
-    const giveScar = pl => { if (pl.scars < CFG.maxScars) { pl.scars++; pl.scarsTaken++; pl.maxScars = Math.max(pl.maxScars, pl.scars); scarsCreated++; } };
-    giveScar(host); // hosting always costs a scar
+    let chanAdd = 0, severSub = 0, roundWounds = 0;
+    const giveScar = pl => { if (pl.scars < CFG.maxScars) { pl.scars++; pl.scarsTaken++; pl.maxScars = Math.max(pl.maxScars, pl.scars); scarsCreated++; roundWounds++; } };
+    crew.forEach(pl=>{ if (Math.random() < STRATS[host.strat].parGreed) giveScar(pl); });
     if (channel === 'ravage') {
       chanAdd = Math.round(CFG.ravageMult * hostB.colorTotal.red);
-      crew.forEach(giveScar);
     } else if (channel === 'crush') {
       chanAdd = Math.round(CFG.crushMult * hostB.colorTotal.blue);
-      const target = crew.filter(p => p.scars < 2).sort((a, b) => b.pts - a.pts)[0] || crew.sort((a, b) => b.pts - a.pts)[0];
-      if (target) giveScar(target);
     } else {
-      // sever: cancel crew's 3 highest dice
+      chanAdd = Math.round(CFG.severMult * hostB.colorTotal.green);
+      // Green path: cancel the crew's single highest die
       const allDice = [];
       crew.forEach(pl => bundles[pl.id].allVals.forEach(v => allDice.push(v)));
       allDice.sort((a, b) => b - a);
       severSub = allDice.slice(0, CFG.severN).reduce((s, v) => s + v, 0);
     }
 
-    const parDiceSum = rollParDice(par);
+    const parDiceSum = channel === 'crush' ? rollBlueParDice(par) : rollParDice(par);
     const mirrorBase = Math.round(CFG.mirrorBeta * par.prevCrew) + par.base;
-    const parTotal = mirrorBase + parDiceSum + chanAdd;
+    const parTotal = mirrorBase + parDiceSum + chanAdd + roundWounds * CFG.woundAttack;
     const hostTotal = hostB.total + parTotal;
     const crewTotal = Math.max(0, crew.reduce((s, pl) => s + bundles[pl.id].total, 0) - severSub);
     const hostWins = hostTotal > crewTotal;
 
     if (hostWins) {
       host.pts += late ? CFG.hostWinLate : CFG.hostWinEarly;
-      host.energy += CFG.winEn;
+      host.energy += CFG.hostWinEn;
       host.hostWins++;
       par.meter += 1;
     } else {
@@ -369,7 +378,7 @@ function playGame(collect) {
         .forEach((pl, i) => { if (ladder[i]) pl.pts += ladder[i]; });
       par.base += CFG.holdBump;
     }
-    par.meter += (channel === 'ravage' ? 6 : channel === 'crush' ? 2 : 1); // meter = scars created
+    par.meter += roundWounds;
     COLORS.forEach(c => {
       const best = crew.slice().sort((a, b) => bundles[b.id].bestByColor[c] - bundles[a.id].bestByColor[c]);
       if (bundles[best[0].id].bestByColor[c] > bundles[best[1].id].bestByColor[c]) {
@@ -382,11 +391,6 @@ function playGame(collect) {
     if (r === LATE_FROM - 1) players.slice().sort((a, b) => a.pts - b.pts)[0].lastAtHalf = true;
 
     // rolling estimate for next host's Sever call
-    const allDice = [];
-    crew.forEach(pl => bundles[pl.id].allVals.forEach(v => allDice.push(v)));
-    allDice.sort((a, b) => b - a);
-    estTop3 = Math.round(0.5 * estTop3 + 0.5 * allDice.slice(0, CFG.severN).reduce((s, v) => s + v, 0));
-
     collect.rounds[r] = collect.rounds[r] || { hostWin: 0, n: 0, crew: [], host: [], par: [], margins: [], chan: {} };
     const cr = collect.rounds[r];
     cr.n++; if (hostWins) cr.hostWin++;
@@ -477,9 +481,9 @@ function spreadOf(c) {
 }
 
 const lines = [];
-lines.push(`# v5 channel sim — 6p × ${GAMES} games/variant`);
-lines.push(`Channels: Ravage ${CFG.ravageMult}×red (scars ALL) · Crush ${CFG.crushMult}×blue (scar 1 chosen) · Sever cancel top ${CFG.severN} crew dice (no self add) · host always takes a scar`);
-lines.push(`Parasite shop: stipend ${CFG.parStipend}⚡/host turn, same prices as crew. Boss HP = ${CFG.bossHpMult}× crew strength + ${CFG.hpPerMeter}×meter (meter = scars+wins)`);
+lines.push(`# v5 parasite path sim — 6p × ${GAMES} games/variant`);
+lines.push(`Pre-roll paths: Red ${CFG.ravageMult}× Weapons · Blue ${CFG.crushMult}× Strength + ${CFG.bluePathRerolls} free parasite section rerolls · Green ${CFG.severMult}× Agility + cancel highest crew die`);
+lines.push(`Parasite shop: mandatory upgrade, stipend ${CFG.parStipend}⚡/host turn. Each chosen Wound gives +${CFG.woundAttack} parasite attack; final target = ${CFG.bossHpMult}× crew strength + ${CFG.hpPerMeter}×meter (meter = Wounds + host wins).`);
 lines.push('');
 
 for (const v of ['SWARM', 'PREDATOR', 'TITAN']) {

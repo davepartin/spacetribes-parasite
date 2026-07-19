@@ -1,4 +1,6 @@
 # v5 proposal sim — 6p × 400 games (standalone model of PROPOSAL-v5.md)
+> Historical results: these predate v5.0.28's color paths and are not current balance evidence.
+
 Parasite MIRROR base: 0.5×(prev round crew Σ), seed 55 · holdBump +2 · fusion 0.62 · Feed +2
 
 ## Host vs crew by round

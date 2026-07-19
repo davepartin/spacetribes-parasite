@@ -43,7 +43,7 @@ Replace the whole block with the one you copied. Save.
 databaseURL: "https://space-tribes-default-rtdb.firebaseio.com",
 ```
 
-If the crew already played the older token version, tap **Start new game** once — schema v2 (Energy + face forging) cannot load the old save.
+After upgrading, tap **Start new game** once so every phone joins the current Schema v14 rules and forge-level data.
 ## Step 5 — Host it (GitHub Pages)
 
 1. Push this folder to GitHub (it's already a repo folder).

@@ -1,4 +1,6 @@
 # Balance sim — 3p × 200 games
+> Historical results: these predate the v5.0.28 parasite color paths and are not current balance evidence.
+
 Tuning: fusion 0.5→cap 0.8, aura 0/+2, atkDice 2, Par⚡ 5, HP 60+1×meter
 
 | R | Kind | Crew Σ | Host Σ | Δ (H−C) | Host win% | Par Σ | Base | Aura | Atk# | Boss |

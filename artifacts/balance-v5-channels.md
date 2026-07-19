@@ -1,4 +1,6 @@
 # v5 channel sim — 6p × 400 games/variant
+> Historical results: these predate v5.0.28's pre-roll color paths, Feeding Time, and Blue rerolls. They are not current balance evidence.
+
 Channels: Ravage 2×red (scars ALL) · Crush 1.75×blue (scar 1 chosen) · Sever cancel top 2 crew dice (no self add) · host always takes a scar
 Parasite shop: stipend 7⚡/host turn, same prices as crew. Boss HP = 0.92× crew strength + 1.5×meter (meter = scars+wins)
 

@@ -2,7 +2,7 @@
 
 An asynchronous **3–6 player** dice-battle. Type everyone’s name at the table — no fixed character list.
 
-**v4.3.4:** Full 4.0→4.3 stack in one build — Training → Infection → Boss, 3–6 typed-name players, scaled parasite, plain labels, Log, sticky standings, Energy countdown, Reset choices, free reroll.
+**v5.1.1:** Everyone hosts once in each half, builds colored d6/d8/d10 dice and a shared parasite, then fights the exact creature the table created in the final round. A two-human playtest can use a basic Computer in Player 3.
 
 The entire game is one file: **`index.html`**. No build step.
 
@@ -12,4 +12,4 @@ The entire game is one file: **`index.html`**. No build step.
 
 Open the hosted page on your phone, tap **New game**, set 3–6 players, type the names, then Join your seat. Your phone remembers you.
 
-Start a **New game** after this update so everyone is on Schema v6 / build **v4.3.4**.
+Start a **New game** after this update so everyone is on Schema v14 / build **v5.1.1**.
