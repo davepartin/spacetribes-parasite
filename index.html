@@ -1469,7 +1469,25 @@ let me = localStorage.getItem('stp_me') || null;
 let cart = null;
 let cartRound = 0;
 let animating = false;
-let ui = { selectedDie: null, selectedFace: null, selectedModFace: null, pickAddColor: null, showHelp: false, tipKey: null, specialtyFaceTip: null, showLog: false, logRound: null, showRosterPick: false, pendingCount: 4, pendingNames: ['','','',''], pendingBotP3: false };
+let ui = { selectedDie: null, selectedFace: null, selectedModFace: null, pickAddColor: null, showHelp: false, tipKey: null, specialtyFaceTip: null, showLog: false, logRound: null, showRosterPick: false, pendingCount: 4, pendingNames: ['','','',''], pendingBots: {} };
+function botSeatName(seatIndex){ return 'CPU '+(seatIndex+1); }
+function pendingBotAt(i){ return !!(ui.pendingBots && ui.pendingBots[i]); }
+function pendingBotIds(n){
+  const ids = [];
+  for (let i=0;i<(n|0);i++) if (pendingBotAt(i)) ids.push(ALL_PIDS[i]);
+  return ids;
+}
+function defaultPendingBots(n){
+  // Solo 3-player playtest: Dave on P1, basic Computer on P2 and P3.
+  if ((n|0)===3) return { 1:true, 2:true };
+  return {};
+}
+function applyPendingBotNames(names, n){
+  const out = (names||[]).slice(0, n);
+  while (out.length < n) out.push('');
+  for (let i=0;i<n;i++) out[i] = pendingBotAt(i) ? botSeatName(i) : (out[i]==='Computer' || /^CPU\s*\d+$/i.test(out[i]||'') ? '' : out[i]);
+  return out;
+}
 let session = null;
 
 function newGameData(roster, names, botIds){
@@ -2109,7 +2127,7 @@ function resolveRound(g){
 }
 
 /* ================= FIREBASE ================= */
-const APP_BUILD = 'v5.1.1';
+const APP_BUILD = 'v5.1.2';
 let connectTimer = null;
 let restPollTimer = null;
 let usingRest = false;
@@ -2397,7 +2415,8 @@ function buildBasicBotAction(pid, g){
     }
     const channel=botPick(['ravage','crush','sever'],rng);
     const eligible=rosterOf(g).filter(p=>p!==pid&&scarCount(g.players[p])<CFG.maxScars);
-    const feedN=Math.min(eligible.length,rng()<0.70?1:2);
+    const want = rng()<0.70 ? (CFG.minFeedTargets||1) : (CFG.maxFeedTargets||2);
+    const feedN=Math.min(eligible.length, Math.max(CFG.minFeedTargets||1, want));
     const woundTargets=shuffleWithRng(eligible,rng).slice(0,feedN);
     Object.assign(action,{channel,channelTarget:null,woundTargets,parBuys:pb,parRerolls:0,
       growth:{key:channel,target:null},aRolls,instinctRoll,instinctExtra,instinctExtraRoll});
@@ -2562,20 +2581,21 @@ function startNewGame(roster, names, botIds){
 }
 function confirmResetGame(){
   ui.pendingCount = (G && G.roster && G.roster.length) ? G.roster.length : loadSavedCount();
-  // Three-seat playtests default to two humans + the basic Computer in Player 3.
-  ui.pendingBotP3 = ui.pendingCount===3;
-  if (G && G.players){
-    ui.pendingNames = rosterOf(G).map(pid => {
+  if (G && G.players && rosterOf(G).length===ui.pendingCount){
+    const bots = {};
+    ui.pendingNames = rosterOf(G).map((pid,i) => {
       const nm = cleanPlayerName((G.players[pid]&&G.players[pid].name)||'');
-      if (G.players[pid] && G.players[pid].isBot) return 'Computer';
+      if (G.players[pid] && G.players[pid].isBot){ bots[i]=true; return botSeatName(i); }
       // Drop legacy Comp labels so New game starts clean for humans
       return /^comp(?:\s*\d+)?$/i.test(nm) ? '' : nm;
     });
+    ui.pendingBots = bots;
   } else {
-    ui.pendingNames = Array(ui.pendingCount).fill('');
+    ui.pendingBots = defaultPendingBots(ui.pendingCount);
+    ui.pendingNames = applyPendingBotNames(Array(ui.pendingCount).fill(''), ui.pendingCount);
   }
   while (ui.pendingNames.length < ui.pendingCount) ui.pendingNames.push('');
-  ui.pendingNames = ui.pendingNames.slice(0, ui.pendingCount);
+  ui.pendingNames = applyPendingBotNames(ui.pendingNames.slice(0, ui.pendingCount), ui.pendingCount);
   ui.showRosterPick = true;
   render();
 }
@@ -2588,9 +2608,8 @@ function setPendingCount(n){
     keep[i] = el ? el.value : ((ui.pendingNames&&ui.pendingNames[i])||'');
   }
   ui.pendingCount = n;
-  ui.pendingBotP3 = n===3;
-  ui.pendingNames = keep.slice(0, n);
-  if(ui.pendingBotP3) ui.pendingNames[2]='Computer';
+  ui.pendingBots = defaultPendingBots(n);
+  ui.pendingNames = applyPendingBotNames(keep.slice(0, n), n);
   render();
   // restore values after render
   setTimeout(()=>{
@@ -2600,15 +2619,19 @@ function setPendingCount(n){
     }
   }, 0);
 }
-function toggleComputerP3(){
+function toggleComputerSeat(seatIndex){
+  seatIndex = seatIndex|0;
+  if (seatIndex < 1) return; // Player 1 stays human for phone claim
   const keep = [];
   for (let i=0;i<MAX_PLAYERS;i++){
     const el = document.getElementById('roster-name-'+i);
     keep[i] = el ? el.value : ((ui.pendingNames&&ui.pendingNames[i])||'');
   }
-  ui.pendingCount = 3;
-  ui.pendingBotP3 = !ui.pendingBotP3;
-  ui.pendingNames = [keep[0]||'', keep[1]||'', ui.pendingBotP3?'Computer':(keep[2]||'')];
+  ui.pendingCount = Math.max(MIN_PLAYERS, ui.pendingCount||3);
+  const bots = Object.assign({}, ui.pendingBots||{});
+  if (bots[seatIndex]) delete bots[seatIndex]; else bots[seatIndex] = true;
+  ui.pendingBots = bots;
+  ui.pendingNames = applyPendingBotNames(keep.slice(0, ui.pendingCount), ui.pendingCount);
   render();
 }
 function confirmRosterAndStart(){
@@ -2617,13 +2640,18 @@ function confirmRosterAndStart(){
     alert('Pick '+MIN_PLAYERS+' to '+MAX_PLAYERS+' players.');
     return;
   }
+  const botIds = pendingBotIds(n);
+  if (botIds.length >= n){
+    alert('Keep at least one human seat so someone can join on a phone.');
+    return;
+  }
   const names = [];
   for (let i=0;i<n;i++){
-    if (ui.pendingBotP3 && n===3 && i===2){ names.push('Computer'); continue; }
+    if (pendingBotAt(i)){ names.push(botSeatName(i)); continue; }
     const el = document.getElementById('roster-name-'+i);
     const typed = cleanPlayerName(el && el.value);
     if (!typed){
-      alert('Type a name for every seat (P'+(i+1)+').');
+      alert('Type a name for every human seat (P'+(i+1)+').');
       return;
     }
     names.push(typed);
@@ -2633,8 +2661,10 @@ function confirmRosterAndStart(){
     alert('Each player needs a different name.');
     return;
   }
-  const botIds = ui.pendingBotP3 && n===3 ? ['p3'] : [];
-  const tableLabel = botIds.length ? '2 humans + Computer in Player 3' : n+' human players';
+  const humanN = n - botIds.length;
+  const tableLabel = botIds.length
+    ? (humanN===1 ? '1 human + '+botIds.length+' Computer'+(botIds.length===1?'':'s') : humanN+' humans + '+botIds.length+' Computer'+(botIds.length===1?'':'s'))
+    : n+' human players';
   if (!confirm('Start a fresh Schema v'+SCHEMA+' game with '+tableLabel+'? This wipes the current run.')) return;
   startNewGame(ALL_PIDS.slice(0, n), names, botIds);
 }
@@ -2642,6 +2672,8 @@ function cancelRosterPick(){ ui.showRosterPick = false; render(); }
 function rosterPickModalHTML(){
   if (!ui.showRosterPick) return '';
   const n = ui.pendingCount || loadSavedCount();
+  const botIds = pendingBotIds(n);
+  const humanN = n - botIds.length;
   const countBtns = [3,4,5,6].map(c =>
     `<button type="button" class="${c===n?'on':''}" onclick="setPendingCount(${c})">${c}</button>`
   ).join('');
@@ -2649,23 +2681,27 @@ function rosterPickModalHTML(){
   for (let i=0;i<n;i++){
     const pid = ALL_PIDS[i];
     const val = esc((ui.pendingNames && ui.pendingNames[i]) || '');
-    const isBot = ui.pendingBotP3 && n===3 && i===2;
+    const isBot = pendingBotAt(i);
+    const toggle = i>=1 ? `<button type="button" class="btn ghost bot-mode-btn ${isBot?'on':''}" onclick="toggleComputerSeat(${i})" style="width:auto;padding:8px 10px;margin:0">${isBot?'CPU':'Human'}</button>` : '';
     rows.push(`<div class="roster-name-row">
       ${crewImg(pid,'')}
       <span class="seat-label">P${i+1}</span>
-      <input id="roster-name-${i}" class="claim-name" maxlength="16" placeholder="Player name" value="${isBot?'Computer':val}" autocomplete="nickname" ${isBot?'disabled aria-label="Player 3 Computer"':''} />
+      <input id="roster-name-${i}" class="claim-name" maxlength="16" placeholder="Player name" value="${isBot?esc(botSeatName(i)):val}" autocomplete="nickname" ${isBot?`disabled aria-label="Player ${i+1} Computer"`:''} />
       ${isBot?'<span class="bot-tag">CPU</span>':''}
+      ${toggle}
     </div>`);
   }
+  const botNote = n===3
+    ? 'A <b>3-player game defaults to 1 human + Computer seats in Player 2 and Player 3</b> (solo Dave playtest). Tap Human/CPU on a seat to change it.'
+    : 'Tap <b>Human/CPU</b> on Player 2+ seats if you want Computer opponents.';
   return `<div class="modal-back" onclick="if(event.target===this)cancelRosterPick()">
     <div class="modal-sheet" role="dialog" aria-label="Table size">
       <h2>Who's playing?</h2>
-      <p class="small">Pick <b>3–6</b> seats and type the human names. A <b>3-player game defaults to two humans + the basic Computer in Player 3</b>. Tap the Computer button only if you want to switch Player 3 back to a human.</p>
+      <p class="small">Pick <b>3–6</b> seats and type the human names. ${botNote}</p>
       <div class="roster-count">${countBtns}</div>
-      <button type="button" class="btn ghost bot-mode-btn ${ui.pendingBotP3?'on':''}" onclick="toggleComputerP3()">${ui.pendingBotP3?'✓ Player 3 is Computer · tap for human':'Player 3 is human · tap for Computer'}</button>
       <div class="roster-names">${rows.join('')}</div>
-      <div class="roster-meta"><b>${n}</b> players${ui.pendingBotP3?' · 2 humans + 1 computer':''} · ${2*n} infection rounds · boss in round ${2*n+1}</div>
-      <button class="btn" onclick="confirmRosterAndStart()">${ui.pendingBotP3?'Start playtest with Computer':'Start '+n+'-player game'}</button>
+      <div class="roster-meta"><b>${n}</b> players${botIds.length?` · ${humanN} human${humanN===1?'':'s'} + ${botIds.length} computer${botIds.length===1?'':'s'}`:''} · ${2*n} infection rounds · boss in round ${2*n+1}</div>
+      <button class="btn" onclick="confirmRosterAndStart()">${botIds.length?'Start playtest with Computer':'Start '+n+'-player game'}</button>
       <button class="btn ghost modal-close" onclick="cancelRosterPick()">Cancel</button>
     </div>
   </div>`;
@@ -3116,10 +3152,11 @@ function charSelectScreen(){
     const pl = G.players[p]||{};
     const nm = cleanPlayerName(pl.name||'');
     if (pl.isBot){
+      const seatN = pool.indexOf(p)+1;
       return `<div class="char-card claim">
         ${crewImg(p)}
-        <div class="cname">${esc(nm||'Computer')} <span class="bot-tag">CPU</span></div>
-        <div class="ctitle">Player 3 · Basic computer</div>
+        <div class="cname">${esc(nm||botSeatName(seatN-1))} <span class="bot-tag">CPU</span></div>
+        <div class="ctitle">Player ${seatN} · Basic computer</div>
         <div class="bot-seat-note">This seat plays automatically</div>
       </div>`;
     }
@@ -3135,13 +3172,13 @@ function charSelectScreen(){
   }).join('');
   return `<div class="center" style="padding-top:4vh">
     <h1 class="brand-hero">SPACE TRIBES: <span>PARASITE</span></h1>
-    <p class="small">This table is <b>${pool.length} players</b>. Type <b>your</b> name on Player 1 or Player 2, then Join. Player 3 plays automatically when marked CPU.</p>
+    <p class="small">This table is <b>${pool.length} players</b>. Type <b>your</b> name on an open human seat, then Join. CPU seats play automatically.</p>
     <div class="char-grid">${cards}</div>
   </div>`;
 }
 function claimSeat(pid){
   if (!G || !rosterOf(G).includes(pid)) return;
-  if (G.players[pid] && G.players[pid].isBot){ alert('Player 3 is the Computer seat. Join Player 1 or Player 2.'); return; }
+  if (G.players[pid] && G.players[pid].isBot){ alert('That seat is a Computer. Join an open human seat instead.'); return; }
   const el = document.getElementById('claim-'+pid);
   const name = cleanPlayerName(el && el.value);
   if (!name){ alert('Type your name first.'); return; }

@@ -2,11 +2,11 @@
 
 **3–6 players.** Everyone hosts the parasite **twice**, then the whole crew fights the thing you built. Open scores. One champion — unless it escapes.
 
-**v5.1.1** — Fair-half hosts, forge levels, escalating dice, mandatory Feeding Time, shaped dice, a built-parasite finale, and an optional Player 3 Computer. Schema **v14**. See [CHANGELOG.md](CHANGELOG.md).
+**v5.1.2** — Fair-half hosts, forge levels, escalating dice, mandatory Feeding Time, shaped dice, a built-parasite finale, and Computer seats for Player 2 and/or Player 3. Schema **v14**. See [CHANGELOG.md](CHANGELOG.md).
 
-## Two-human playtest
+## Solo / two-human playtest
 
-Choose **New game → 3 players**. Player 3 defaults to the Computer; the green setup button confirms it and can switch the seat back to human if desired. Enter the two human names for Player 1 and Player 2. Player 3 is marked **CPU**, cannot be joined from a phone, and automatically shops, rolls, and locks. When Player 3 is the host, it also grows the parasite, chooses its color path and food, and submits both sides. The game remains the normal seven-round three-player game: six infection rounds followed by the boss.
+Choose **New game → 3 players**. The table defaults to **1 human + Computer seats in Player 2 and Player 3** (solo Dave playtest). Tap **Human/CPU** on a seat to change it — for example leave only Player 3 as Computer for a two-human playtest. Enter the human name(s). CPU seats are marked **CPU**, cannot be joined from a phone, and automatically shop, roll, and lock. When a Computer is the host, it also grows the parasite, chooses its color path and food, and submits both sides. The game remains the normal seven-round three-player game: six infection rounds followed by the boss.
 
 ## The shape of the game
 

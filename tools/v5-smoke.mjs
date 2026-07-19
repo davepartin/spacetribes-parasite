@@ -66,10 +66,30 @@ const r1 = x => Math.round(x*10)/10;
   }
 }
 
+// Solo 3-player playtest: human on P1, Computers on P2 and P3.
+{
+  const ids=ALL_PIDS.slice(0,3);
+  const g=S.normalizeGame(S.newGameData(ids,['Dave','CPU 2','CPU 3'],['p2','p3']));
+  if(g.players.p1.isBot || !g.players.p2.isBot || !g.players.p3.isBot) throw new Error('two-computer seat invariant failed');
+  if(!S.fillMissingBotActions(g)) throw new Error('two computers did not fill missing turns');
+  const a2=g.rounds[1].actions.p2, a3=g.rounds[1].actions.p3;
+  if(!a2 || a2.phase!=='locked' || !a3 || a3.phase!=='locked') throw new Error('both computers must lock a normal turn');
+  for (const pid of ['p2','p3']){
+    const hostRound=g.schedule.indexOf(pid)+1;
+    g.round=hostRound; g.rounds[hostRound]={actions:{}};
+    S.fillMissingBotActions(g);
+    const a=g.rounds[hostRound].actions[pid];
+    const buys=(a.parBuys.dice|0)+(a.parBuys.sizes|0)+(a.parBuys.forges|0);
+    if(a.role!=='host' || !a.channel || buys<1 || !a.aRolls.length || a.woundTargets.length<1 || a.woundTargets.length>2){
+      throw new Error('computer host turn incomplete for '+pid);
+    }
+  }
+}
+
 // Two-human playtest mode keeps Player 3 as a computer and creates legal automatic turns.
 {
   const ids=ALL_PIDS.slice(0,3);
-  const g=S.normalizeGame(S.newGameData(ids,['Player 1','Player 2','Computer'],['p3']));
+  const g=S.normalizeGame(S.newGameData(ids,['Player 1','Player 2','CPU 3'],['p3']));
   if(!g.players.p3.isBot || g.players.p1.isBot || g.players.p2.isBot) throw new Error('Player 3 computer-seat invariant failed');
   if(!S.fillMissingBotActions(g) || !g.rounds[1] || !g.rounds[1].actions.p3 || g.rounds[1].actions.p3.phase!=='locked'){
     throw new Error('basic computer did not lock a normal turn');

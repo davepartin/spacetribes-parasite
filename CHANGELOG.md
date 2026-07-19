@@ -1,6 +1,15 @@
 # Changelog — Space Tribes: Parasite
 
-Current build: **v5.1.1** · Schema **v14**
+Current build: **v5.1.2** · Schema **v14**
+
+---
+
+## v5.1.2 — Dave solo playtest with two Computers
+- The same basic Computer used for Player 3 can now fill **Player 2** as well
+- Choosing a three-player table now defaults to **1 human + CPU 2 + CPU 3**
+- Each Player 2 / Player 3 seat has a Human/CPU toggle; at least one human seat is required
+- Computer seats use distinct names (**CPU 2**, **CPU 3**) so both can sit at the same table
+- Claim screen copy and blocking now cover any Computer seat, not only Player 3
 
 ---
 
