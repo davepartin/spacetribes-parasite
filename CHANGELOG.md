@@ -6,6 +6,7 @@ Current build: **v5.1.1** · Schema **v14**
 
 ## v5.1.1 — Two-human playtest mode
 - New game setup can make **Player 3** a basic Computer for a two-human, three-player playtest
+- Choosing a three-player table now defaults Player 3 to Computer; the setup button explicitly switches between Computer and human instead of requiring a second hidden choice
 - The Computer seat cannot be claimed from either phone and is clearly marked **CPU** throughout the game
 - Player 3 automatically makes one simple affordable shop choice, rolls Attack/Mod/Wound dice, and locks its turn
 - On its host rounds, Player 3 performs the required parasite upgrade, chooses a color path, selects one or two Feeding Time targets, rolls the parasite package, and locks automatically

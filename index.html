@@ -2562,7 +2562,8 @@ function startNewGame(roster, names, botIds){
 }
 function confirmResetGame(){
   ui.pendingCount = (G && G.roster && G.roster.length) ? G.roster.length : loadSavedCount();
-  ui.pendingBotP3 = !!(G && ui.pendingCount===3 && G.players && G.players.p3 && G.players.p3.isBot);
+  // Three-seat playtests default to two humans + the basic Computer in Player 3.
+  ui.pendingBotP3 = ui.pendingCount===3;
   if (G && G.players){
     ui.pendingNames = rosterOf(G).map(pid => {
       const nm = cleanPlayerName((G.players[pid]&&G.players[pid].name)||'');
@@ -2587,8 +2588,9 @@ function setPendingCount(n){
     keep[i] = el ? el.value : ((ui.pendingNames&&ui.pendingNames[i])||'');
   }
   ui.pendingCount = n;
-  ui.pendingBotP3 = false;
+  ui.pendingBotP3 = n===3;
   ui.pendingNames = keep.slice(0, n);
+  if(ui.pendingBotP3) ui.pendingNames[2]='Computer';
   render();
   // restore values after render
   setTimeout(()=>{
@@ -2658,9 +2660,9 @@ function rosterPickModalHTML(){
   return `<div class="modal-back" onclick="if(event.target===this)cancelRosterPick()">
     <div class="modal-sheet" role="dialog" aria-label="Table size">
       <h2>Who's playing?</h2>
-      <p class="small">Pick <b>3–6</b> seats and type the human names. For a two-person playtest, use the basic Computer in <b>Player 3</b>. Then Copy link so the second phone can join.</p>
+      <p class="small">Pick <b>3–6</b> seats and type the human names. A <b>3-player game defaults to two humans + the basic Computer in Player 3</b>. Tap the Computer button only if you want to switch Player 3 back to a human.</p>
       <div class="roster-count">${countBtns}</div>
-      <button type="button" class="btn ghost bot-mode-btn ${ui.pendingBotP3?'on':''}" onclick="toggleComputerP3()">${ui.pendingBotP3?'✓ Player 3 is the Computer':'Use basic Computer as Player 3'}</button>
+      <button type="button" class="btn ghost bot-mode-btn ${ui.pendingBotP3?'on':''}" onclick="toggleComputerP3()">${ui.pendingBotP3?'✓ Player 3 is Computer · tap for human':'Player 3 is human · tap for Computer'}</button>
       <div class="roster-names">${rows.join('')}</div>
       <div class="roster-meta"><b>${n}</b> players${ui.pendingBotP3?' · 2 humans + 1 computer':''} · ${2*n} infection rounds · boss in round ${2*n+1}</div>
       <button class="btn" onclick="confirmRosterAndStart()">${ui.pendingBotP3?'Start playtest with Computer':'Start '+n+'-player game'}</button>

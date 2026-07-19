@@ -6,7 +6,7 @@
 
 ## Two-human playtest
 
-Choose **New game → 3 players → Use basic Computer as Player 3**. Enter the two human names for Player 1 and Player 2. Player 3 is marked **CPU**, cannot be joined from a phone, and automatically shops, rolls, and locks. When Player 3 is the host, it also grows the parasite, chooses its color path and food, and submits both sides. The game remains the normal seven-round three-player game: six infection rounds followed by the boss.
+Choose **New game → 3 players**. Player 3 defaults to the Computer; the green setup button confirms it and can switch the seat back to human if desired. Enter the two human names for Player 1 and Player 2. Player 3 is marked **CPU**, cannot be joined from a phone, and automatically shops, rolls, and locks. When Player 3 is the host, it also grows the parasite, chooses its color path and food, and submits both sides. The game remains the normal seven-round three-player game: six infection rounds followed by the boss.
 
 ## The shape of the game
 
