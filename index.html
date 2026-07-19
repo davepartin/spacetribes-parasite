@@ -255,6 +255,18 @@ button.die-option-chip:active{transform:scale(.97);}
 .dice-row.par-row{gap:8px;}
 .die-wrap{text-align:center;}
 .die-wrap.selected .die{box-shadow:0 0 0 3px var(--energy), 0 6px 16px #0008;}
+/* clip-path dice clip box-shadows — follow the silhouette with stacked drop-shadows instead */
+.die-wrap.selected .die.d8,
+.die-wrap.selected .die.d10,
+.die-wrap.selected .die.d12{
+  box-shadow:none;
+  filter:
+    drop-shadow(0 0 .6px var(--energy))
+    drop-shadow(0 0 1.6px var(--energy))
+    drop-shadow(0 0 3px var(--energy))
+    drop-shadow(0 0 5px #f5c042bb)
+    drop-shadow(0 4px 3px #0009);
+}
 .die-wrap.can-pick{cursor:pointer;}
 .die-wrap.roll-pick{appearance:none;background:transparent;color:inherit;font:inherit;cursor:pointer;
   border:2px solid transparent;border-radius:14px;padding:5px;margin:0;min-width:78px;touch-action:manipulation;}
@@ -376,9 +388,16 @@ button.die-option-chip:active{transform:scale(.97);}
 .face-chip.forge-d12{--forge-facets:conic-gradient(from -30deg at 50% 50%,rgba(255,255,255,.24) 0 16.66%,rgba(255,255,255,.1) 16.66% 33.33%,rgba(0,0,0,.02) 33.33% 50%,rgba(0,0,0,.2) 50% 66.66%,rgba(0,0,0,.1) 66.66% 83.33%,rgba(255,255,255,.05) 83.33% 100%);}
 .face-chip.forge-d12::after{clip-path:polygon(25% 4%,75% 4%,100% 50%,75% 96%,25% 96%,0 50%);}
 .face-chip.forge-d8.hot::after,.face-chip.forge-d10.hot::after,.face-chip.forge-d12.hot::after,
-.face-chip.forge-d8.picked::after,.face-chip.forge-d10.picked::after,.face-chip.forge-d12.picked::after,
 .face-chip.forge-d8.forged::after,.face-chip.forge-d10.forged::after,.face-chip.forge-d12.forged::after{
   filter:drop-shadow(0 0 2px var(--energy)) drop-shadow(0 3px 3px #0008);
+}
+.face-chip.forge-d8.picked::after,.face-chip.forge-d10.picked::after,.face-chip.forge-d12.picked::after{
+  filter:
+    drop-shadow(0 0 .6px var(--energy))
+    drop-shadow(0 0 1.6px var(--energy))
+    drop-shadow(0 0 3px var(--energy))
+    drop-shadow(0 0 5px #f5c042bb)
+    drop-shadow(0 3px 3px #0008);
 }
 .face-chip.red.hot,.face-chip.blue.hot,.face-chip.green.hot{
   box-shadow:inset 0 2px 0 #ffffff55, inset 0 -4px 0 #00000040, 0 0 0 2px var(--energy), 0 3px 12px #f5c04255;
