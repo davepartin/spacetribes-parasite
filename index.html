@@ -2580,6 +2580,9 @@ function startNewGame(roster, names, botIds){
   save().then(()=> applyRemoteGame(data)).catch(err=> showConnectError(err.message||'Could not create game'));
 }
 function confirmResetGame(){
+  if (G){
+    if (!confirm('Are you sure you want to reset the whole game for all players?\n\nThis wipes the current run on every phone.')) return;
+  }
   ui.pendingCount = (G && G.roster && G.roster.length) ? G.roster.length : loadSavedCount();
   if (G && G.players && rosterOf(G).length===ui.pendingCount){
     const bots = {};
